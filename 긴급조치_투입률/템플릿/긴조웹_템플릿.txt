@@ -4345,6 +4345,7 @@ async function shareWrite(payload){
  try{await stream.write(payload);await stream.close();}catch(error){try{await stream.abort();}catch{}throw error;}
  return name;
 }
+function autoShareAfter(){return autoShareAfterRun();}
 async function autoShareAfterRun(){
  if(!APP_CONFIG.sharedEnabled||state.demo||!state.daily||state.dailyDraftDirty)return;
  try{
