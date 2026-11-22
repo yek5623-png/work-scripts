@@ -1033,7 +1033,7 @@ html.dark .slim-side{background:#0b1622}
 .ho-table{min-width:1180px;width:100%;border-collapse:collapse}.ho-table th,.ho-table td{padding:6px 7px;vertical-align:top;border-bottom:1px solid var(--line);font-size:12px}
 .ho-table th{white-space:nowrap;text-align:left}.ho-table th.ho-lh,.ho-table td.ho-k{text-align:center}
 .ho-in{width:100%;box-sizing:border-box;font-size:12px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;font-family:inherit}
-.ho-text{min-width:240px;resize:vertical;line-height:1.45}
+.ho-text{min-width:240px;resize:none;overflow:hidden;line-height:1.45;display:block;min-height:30px}
 .ho-table td.ho-d{min-width:122px}.ho-table td.ho-c{min-width:96px}.ho-table td.ho-lt{min-width:132px}.ho-table td.ho-f{min-width:96px}.ho-table td.ho-k{min-width:62px}.ho-table td.ho-act{white-space:nowrap}
 .ho-act .report-btn{display:block;width:100%;margin:0 0 4px 0}.ho-del{color:#b54340}.ho-empty{text-align:center;color:var(--muted);padding:26px 0!important}
 .ho-table td{white-space:normal}.ho-badge,.ho-rank{display:block;width:max-content;max-width:100%;margin-top:3px;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:999px}
@@ -3830,6 +3830,7 @@ function parseSharedPayload(value){
 }
 function makeSharedPayload(input){
  const result=normalize({...input,type:'ginjo-shared-input',version:1});let json=JSON.stringify(result);if(json.length>60000&&result.roster){const r2={...result};delete r2.roster;json=JSON.stringify(r2);try{globalThis.__roDropped=Date.now();}catch{}}if(json.length>60000&&(result.handover||result.hoLeaders)){const r3=JSON.parse(json);delete r3.handover;delete r3.hoLeaders;json=JSON.stringify(r3);}
+ if(json.length>60000&&result.macros){const r4=JSON.parse(json);delete r4.macros;json=JSON.stringify(r4);try{globalThis.__mcDropped=Date.now();}catch{}}
  if(json.length>60000)throw Error('저장할 내용이 60,000자를 넘습니다. 원문 또는 수기 수정 범위를 줄여주세요.');return json;
 }
 function sharedFormURL(value){
@@ -3906,6 +3907,7 @@ function capture(result,isDemo){
  if(!state.dirty&&result.settings){setFields(result.settings.exclusions);$('training').value=(result.settings.training??[]).join('\n');$('exceptions').value=(result.settings.exceptions??[]).join('\n');}
  const id=result.date+'/'+result.hour;state.journal.set(id,{date:result.date,hour:result.hour,rate:result.current.rate,minutes:result.current.minutes,missing:result.missing.length,action:E.actionText(result.current)});render();
 }
+function applyLinks(){/* 회사 연결 주소는 APP_CONFIG에 이미 반영됨 (화면에 따로 갱신할 칸이 없음) */}
 function receive(data,isDemo=false){
  if(data.type==='ginjo-config'){
   for(const field of ['dailyUrl','statusUrl'])if(data[field]){const url=new URL(data[field]);if(url.protocol!=='https:'||!url.hostname.endsWith('.sharepoint.com'))throw Error('회사 연결 주소는 HTTPS SharePoint 주소만 사용할 수 있습니다.');APP_CONFIG[field]=url.href;}
@@ -5222,7 +5224,7 @@ function layOrderNow(){const v=layLoad();for(const [cid,box] of layContainers())
 function macroLoad(){try{const v=JSON.parse(localStorage.getItem('ginjo-macros')||'[]');return Array.isArray(v)?v.filter(x=>x&&x.id):[];}catch{return [];}}
 function macroSave(list){try{localStorage.setItem('ginjo-macros',JSON.stringify(list));}catch{}}
 function macroLive(){return macroLoad().filter(x=>!x.del);}
-function macroSharedPart(){const l=macroLoad();return l.length?{macros:l.map(x=>[x.id,x.no,x.desc,x.at,x.del?1:0,x.cat||''])}:null;}
+function macroSharedPart(){const cut=Date.now()-14*86400000;const l=macroLoad().filter(x=>!(x.del&&(x.at||0)<cut));return l.length?{macros:l.map(x=>[x.id,x.no,x.desc,x.at,x.del?1:0,x.cat||''])}:null;}
 function mergeMacros(arr){if(!Array.isArray(arr))return;const map=new Map(macroLoad().map(x=>[x.id,x]));let ch=false;for(const r of arr){if(!Array.isArray(r))continue;const it={id:String(r[0]),no:String(r[1]??''),desc:String(r[2]??''),at:Number(r[3])||0,del:Boolean(r[4]),cat:String(r[5]??'')};const mine=map.get(it.id);if(!mine||it.at>mine.at){map.set(it.id,it);ch=true;}}if(ch){macroSave([...map.values()]);if(state.view==='macro')renderMacros();}}
 function macroTerms(q){return String(q||'').toLowerCase().split(/\s+/).filter(Boolean);}
 function macroHL(text,terms){let html=esc(text);for(const w of terms){const re=new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');html=html.replace(/(<[^>]*>)|([^<]+)/g,(m,tag,txt)=>tag?tag:txt.replace(re,s=>`<mark>${s}</mark>`));}return html;}
@@ -5247,6 +5249,7 @@ function renderMacros(){const box=$('macro-list');if(!box)return;
  const filtering=terms.length>0||macroCat!=='';
  const bb=$('macro-bulkcat');bb.classList.toggle('hidden',!(filtering&&hit.length));
  $('macro-bulkcat-n').textContent=filtering?`지금 보이는 ${hit.length}개를`:'';
+ {const sub=$('macro-sub');if(sub){const d=globalThis.__mcDropped&&Date.now()-globalThis.__mcDropped<600000;sub.textContent=d?'매크로가 많아서 공유 용량이 부족해 최근 저장에서 매크로가 공유에서 빠졌습니다. 쓰지 않는 매크로를 삭제해 주세요.':'번호나 설명·키워드 한 단어만 입력해도 찾아요.';}}
  $('macro-count').textContent=filtering?`${hit.length} / ${all.length}`:`${all.length}개`;
  if(!all.length){box.innerHTML='<div class="macro-empty"><b>아직 등록된 매크로가 없어요</b>＋ 매크로 추가로 첫 매크로를 넣어보세요.</div>';return;}
  if(!hit.length){box.innerHTML=`<div class="macro-empty"><b>${terms.length?`"${esc($('macro-q').value)}" `:''}결과가 없어요</b>다른 단어로 찾아보거나 새로 추가하세요.</div>`;return;}
@@ -5735,7 +5738,7 @@ function hoRowHtml(r,leaders){
   +'<td class="ho-d"><input type="date" class="ho-in" data-f="d" value="'+esc(r.d||'')+'"></td>'
   +'<td class="ho-c"><input class="ho-in" data-f="c" list="ho-cats" maxlength="40" placeholder="분류" value="'+esc(r.c||'')+'"></td>'
   +'<td class="ho-lt"><input type="date" class="ho-in" data-f="l" value="'+esc(r.l||'')+'"><span class="ho-badge'+(ld?' '+ld.cls:' hidden')+'">'+esc(ld?ld.txt:'')+'</span></td>'
-  +'<td class="ho-t"><textarea class="ho-in ho-text" data-f="t" rows="2" maxlength="500" placeholder="내용">'+esc(r.t||'')+'</textarea></td>'
+  +'<td class="ho-t"><textarea class="ho-in ho-text" data-f="t" rows="1" maxlength="500" placeholder="내용">'+esc(r.t||'')+'</textarea></td>'
   +'<td class="ho-f"><select class="ho-in ho-from" data-f="f" aria-label="전달자">'+hoFromOpts(leaders,r.f)+'</select><span class="ho-rank '+rank+(rank?'':' hidden')+'">'+(rank==='exec'?'실장':rank==='lead'?'선임팀장':'')+'</span></td>'
   +leaders.map(l=>{const v=(r.k||{})[l.id]||'';return '<td class="ho-k"><select class="ho-sel'+(v==='O'?' sO':v==='확인'?' sC':'')+'" data-k="'+esc(l.id)+'" aria-label="'+esc(l.name)+'">'+hoOpt('',v)+hoOpt('O',v)+hoOpt('확인',v)+'</select></td>';}).join('')
   +'<td class="ho-act"><button type="button" class="report-btn" data-a="save" title="이 줄을 이력에 따로 남깁니다">별도 저장</button><button type="button" class="report-btn ho-del" data-a="del" title="이 줄 전체를 지웁니다">삭제</button></td></tr>';
@@ -5755,9 +5758,12 @@ function hoRender(){
  $('ho-froms').innerHTML=uniq([...HO_EXEC,...HO_LEAD,...leaders.map(l=>l.name),...(()=>{try{return roLoad().rows.map(p=>p.l);}catch{return [];}})(),...all.map(r=>r.f)]).map(v=>'<option value="'+esc(v)+'">').join('');
  $('ho-lead-add').classList.toggle('hidden',!hoEdit);$('ho-lead-edit').textContent=hoEdit?'팀장 편집 완료':'팀장 편집';$('ho-lead-edit').classList.toggle('on',hoEdit);
  handoverSharedPart();
- const w=$('ho-warn');w.classList.toggle('hidden',!hoDropped);w.textContent=hoDropped?'공유 용량이 가득 차서 오래된 '+hoDropped+'줄은 다른 팀장님 화면에 보이지 않습니다. 끝난 오래된 줄을 삭제해 주세요.':'';
+ hoFitSoon();const w=$('ho-warn');w.classList.toggle('hidden',!hoDropped);w.textContent=hoDropped?'공유 용량이 가득 차서 오래된 '+hoDropped+'줄은 다른 팀장님 화면에 보이지 않습니다. 끝난 오래된 줄을 삭제해 주세요.':'';
  hoRenderHist();
 }
+function hoFit(ta){if(!ta||!ta.offsetParent)return;ta.style.height='auto';ta.style.height=(ta.scrollHeight+2)+'px';}
+function hoFitAll(){document.querySelectorAll('#ho-body .ho-text').forEach(hoFit);}
+let hoFitT=0;function hoFitSoon(){cancelAnimationFrame(hoFitT);hoFitT=requestAnimationFrame(hoFitAll);}
 function hoRefreshRow(tr,r){
  const rank=hoRank(r.f),ld=hoLead(r);
  tr.className=['ho-r',rank?'ho-'+rank:'',r.h?'ho-hi':'',ld&&ld.cls==='warn'?'ho-warn':'',ld&&ld.cls==='over'?'ho-over':''].filter(Boolean).join(' ');
@@ -5780,7 +5786,7 @@ function hoRenderHist(){
  body.addEventListener('input',e=>{
   const f=e.target.dataset&&e.target.dataset.f;if(!f)return;
   const tr=e.target.closest('tr');const {list,row}=findRow(tr);if(!row)return;
-  row[f]=e.target.value;touch(list,row);hoRefreshRow(tr,row);
+  row[f]=e.target.value;touch(list,row);hoRefreshRow(tr,row);if(f==='t')hoFit(e.target);
  });
  body.addEventListener('focusin',e=>{const t=e.target;if(!(t.dataset&&t.dataset.f==='c'))return;t.dataset.prev=t.value;t.dataset.touched='';t.value='';});
  body.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.f==='c')t.dataset.touched='1';},true);
@@ -5842,6 +5848,7 @@ function hoRenderHist(){
   lv.list.push({id,name:'새 팀장',del:false});lv.at=Date.now();hoLeadersSave(lv);hoShare();hoRender();
   const inp=$('ho-body').querySelector('.ho-ln[data-lid="'+id+'"]');if(inp){inp.focus();inp.select();}
  });
+ try{new ResizeObserver(hoFitSoon).observe($('ho-body'));}catch{}
  setInterval(()=>{if(state.view!=='handover'||hoBusy())return;try{hoRender();}catch{}},60000);
 })();
 
