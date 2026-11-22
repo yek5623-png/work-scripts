@@ -1053,12 +1053,18 @@ html.dark .slim-side{background:#0b1622}
 #ro-team-wrap{display:flex;align-items:center;gap:8px;margin:10px 0 4px;font-size:12px}#ro-team-wrap label{white-space:nowrap}#ro-team-wrap select{width:auto;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:transparent;color:inherit;font-family:inherit}.edu-teams.ro-teams{grid-template-columns:repeat(auto-fill,minmax(520px,1fr))}.ro-teams .edu-team{overflow-x:auto}
 #ro-paste-box{margin:0 0 12px}#ro-raw{width:100%;box-sizing:border-box;min-height:110px;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font-family:inherit;margin-top:8px}
 .ro-paste-actions{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
-.ro-hit{display:grid;grid-template-columns:92px 120px minmax(120px,1.1fr) 140px 130px minmax(170px,1.2fr) auto;gap:14px;align-items:center;padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:10px}
-html.dark .ro-hit{background:#181c23}
-.ro-hit small{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}.ro-hit b{font-size:22px;letter-spacing:-.3px}.ro-hit .ro-name b{font-size:26px}
+.ro-hit{display:flex;align-items:center;flex-wrap:wrap;gap:10px 30px;padding:20px 24px;border:1px solid var(--line);border-left:6px solid #2f6fd6;border-radius:14px;background:#fff;margin-bottom:12px;box-shadow:0 2px 10px rgba(23,50,77,.06)}
+.ro-hit:hover{box-shadow:0 6px 20px rgba(23,50,77,.12)}
+.ro-hit>div{min-width:0;white-space:nowrap}
+.ro-hit .ro-lead{flex:0 0 auto;min-width:76px}
+.ro-hit .ro-name{flex:0 0 auto;min-width:110px}
+.ro-hit .ro-sep{width:1px;align-self:stretch;background:var(--line);padding:0;min-width:0}
+.ro-hit .ro-copy{margin-left:auto;flex:0 0 auto;padding:9px 16px;font-size:13px}
+html.dark .ro-hit{background:#181c23;box-shadow:none}
+.ro-hit small{display:block;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:3px;letter-spacing:.2px}.ro-hit b{font-size:20px;letter-spacing:-.3px;font-variant-numeric:tabular-nums}.ro-hit .ro-name b{font-size:30px}
 .ro-lead{font-size:13px;font-weight:800;padding:5px 10px;border-radius:999px;background:#e6effc;color:#2f6fd6;text-align:center}
 .ro-table{width:100%;border-collapse:collapse;font-size:12px}.ro-table th,.ro-table td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ro-table th{font-size:10.5px;color:var(--muted);font-weight:600}
-@media(max-width:1000px){.ro-hit{grid-template-columns:1fr 1fr}}.issue-col{min-height:0;max-height:170px}
+@media(max-width:700px){.ro-hit .ro-copy{margin-left:0}}.issue-col{min-height:0;max-height:170px}
 .pv-line{display:flex;align-items:center;gap:8px;margin:6px 0 0}.pv-line .quiet{font-size:12px;padding:5px 12px}
 .pv-result{margin-top:6px;overflow-x:auto}.pv-result .pv-table{min-width:0;width:100%;font-size:11.5px}.pv-result .pv-table th,.pv-result .pv-table td{padding:4px 6px}.pv-result .pv-actions{flex-wrap:wrap}
 .trainee-actions{display:flex;justify-content:flex-end;margin-top:8px}#trainee-board .trainee-view-body{max-width:640px}
@@ -5897,7 +5903,7 @@ function roRender(){
   const hit=all.filter(x=>roNorm(x.p.n).includes(q)||roNorm(x.p.t).includes(q)||roNorm(x.p.c).includes(q));
   hit.sort((a,b)=>{const ea=[a.p.t,a.p.c].some(v=>roNorm(v)===q)?0:1,eb=[b.p.t,b.p.c].some(v=>roNorm(v)===q)?0:1;return ea-eb||String(a.p.n).localeCompare(String(b.p.n),'ko');});
   const shown=hit.slice(0,20);
-  box.innerHTML=(shown.length?shown.map(x=>{const p=x.p;return '<div class="ro-hit"><div class="ro-lead">'+esc(x.lead)+(x.lead==='미지정'?'':' 팀')+'</div><div><small>T사번</small><b>'+esc(p.t||'—')+'</b></div><div class="ro-name"><small>이름</small><b>'+esc(p.n||'—')+'</b></div><div><small>근무시간</small><b>'+esc(p.h||'—')+'</b></div><div><small>시프트</small><b>'+esc(p.s||'—')+'</b></div><div><small>번호</small><b>'+esc(p.p||'—')+'</b></div>'+(p.p?'<button type="button" class="report-btn ro-copy" data-copy="'+esc(p.p)+'">번호 복사</button>':'<span></span>')+'</div>';}).join(''):'<p class="tiny">일치하는 인원이 없습니다.</p>')
+  box.innerHTML=(shown.length?shown.map(x=>{const p=x.p;return '<div class="ro-hit"><div class="ro-lead">'+esc(x.lead)+(x.lead==='미지정'?'':' 팀')+'</div><div class="ro-name"><small>이름</small><b>'+esc(p.n||'—')+'</b></div><div class="ro-sep"></div><div><small>T사번</small><b>'+esc(p.t||'—')+'</b></div><div><small>근무시간</small><b>'+esc(p.h||'—')+'</b></div><div><small>시프트</small><b>'+esc(p.s||'—')+'</b></div><div><small>번호</small><b>'+esc(p.p||'—')+'</b></div>'+(p.p?'<button type="button" class="report-btn ro-copy" data-copy="'+esc(p.p)+'">번호 복사</button>':'<span></span>')+'</div>';}).join(''):'<p class="tiny">일치하는 인원이 없습니다.</p>')
    +(hit.length>shown.length?'<p class="tiny">'+hit.length+'명이 일치합니다. 처음 '+shown.length+'명만 보여드립니다. 더 입력해서 좁혀 주세요.</p>':'');
   return;
  }
