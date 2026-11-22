@@ -1023,8 +1023,66 @@ html.dark .theme-btn{background:#24324a;color:#ffd34d;border-color:#3a4c66}
 html.dark{--bg:#0f151d}
 html.dark .slim-side{background:#0b1622}
 
-</style><script>try{if(localStorage.getItem("ginjo-theme")==="dark")document.documentElement.classList.add("dark");}catch(e){}</script></head><body>
-<div class="app"><aside class="slim-side"><div class="slim-title"><b>긴급조치</b>운영 메뉴</div><nav id="nav" aria-label="화면 선택"><button class="active" data-view="people">현황</button><button data-view="issues">문제 예상<br>인원<span class="nav-count" id="issues-count"></span></button><button data-view="ot">OT 현황</button><button data-view="macro">매크로 검색</button><button data-view="ext">외부 팀즈</button><button data-view="forecast">10일 예상</button><button data-view="trainee">신입 교육</button></nav><div class="nav-group" id="nav-close"><button type="button" class="nav-group-head" id="nav-close-head"><span>마감업무</span><i>▸</i></button><div class="nav-group-body"><div class="nav-fly-title">마감업무</div><button data-view="rt">실시간 배정</button><button data-view="edu">교육 인원</button></div></div><div class="nav-edit-box"><nav id="nav2" class="nav-sub" aria-label="관리 메뉴"><button data-view="daily">데일리 수정</button><button data-view="settings">연결·저장</button><button type="button" class="nav-action" id="nav-last-daily" title="이 PC에 보관된 마지막 정상 데일리로 화면을 다시 엽니다">↺ 마지막 데일리</button></nav><button type="button" id="nav-edit">메뉴 순서</button><button type="button" id="nav-reset" class="hidden">기본으로</button></div></aside>
+.slim-side .nav-group{margin-top:auto}.slim-side .nav-edit-box{margin-top:0;padding-top:6px}
+.ho-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.ho-tools input{font-size:12px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;width:150px;font-family:inherit;background:transparent;color:inherit}
+.ho-tools .quiet.on{background:#2f6fd6;color:#fff;border-color:#2f6fd6}
+.ho-note{margin:0 0 8px;padding:8px 12px;border-radius:8px;background:#fbe3e1;color:#b54340;font-size:12px;font-weight:700}
+.ho-legend{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 8px;font-size:11px;color:var(--muted)}
+.ho-legend i{font-style:normal;display:inline-block;padding:1px 7px;border-radius:999px;color:#fff;font-weight:800;margin-right:3px}
+.ho-legend .e{background:#c9625d}.ho-legend .l{background:#2f6fd6}.ho-legend .s{background:#e0a400}
+.ho-table{min-width:1180px;width:100%;border-collapse:collapse}.ho-table th,.ho-table td{padding:6px 7px;vertical-align:top;border-bottom:1px solid var(--line);font-size:12px}
+.ho-table th{white-space:nowrap;text-align:left}.ho-table th.ho-lh,.ho-table td.ho-k{text-align:center}
+.ho-in{width:100%;box-sizing:border-box;font-size:12px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;font-family:inherit}
+.ho-text{min-width:240px;resize:vertical;line-height:1.45}
+.ho-table td.ho-d{min-width:122px}.ho-table td.ho-c{min-width:96px}.ho-table td.ho-lt{min-width:132px}.ho-table td.ho-f{min-width:96px}.ho-table td.ho-k{min-width:62px}.ho-table td.ho-act{white-space:nowrap}
+.ho-act .report-btn{display:block;width:100%;margin:0 0 4px 0}.ho-del{color:#b54340}.ho-empty{text-align:center;color:var(--muted);padding:26px 0!important}
+.ho-table td{white-space:normal}.ho-badge,.ho-rank{display:block;width:max-content;max-width:100%;margin-top:3px;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:999px}
+.ho-badge.ok{background:rgba(113,128,147,.18);color:var(--muted)}.ho-badge.warn{background:#fff2dc;color:#a7712c}.ho-badge.over{background:#fbe3e1;color:#b54340}
+.ho-rank{color:#fff}.ho-rank.exec{background:#c9625d}.ho-rank.lead{background:#2f6fd6}
+.ho-star{border:0;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#a9b4c0}.ho-star.on{color:#e0a400}
+.ho-hi td{background:rgba(255,211,77,.26);border-top:2px solid #e0a400;border-bottom:2px solid #e0a400}.ho-hi .ho-in{font-weight:800}
+.ho-lead td{background:rgba(47,111,214,.12)}.ho-lead td.ho-c0{box-shadow:inset 4px 0 0 #2f6fd6}
+.ho-exec td{background:rgba(201,98,93,.16)}.ho-exec td.ho-c0{box-shadow:inset 4px 0 0 #c9625d}
+.ho-warn .ho-lt .ho-in{border-color:#e19a2b;box-shadow:0 0 0 2px rgba(225,154,43,.35)}.ho-over .ho-lt .ho-in{border-color:#c9625d;box-shadow:0 0 0 2px rgba(201,98,93,.4)}
+.ho-from{width:100%;box-sizing:border-box;font-size:12.5px;padding:6px 4px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;font-family:inherit}.ho-sel{width:100%;min-width:54px;box-sizing:border-box;font-size:12px;padding:5px 2px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;font-family:inherit;font-weight:800;text-align:center}
+.ho-sel.sO{background:#fff2dc;color:#a7712c;border-color:#e6c27f}.ho-sel.sC{background:#e1f3ee;color:#2a7b64;border-color:#9fd3c3}
+.ho-ln{width:64px;font-size:12px;padding:3px 4px;border:1px solid var(--line);border-radius:5px;background:transparent;color:inherit;font-family:inherit}.ho-lx{border:0;background:transparent;color:#b54340;cursor:pointer;font-size:12px}
+.ho-hist-table td{font-size:12px;vertical-align:top}.ho-hist-t{max-width:420px;white-space:pre-wrap}.ho-ok{color:#2a7b64}.ho-open{color:#a7712c}
+#ho-hist-box{margin-top:16px}#ho-body.table-wrap{max-height:calc(100vh - 250px)}.ho-hist-table td,.ho-hist-table th{white-space:normal}.ro-search{width:100%;box-sizing:border-box;font-size:20px;padding:14px 18px;border:2px solid #2f6fd6;border-radius:12px;background:transparent;color:inherit;font-family:inherit;margin:0 0 12px}
+.ro-head-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ro-meta{font-size:12px;color:var(--muted);font-weight:700}
+#ro-team-wrap{display:flex;align-items:center;gap:8px;margin:10px 0 4px;font-size:12px}#ro-team-wrap label{white-space:nowrap}#ro-team-wrap select{width:auto;min-width:160px;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:transparent;color:inherit;font-family:inherit}.edu-teams.ro-teams{grid-template-columns:repeat(auto-fill,minmax(520px,1fr))}.ro-teams .edu-team{overflow-x:auto}
+#ro-paste-box{margin:0 0 12px}#ro-raw{width:100%;box-sizing:border-box;min-height:110px;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit;font-family:inherit;margin-top:8px}
+.ro-paste-actions{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.ro-hit{display:grid;grid-template-columns:92px 120px minmax(120px,1.1fr) 140px 130px minmax(170px,1.2fr) auto;gap:14px;align-items:center;padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-bottom:10px}
+html.dark .ro-hit{background:#181c23}
+.ro-hit small{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}.ro-hit b{font-size:22px;letter-spacing:-.3px}.ro-hit .ro-name b{font-size:26px}
+.ro-lead{font-size:13px;font-weight:800;padding:5px 10px;border-radius:999px;background:#e6effc;color:#2f6fd6;text-align:center}
+.ro-table{width:100%;border-collapse:collapse;font-size:12px}.ro-table th,.ro-table td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.ro-table th{font-size:10.5px;color:var(--muted);font-weight:600}
+@media(max-width:1000px){.ro-hit{grid-template-columns:1fr 1fr}}.issue-col{min-height:0;max-height:170px}
+.pv-line{display:flex;align-items:center;gap:8px;margin:6px 0 0}.pv-line .quiet{font-size:12px;padding:5px 12px}
+.pv-result{margin-top:6px;overflow-x:auto}.pv-result .pv-table{min-width:0;width:100%;font-size:11.5px}.pv-result .pv-table th,.pv-result .pv-table td{padding:4px 6px}.pv-result .pv-actions{flex-wrap:wrap}
+.trainee-actions{display:flex;justify-content:flex-end;margin-top:8px}#trainee-board .trainee-view-body{max-width:640px}
+.zone{border:1px solid var(--line);border-radius:12px;padding:0 16px 16px;margin:0 0 30px;background:transparent;overflow:hidden}
+.zone-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 -16px 14px;padding:11px 16px;font-size:13px}
+.zone-tag{font-size:16px;font-weight:800}.zone-range{font-size:13px;font-weight:800}.zone-desc{font-size:11.5px;color:var(--muted)}
+.zone-now{border-top:5px solid #d98a2b}.zone-now .zone-head{background:rgba(217,138,43,.14)}.zone-now .zone-tag,.zone-now .zone-range{color:#a7671b}
+.zone-next{border-top:5px solid #2f6fd6}.zone-next .zone-head{background:rgba(47,111,214,.12)}.zone-next .zone-tag,.zone-next .zone-range{color:#2f6fd6}
+html.dark .zone-now .zone-tag,html.dark .zone-now .zone-range{color:#e9b777}html.dark .zone-next .zone-tag,html.dark .zone-next .zone-range{color:#79a7d2}
+.zone.now-issues{padding-bottom:16px;border-bottom:1px solid var(--line)}.macro-form-grid{grid-template-columns:180px 200px 1fr}
+.macro-filterbar{padding:14px 24px 0;display:grid;gap:10px}
+.macro-chips{display:flex;flex-wrap:wrap;gap:6px}
+.macro-chip{border:1px solid #cfdbe8;background:#fff;color:#3a5670;border-radius:999px;font-size:12.5px;font-weight:700;padding:5px 12px;cursor:pointer;font-family:inherit}
+.macro-chip i{font-style:normal;font-size:11px;color:#7a8ea0;margin-left:3px}
+.macro-chip:hover{border-color:#8fb0e8}.macro-chip.on{background:#2f6fd6;border-color:#2f6fd6;color:#fff}.macro-chip.on i{color:#dbe7fb}
+.macro-bulkcat{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border:1px dashed #b9c9da;border-radius:10px}
+.macro-bulkcat input{font-size:13px;padding:6px 10px;border:1px solid #c9d6e2;border-radius:8px;font-family:inherit;width:170px;background:transparent;color:inherit}
+.macro-group{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;margin:8px 0 0;padding:4px 2px 6px;border-bottom:2px solid #2f6fd6;font-size:14px}
+.macro-group:first-child{margin-top:0}.macro-group small{font-size:11px;color:#7a8ea0;font-weight:600}
+.macro-cat-in{width:100%;box-sizing:border-box;margin-top:9px;font-size:11.5px;padding:4px 8px;border:1px dashed #c9d6e2;border-radius:6px;background:transparent;color:inherit;font-family:inherit}
+.macro-cat-in:not(:placeholder-shown){border-style:solid;font-weight:700;color:#2f6fd6}
+html.dark .macro-chip{background:#181c23;border-color:#323d48;color:#b6c6d6}html.dark .macro-chip.on{background:#2f6fd6;color:#fff}
+html.dark .macro-cat-in,html.dark .macro-bulkcat input{border-color:#394652}html.dark .macro-bulkcat{border-color:#394652}html.dark .macro-cat-in:not(:placeholder-shown){color:#79a7d2}</style><script>try{if(localStorage.getItem("ginjo-theme")==="dark")document.documentElement.classList.add("dark");}catch(e){}</script></head><body>
+<div class="app"><aside class="slim-side"><div class="slim-title"><b>긴급조치</b>운영 메뉴</div><nav id="nav" aria-label="화면 선택"><button class="active" data-view="people">현황</button><button data-view="issues">문제 예상<br>인원<span class="nav-count" id="issues-count"></span></button><button data-view="ot">OT 현황</button><button data-view="macro">매크로 검색</button><button data-view="ext">외부 팀즈</button><button data-view="handover">인수인계</button><button data-view="roster">재직 리스트</button><button data-view="forecast">10일 예상</button></nav><div class="nav-group" id="nav-close"><button type="button" class="nav-group-head" id="nav-close-head"><span>마감업무</span><i>▸</i></button><div class="nav-group-body"><div class="nav-fly-title">마감업무</div><button data-view="rt">실시간 배정</button><button data-view="edu">교육 인원</button></div></div><div class="nav-edit-box"><nav id="nav2" class="nav-sub" aria-label="관리 메뉴"><button data-view="daily">데일리 수정</button><button data-view="settings">연결·저장</button><button type="button" class="nav-action" id="nav-last-daily" title="이 PC에 보관된 마지막 정상 데일리로 화면을 다시 엽니다">↺ 마지막 데일리</button></nav><button type="button" id="nav-edit">메뉴 순서</button><button type="button" id="nav-reset" class="hidden">기본으로</button></div></aside>
 <main><header><div><h1>현재 투입 현황</h1><p class="sub" id="asof">운영일과 상태 기준 시각을 확인하세요.</p></div><div class="head-tools"><span class="conn-chip hidden" id="shared-src" title="지금 화면 원문이 공유 저장 원문인지, 내 화면에서만 바꾼 원문인지 표시합니다"></span><button type="button" class="conn-chip" id="share-conn" title="공유 저장(③ 자동 저장 폴더) 연결 상태">공유 저장 확인 중</button><span class="stale-badge hidden" id="stale-badge"></span><button type="button" class="report-btn theme-btn" id="theme-btn" title="다크 모드 켜기/끄기 (이 PC에만 저장)">🌙 다크</button><span class="zoom-box" title="글자 크기 (이 PC에만 저장)"><button type="button" class="report-btn zoom-btn" id="zoom-out">가－</button><span id="zoom-val">100%</span><button type="button" class="report-btn zoom-btn" id="zoom-in">가＋</button></span><button type="button" class="report-btn" id="report-btn" title="한 줄 보고 만들기">📋 보고</button></div></header>
 
 
@@ -1032,9 +1090,9 @@ html.dark .slim-side{background:#0b1622}
 <section id="dashboard"><div class="notice-strip hidden" id="notice-strip"></div><div class="cards"><article class="card"><div class="card-label">이번 시간 투입률 <span class="tag" id="current-hour">—</span><span class="band-tag" id="current-band"></span></div><div class="current-rate-row"><div class="dual-rate"><div class="dual-item plan"><span class="dual-label">데일리</span><div class="number" id="plan-rate">—<small>%</small></div><span class="dual-count" id="plan-count">—</span></div><div class="dual-item real"><span class="dual-label">실제</span><div class="number" id="current-rate">—<small>%</small></div><span class="dual-count" id="real-count">—</span></div></div><div class="current-minute-hint hidden" id="current-minute-hint" aria-live="polite"></div></div><div class="card-footer" id="current-detail">목표 인원과 인정 근무분</div><div class="gauge"><div class="gauge-band" id="gauge-band"></div><div class="gauge-actual" id="gauge-actual"></div></div><div class="action-line" id="current-action">—</div></article><article class="card next-card"><div class="card-label">다음 시간 예상 <span class="tag" id="next-hour">—</span></div><div class="number" id="next-rate">—<small>%</small></div><div class="card-footer" id="next-detail">정규 근무 + 중복을 제외한 OT</div><div class="next-bounds"><div class="boundary" id="lower-boundary">—</div><div class="boundary-secondary" id="upper-boundary">—</div></div><div class="action-line" id="next-action">—</div><div class="card-footer hidden" id="band-detail"></div></article><article class="card rtduty-card"><div class="card-label">이번 시간 실시간 담당자 <span class="pill blue" id="rtduty-count">—</span><button type="button" class="report-btn rtduty-copy" id="rtduty-copy" disabled>전체 사번 복사</button></div><small class="rtduty-sub" id="rtduty-sub">금일 실시간 배정 확정본 기준</small><div class="rtduty-list"><table class="rtduty-table"><tbody id="rtduty-body"></tbody></table></div></article><article class="card log-card"><div class="card-label">투입률 공유 <button type="button" class="report-btn" id="log-copy">복사</button></div><div class="log-head" id="log-head">—</div><div class="log-list" id="log-list"><p class="tiny">계산하면 시간대별로 쌓입니다.</p></div></article></div>
 
 <div class="workspace"><section class="panel"><div class="panel-heading"><div><div class="step">01 / INPUT</div><h2>상태 원문</h2></div><div class="input-heading-actions"><button class="primary" id="run-btn">계산</button><button class="quiet" id="paste-btn">붙여넣기</button></div></div><div class="panel-body"><textarea id="raw" class="raw" aria-label="A1 상태 원문" spellcheck="false" placeholder="사번·경과시간·상태가 포함된 원문을 여기에 붙여넣으세요."></textarea><div class="raw-extras" hidden><label class="checkbox"><input id="use-now" type="checkbox" checked> 현재 시각으로 계산</label><details class="clock-settings"><summary>기준 날짜·시각 직접 지정</summary><div class="split"><div class="field"><label for="date">기준 날짜 (달력일)</label><input id="date" type="date"></div><div class="field"><label for="time">기준 시각</label><input id="time" type="time"></div></div></details><div class="input-actions"></div><div class="tiny" id="run-note">원문 입력 후 계산하세요. 변경한 내용은 하단 공유 저장으로 남깁니다.</div></div><div class="over-box hidden" id="over-box"><div class="over-head"><strong>과투입 예상 구간</strong><span class="trainee-summary zero" id="over-summary">—</span></div><div class="over-list" id="over-list">데일리를 읽으면 자동으로 계산됩니다.</div></div><div class="divider"></div><div class="exclusion-head"><b>금일 이슈명단</b><small id="issue-save-state"></small></div><div class="issue-cols"><div class="issue-col"><div class="issue-col-head over">과투입 관련</div><div class="issue-sub">데일리 자동 <span id="auto-exclusion-count">—</span></div><div class="issue-auto" id="auto-exclusion-body"></div><p id="auto-exclusion-note" class="issue-note" hidden></p><div class="issue-sub">수기 추가</div><div class="manual-list" id="manual-list"></div></div><div class="issue-col"><div class="issue-col-head adj">투입률 보정 관련 <span id="adj-count"></span></div><div class="issue-sub">60분 미만 OT</div><div class="manual-list" id="adj-list"></div></div></div>
-<div class="input-block"><div class="manual-exclusion-heading">수기 추가 <small>과투입 제외</small></div><table class="exclude-table" hidden><tbody id="exclusion-rows"></tbody></table><div class="manual-form"><input id="manual-name" aria-label="수기 추가 이름 또는 사번" placeholder="이름 / 사번" autocomplete="off"><input class="time" id="manual-start" aria-label="수기 추가 시작" placeholder="1300" maxlength="5" inputmode="numeric"><input class="time" id="manual-end" aria-label="수기 추가 종료" placeholder="1330" maxlength="5" inputmode="numeric"><button type="button" class="primary" id="manual-add">등록</button></div></div>
-<div class="input-block"><div class="manual-exclusion-heading">60분 미만 OT </div><div class="manual-form"><input id="adj-name" aria-label="60분 미만 OT 이름 또는 사번" placeholder="이름 / 사번" autocomplete="off"><input class="time" id="adj-start" aria-label="60분 미만 OT 시작" placeholder="1800" maxlength="5" inputmode="numeric"><input class="time" id="adj-end" aria-label="60분 미만 OT 종료" placeholder="1820" maxlength="5" inputmode="numeric"><button type="button" class="primary" id="adj-add">등록</button></div></div>
-<details><summary>일반 예외</summary><div class="field"><label for="exceptions">일반 예외 (최대 10명)</label><textarea id="exceptions" placeholder="지각 확인·다음 시간 예상에서 제외할 이름"></textarea></div></details><button class="shared-save-jump" id="shared-save-jump">공유 저장으로 이동 ↓</button></div></section><div class="operations-board"><div class="overview-toolbar"><h2>우선 확인 인원</h2><div class="status-strip toolbar-strip" id="status-strip"></div><select id="leader-filter" class="leader-filter" aria-label="팀장별 보기"><option value="">전체 팀장</option><option>유진</option><option>예은</option><option>문옥</option><option>병정</option><option>승연</option><option>진아</option><option>가람</option></select><input class="board-search" id="search" aria-label="명단 검색" placeholder="이름 · 사번 · 확인 내용 검색"><button type="button" class="quiet lay-btn" id="lay-edit">화면 배치</button><button type="button" class="quiet lay-btn hidden" id="lay-reset">기본으로</button></div><div class="priority-grid"><section class="priority-card priority-away"><div class="priority-heading"><h3>자리에 없음</h3><b class="priority-count" id="priority-away-count">—</b></div><div class="priority-list"><table class="priority-table"><thead><tr><th>인원</th><th>시프트</th><th>경과</th></tr></thead><tbody id="priority-away-body"></tbody></table></div></section><section class="priority-card priority-training"><div class="priority-heading"><h3>교육 · 식사 · 휴식</h3><b class="priority-count" id="priority-training-count">—</b></div><div class="priority-list"><table class="priority-table"><thead><tr><th>인원</th><th>시프트</th><th>상태</th><th>경과</th></tr></thead><tbody id="priority-training-body"></tbody></table></div></section><section class="priority-card priority-meal"><div class="priority-heading"><h3>OT 인원</h3><b class="priority-count" id="priority-meal-count">—</b></div><div class="priority-list"><table class="priority-table"><thead><tr><th>인원</th><th>시프트</th><th>상태</th></tr></thead><tbody id="priority-meal-body"></tbody></table></div><div class="priority-foot" id="priority-ot-foot">—</div></section></div><section class="panel check-panel"><div class="check-heading"><h2>지각·근무 확인 <span class="pill" id="work-check-count">—</span></h2><p id="work-check-summary">원문을 넣고 계산하세요.</p></div><div class="check-split"><div class="check-col"><div class="check-col-head late"><div><b>지각 체크 필요인원</b><small>지금 근무 시간인데 미로그인·오프라인·회의중</small></div><span class="pill red" id="late-count">—</span></div><div class="work-check-wrap"><table class="work-check-table"><thead><tr><th>인원</th><th>시프트</th><th>현재 상태</th><th>경과</th></tr></thead><tbody id="late-body"></tbody></table></div></div><div class="check-col"><div class="check-col-head extra"><div><b>미출근시간 확인 필요</b><small>지금 근무 시간이 아닌데 근무 상태로 로그인 (퇴근 후 남음·조기 출근 등)</small></div><span class="pill amber" id="extra-count">—</span></div><div class="work-check-wrap"><table class="work-check-table"><thead><tr><th>인원</th><th>시프트</th><th>현재 상태</th><th>확인 내용</th></tr></thead><tbody id="extra-body"></tbody></table></div></div></div><details class="secondary-board extra-ex" id="extra-ex" open><summary>금일 추가 제외시간 <span id="extra-ex-count">—</span></summary><div class="auto-exclusions extra-ex-body"><div class="auto-exclusion-list"><table><thead><tr><th>이름 / 사번</th><th>사유 (R열)</th><th>시작</th><th>종료</th><th>차감</th></tr></thead><tbody id="extra-ex-body"></tbody></table></div><p>데일리 L·M열에 적힌 시간(과투입 외)입니다. 사번이 '-'인 행은 이미 결점이 있는 사람의 추가 결점으로, 사람 없이 그 시간만큼 빠집니다. 실제·데일리 투입률 모두에서 빠집니다. 투입률 공유 문구에는 넣지 않으니 필요하면 직접 적어주세요.</p></div></details><details class="secondary-board" id="data-check" hidden><summary>자료 확인 <span id="data-check-count">0</span></summary><div class="work-check-wrap"><table class="work-check-table"><tbody id="data-check-body"></tbody></table></div></details></section><details class="secondary-board"><summary>전체 상태 명단 <span id="count-people">—</span></summary><section class="panel"><div class="board-top"><div><div class="step">02 / LIVE BOARD</div><h2 id="table-title">전체 상태 명단</h2></div></div><div class="summary-row" id="table-summary">—</div><div class="filters" id="filters"></div><div class="table-wrap"><table class="data"><thead id="table-head"></thead><tbody id="table-body"></tbody></table><div id="empty" class="empty hidden">표시할 인원이 없습니다.</div></div><div class="table-note" id="table-note">1명 = 60분. 원문은 자동 수집하지 않으며 직접 붙여넣습니다.</div></section></details><details class="secondary-board" id="preview-board"><summary>수기 추가 미리보기</summary><div class="preview-body"><div class="manual-form preview-form"><input id="pv-name" aria-label="미리보기 이름 또는 사번" placeholder="이름 / 사번" autocomplete="off"><input class="time" id="pv-start" placeholder="1300" maxlength="5" inputmode="numeric" aria-label="미리보기 시작"><input class="time" id="pv-end" placeholder="1330" maxlength="5" inputmode="numeric" aria-label="미리보기 종료"><button type="button" id="pv-run">미리보기</button></div><div id="pv-result" class="tiny">이 사람을 그 시간에 빼면 시간대별 투입률이 어떻게 바뀌는지 등록 전에 보여줍니다.</div></div></details><details class="secondary-board" id="changes-board" data-lay="changes"><summary>최근 변경 기록 <span id="changes-count">—</span></summary><div class="changes-body"><div class="changes-me"><label for="me-name">내 이름</label><input id="me-name" maxlength="10" placeholder="예: 유진"><span class="tiny">이 이름으로 기록됩니다 (이 PC에만 저장)</span></div><ol class="changes-list" id="changes-list"></ol></div></details><details class="secondary-board" data-lay="history"><summary>이번 화면의 시간대 이력</summary><div class="history-scroll"><table class="overview-history-table"><thead><tr><th>운영일</th><th>시간</th><th>투입률</th><th>인정분</th><th>조치</th></tr></thead><tbody id="overview-history-body"></tbody></table></div></details></div></div></section>
+<div class="input-block"><div class="manual-exclusion-heading">수기 추가 <small>과투입 제외</small></div><table class="exclude-table" hidden><tbody id="exclusion-rows"></tbody></table><div class="manual-form"><input id="manual-name" aria-label="수기 추가 이름 또는 사번" placeholder="이름 / 사번" autocomplete="off"><input class="time" id="manual-start" aria-label="수기 추가 시작" placeholder="1300" maxlength="5" inputmode="numeric"><input class="time" id="manual-end" aria-label="수기 추가 종료" placeholder="1330" maxlength="5" inputmode="numeric"><button type="button" class="primary" id="manual-add">등록</button></div><div class="pv-line"><button type="button" class="quiet" id="pv-run">미리보기</button><span class="tiny">등록 전에 시간대별 투입률 변화를 봅니다.</span></div><div id="pv-result" class="pv-result tiny hidden"></div></div>
+<div class="input-block"><div class="manual-exclusion-heading">60분 미만 OT </div><div class="manual-form"><input id="adj-name" aria-label="60분 미만 OT 이름 또는 사번" placeholder="이름 / 사번" autocomplete="off"><input class="time" id="adj-start" aria-label="60분 미만 OT 시작" placeholder="1800" maxlength="5" inputmode="numeric"><input class="time" id="adj-end" aria-label="60분 미만 OT 종료" placeholder="1820" maxlength="5" inputmode="numeric"><button type="button" class="primary" id="adj-add">등록</button></div><div class="pv-line"><button type="button" class="quiet" id="pv2-run">미리보기</button><span class="tiny">등록 전에 실제 투입률 변화를 봅니다.</span></div><div id="pv2-result" class="pv-result tiny hidden"></div></div>
+<details><summary>일반 예외</summary><div class="field"><label for="exceptions">일반 예외 (최대 10명)</label><textarea id="exceptions" placeholder="지각 확인·다음 시간 예상에서 제외할 이름"></textarea></div></details><button class="shared-save-jump" id="shared-save-jump">공유 저장으로 이동 ↓</button></div></section><div class="operations-board"><div class="overview-toolbar"><h2>우선 확인 인원</h2><div class="status-strip toolbar-strip" id="status-strip"></div><select id="leader-filter" class="leader-filter" aria-label="팀장별 보기"><option value="">전체 팀장</option><option>유진</option><option>예은</option><option>문옥</option><option>병정</option><option>승연</option><option>진아</option><option>가람</option></select><input class="board-search" id="search" aria-label="명단 검색" placeholder="이름 · 사번 · 확인 내용 검색"><button type="button" class="quiet lay-btn" id="lay-edit">화면 배치</button><button type="button" class="quiet lay-btn hidden" id="lay-reset">기본으로</button></div><div class="priority-grid"><section class="priority-card priority-away"><div class="priority-heading"><h3>자리에 없음</h3><b class="priority-count" id="priority-away-count">—</b></div><div class="priority-list"><table class="priority-table"><thead><tr><th>인원</th><th>시프트</th><th>경과</th></tr></thead><tbody id="priority-away-body"></tbody></table></div></section><section class="priority-card priority-training"><div class="priority-heading"><h3>교육 · 식사 · 휴식</h3><b class="priority-count" id="priority-training-count">—</b></div><div class="priority-list"><table class="priority-table"><thead><tr><th>인원</th><th>시프트</th><th>상태</th><th>경과</th></tr></thead><tbody id="priority-training-body"></tbody></table></div></section><section class="priority-card priority-meal"><div class="priority-heading"><h3>OT 인원</h3><b class="priority-count" id="priority-meal-count">—</b></div><div class="priority-list"><table class="priority-table"><thead><tr><th>인원</th><th>시프트</th><th>상태</th></tr></thead><tbody id="priority-meal-body"></tbody></table></div><div class="priority-foot" id="priority-ot-foot">—</div></section></div><section class="panel check-panel"><div class="check-heading"><h2>지각·근무 확인 <span class="pill" id="work-check-count">—</span></h2><p id="work-check-summary">원문을 넣고 계산하세요.</p></div><div class="check-split"><div class="check-col"><div class="check-col-head late"><div><b>지각 체크 필요인원</b><small>지금 근무 시간인데 미로그인·오프라인·회의중</small></div><span class="pill red" id="late-count">—</span></div><div class="work-check-wrap"><table class="work-check-table"><thead><tr><th>인원</th><th>시프트</th><th>현재 상태</th><th>경과</th></tr></thead><tbody id="late-body"></tbody></table></div></div><div class="check-col"><div class="check-col-head extra"><div><b>미출근시간 확인 필요</b><small>지금 근무 시간이 아닌데 근무 상태로 로그인 (퇴근 후 남음·조기 출근 등)</small></div><span class="pill amber" id="extra-count">—</span></div><div class="work-check-wrap"><table class="work-check-table"><thead><tr><th>인원</th><th>시프트</th><th>현재 상태</th><th>확인 내용</th></tr></thead><tbody id="extra-body"></tbody></table></div></div></div><details class="secondary-board extra-ex" id="extra-ex" open><summary>금일 추가 제외시간 <span id="extra-ex-count">—</span></summary><div class="auto-exclusions extra-ex-body"><div class="auto-exclusion-list"><table><thead><tr><th>이름 / 사번</th><th>사유 (R열)</th><th>시작</th><th>종료</th><th>차감</th></tr></thead><tbody id="extra-ex-body"></tbody></table></div><p>데일리 L·M열에 적힌 시간(과투입 외)입니다. 사번이 '-'인 행은 이미 결점이 있는 사람의 추가 결점으로, 사람 없이 그 시간만큼 빠집니다. 실제·데일리 투입률 모두에서 빠집니다. 투입률 공유 문구에는 넣지 않으니 필요하면 직접 적어주세요.</p></div></details><details class="secondary-board" id="data-check" hidden><summary>자료 확인 <span id="data-check-count">0</span></summary><div class="work-check-wrap"><table class="work-check-table"><tbody id="data-check-body"></tbody></table></div></details></section><details class="secondary-board"><summary>전체 상태 명단 <span id="count-people">—</span></summary><section class="panel"><div class="board-top"><div><div class="step">02 / LIVE BOARD</div><h2 id="table-title">전체 상태 명단</h2></div></div><div class="summary-row" id="table-summary">—</div><div class="filters" id="filters"></div><div class="table-wrap"><table class="data"><thead id="table-head"></thead><tbody id="table-body"></tbody></table><div id="empty" class="empty hidden">표시할 인원이 없습니다.</div></div><div class="table-note" id="table-note">1명 = 60분. 원문은 자동 수집하지 않으며 직접 붙여넣습니다.</div></section></details><details class="secondary-board" id="changes-board" data-lay="changes"><summary>최근 변경 기록 <span id="changes-count">—</span></summary><div class="changes-body"><div class="changes-me"><label for="me-name">내 이름</label><input id="me-name" maxlength="10" placeholder="예: 유진"><span class="tiny">이 이름으로 기록됩니다 (이 PC에만 저장)</span></div><ol class="changes-list" id="changes-list"></ol></div></details><details class="secondary-board" data-lay="history"><summary>이번 화면의 시간대 이력</summary><div class="history-scroll"><table class="overview-history-table"><thead><tr><th>운영일</th><th>시간</th><th>투입률</th><th>인정분</th><th>조치</th></tr></thead><tbody id="overview-history-body"></tbody></table></div></details><details class="secondary-board" data-lay="trainee" id="trainee-board"><summary>신입 교육 제외</summary><div class="trainee-view-body" style="padding:10px 14px"><p class="tiny" style="margin:0 0 8px">신입 교육 기간 동안 투입률에서 제외할 인원입니다. 바꾼 뒤에는 저장을 누르세요.</p><div class="trainee-box" id="trainee-box"><div class="trainee-head"><strong>신입 교육 제외 (기간)</strong><span id="trainee-summary" class="trainee-summary">제외 중 0명</span></div><div id="trainee-rows"></div><button type="button" class="quiet" id="trainee-add">+ 신입 교육 인원 추가</button><div class="tiny">신입 교육 기간(시작일~종료일) 동안 매일 자동으로 투입률에서 제외되고, 종료일이 지나면 자동으로 빠집니다. 상태 '교육'(잠시 교육)과는 별개입니다. 아래 저장을 누르면 공유 저장되어 다른 팀장 화면에도 보입니다.</div></div><div class="field"><label for="training">수기 신입 교육 제외 (기간 없이 오늘만, 한 줄에 한 명)</label><textarea id="training" placeholder="이름을 줄바꿈으로 입력"></textarea></div><div class="trainee-actions"><button type="button" class="primary" id="trainee-save">저장</button></div></div></details></div></div></section>
 <section id="daily-editor" class="hidden">
  <article class="panel"><div class="panel-heading"><div><div class="step">DAILY / MANUAL EDIT</div><h2>데일리 수기 수정</h2><p class="sub" id="daily-status">데일리를 불러오면 원본 칸에 맞춰 표시합니다.</p></div><div class="daily-toolbar"><button id="daily-reset">원본으로 되돌리기</button><button id="daily-apply" class="primary">수정 내용 계산 반영</button></div></div>
  <div class="panel-body"><p class="daily-help">엑셀과 같은 열 문자·행 번호입니다. 흰 칸은 수정할 수 있고, 회색 칸은 참고용입니다. 엑셀에서 복사한 범위를 첫 칸에 붙여넣을 수 있습니다. 회사 원본 엑셀은 바뀌지 않으며, 수기 수정은 기존 공유 저장에 함께 포함됩니다.</p>
@@ -1042,22 +1100,18 @@ html.dark .slim-side{background:#0b1622}
  <div class="daily-grid-wrap" id="daily-grid"></div><p class="tiny">시프트 예: 0900-1800 / 시간 예: 1300 또는 13:00 / OT는 한 칸에 한 명씩 입력하세요. 수정 후 계산 반영 → 기존 공유 저장까지 해야 다시 열어도 유지됩니다.</p></div></article>
 </section>
 
-<section id="issues-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">PROBLEM CHECK</div><h2>문제예상 인원</h2><p class="sub" id="issues-sub">계산하면 이번 시간 실제 투입률과 다음 시간 예상 투입률의 차이 원인을 보여줍니다.</p></div></div><div class="panel-body"><div class="now-issues" id="now-issues"><h3 class="issues-h">이번시간 문제 예상인원</h3><div class="issues-summary" id="now-summary"></div><div id="now-wrap"></div></div><details class="secondary-board day-check" id="day-check"><summary>하루 전체 시프트 점검 <span id="day-check-count">—</span></summary><div class="day-check-body"><p class="tiny">각 시간 정각 기준으로 데일리 시트 인원(BC)과 시프트·근무구분으로 계산한 인원을 비교합니다. 다르면 시프트 해석을 확인할 인원을 함께 보여줍니다.</p><div id="day-check-body"></div></div></details><h3 class="issues-h">문제될 거 같은 인원 <small>이번 시간 실제 → 다음 시간 예상 변동</small></h3><div class="issues-summary" id="issues-summary"></div><div class="table-wrap"><table class="data"><thead><tr><th>이름 / 사번</th><th>현재 상태</th><th>이번 시간</th><th>다음 시간 예상</th><th>차이</th><th>예상 사유</th></tr></thead><tbody id="issues-body"></tbody></table></div><p class="tiny" id="issues-note">근무표·현재 상태로 추정한 사유입니다. 데일리의 OT·수기 예외 반영 여부에 따라 실제 원인과 다를 수 있습니다.</p></div></article></section>
+<section id="issues-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">PROBLEM CHECK</div><h2>문제예상 인원</h2><p class="sub" id="issues-sub">계산하면 이번 시간 실제 투입률과 다음 시간 예상 투입률의 차이 원인을 보여줍니다.</p></div></div><div class="panel-body"><div class="now-issues zone zone-now" id="now-issues"><div class="zone-head"><b class="zone-tag">이번 구간</b><span class="zone-range" id="zone-now-range"></span><span class="zone-desc">지금 시간대에 이미 생긴 차이</span></div><div class="issues-summary" id="now-summary"></div><div id="now-wrap"></div></div><div class="zone zone-next"><div class="zone-head"><b class="zone-tag">다음 구간</b><span class="zone-range" id="zone-next-range"></span><span class="zone-desc">곧 생길 문제 · 이번 시간 실제 → 다음 시간 예상 변동</span></div><div class="issues-summary" id="issues-summary"></div><div class="table-wrap"><table class="data"><thead><tr><th>이름 / 사번</th><th>현재 상태</th><th>이번 시간</th><th>다음 시간 예상</th><th>차이</th><th>예상 사유</th></tr></thead><tbody id="issues-body"></tbody></table></div><p class="tiny" id="issues-note">근무표·현재 상태로 추정한 사유입니다. 데일리의 OT·수기 예외 반영 여부에 따라 실제 원인과 다를 수 있습니다.</p></div><details class="secondary-board day-check" id="day-check"><summary>하루 전체 시프트 점검 <span id="day-check-count">—</span></summary><div class="day-check-body"><p class="tiny">각 시간 정각 기준으로 데일리 시트 인원(BC)과 시프트·근무구분으로 계산한 인원을 비교합니다. 다르면 시프트 해석을 확인할 인원을 함께 보여줍니다.</p><div id="day-check-body"></div></div></details></div></article></section>
 
-<section id="trainee-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">NEW HIRE TRAINING</div><h2>신입 교육 제외</h2><p class="sub">신입 교육 기간 동안 투입률에서 제외할 인원입니다. 바꾼 뒤에는 저장을 누르세요.</p></div><button type="button" class="primary" id="trainee-save">저장</button></div><div class="panel-body trainee-view-body"><div class="trainee-box" id="trainee-box"><div class="trainee-head"><strong>신입 교육 제외 (기간)</strong><span id="trainee-summary" class="trainee-summary">제외 중 0명</span></div><div id="trainee-rows"></div><button type="button" class="quiet" id="trainee-add">+ 신입 교육 인원 추가</button><div class="tiny">신입 교육 기간(시작일~종료일) 동안 매일 자동으로 투입률에서 제외되고, 종료일이 지나면 자동으로 빠집니다. 상태 '교육'(잠시 교육)과는 별개입니다. 오른쪽 위 저장을 누르면 공유 저장되어 다른 팀장 화면에도 보입니다.</div></div><div class="field"><label for="training">수기 신입 교육 제외 (기간 없이 오늘만, 한 줄에 한 명)</label><textarea id="training" placeholder="이름을 줄바꿈으로 입력"></textarea></div></div></article></section>
+
 <section id="ext-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">EXTERNAL</div><h2>외부 팀즈 멘션</h2><p class="sub" id="ext-sub">외부 부서 투입 명단을 붙여넣으면 영문 팀즈 멘션으로 바꿔 줍니다. 1분마다 현재 시각 기준으로 다시 계산해요.</p></div><div class="ext-actions"><span class="tiny" id="ext-src-at"></span><button type="button" class="quiet" id="ext-clear">원문 지우기</button></div></div><div class="panel-body">
 <div class="ext-grid"><div class="ext-src"><label for="ext-src">명단 원문 (엑셀 B열 그대로 붙여넣기)</label><textarea id="ext-src" spellcheck="false" placeholder="푸드팀&#10;주간: 홍길동(9-18) 김철수&#10;18-27: 이영희 박민수&#10;&#10;라이더팀&#10;야간: 최지우(19-28)"></textarea><div class="ext-missing hidden" id="ext-missing"></div></div>
 <div class="ext-outs"><div class="ext-out wide"><div class="ext-out-head"><b>현 시간 출근인원</b><span class="tiny" id="ext-now"></span><button type="button" class="report-btn ext-pop" id="ext-popup">⧉ 따로 띄우기</button><button type="button" class="report-btn" data-ext-copy="j" style="margin-left:0">복사</button></div><pre id="ext-j"></pre></div>
-<div class="ext-out"><div class="ext-out-head"><b>주간 · 멘션만</b><small>끝난 시프트 제외</small><button type="button" class="report-btn" data-ext-copy="iDay">복사</button></div><pre id="ext-iDay"></pre></div>
-<div class="ext-out"><div class="ext-out-head"><b>야간 · 멘션만</b><small>끝난 시프트 제외</small><button type="button" class="report-btn" data-ext-copy="iNight">복사</button></div><pre id="ext-iNight"></pre></div>
-<div class="ext-out"><div class="ext-out-head"><b>주간 · 전체</b><button type="button" class="report-btn" data-ext-copy="hDay">복사</button></div><pre id="ext-hDay"></pre></div>
-<div class="ext-out"><div class="ext-out-head"><b>야간 · 전체</b><button type="button" class="report-btn" data-ext-copy="hNight">복사</button></div><pre id="ext-hNight"></pre></div>
 <div class="ext-out wide"><div class="ext-out-head"><b>부서별 전체</b><button type="button" class="report-btn" data-ext-copy="f">복사</button></div><pre id="ext-f"></pre></div></div></div>
 <details class="rt-box" id="ext-map-box"><summary>이름 매핑 (한글 → 영문 팀즈 이름) <span class="tiny" id="ext-map-count"></span></summary><div class="ext-map-body"><div><div class="ext-map-tools"><input id="ext-map-q" placeholder="이름 검색"><span class="tiny">엑셀 M:N 두 열(한글 이름, 영문 이름)을 복사해 오른쪽에 붙여넣으면 한 번에 등록됩니다.</span></div><div class="ext-map-list" id="ext-map-list"></div></div><div class="rt-paste"><label for="ext-map-paste">여러 명 붙여넣기 · 엑셀 M:N 두 열 그대로 또는 "한글이름 영문이름"</label><textarea id="ext-map-paste" spellcheck="false" placeholder="홍길동 Gildong Hong&#10;김철수 Cheolsu Kim"></textarea><div class="rt-paste-actions"><button type="button" class="primary" id="ext-map-save">등록</button><span class="tiny" id="ext-map-msg"></span></div><label>한 명 추가</label><div class="ext-one"><input id="ext-map-k" placeholder="한글 이름"><input id="ext-map-e" placeholder="영문 이름 (예: Gildong Hong)"><button type="button" class="quiet" id="ext-map-add">추가</button></div></div></div></details>
-</div></article></section><section id="macro-view" class="hidden"><article class="panel macro-panel"><div class="macro-hero"><div class="macro-title"><div class="step">MACRO</div><h2>매크로 검색</h2><p class="sub" id="macro-sub">번호나 설명·키워드 한 단어만 입력해도 찾아요.</p></div><div class="macro-search"><span class="macro-icon">⌕</span><input id="macro-q" type="search" placeholder="예: 문자, EDP, 17000" autocomplete="off"><span class="macro-count" id="macro-count"></span></div><div class="macro-hero-actions"><button type="button" class="primary" id="macro-add-btn">＋ 매크로 추가</button><button type="button" class="quiet" id="macro-bulk-btn">여러 개 붙여넣기</button></div></div>
-<div class="macro-form hidden" id="macro-form"><div class="macro-form-grid"><label>번호<input id="macro-no" placeholder="17000" maxlength="20"></label><label class="wide">설명 · 키워드<input id="macro-desc" placeholder="추가정산 EDP 정산완료 문자" maxlength="200"></label></div><div class="macro-form-actions"><span class="tiny" id="macro-form-msg"></span><button type="button" class="quiet" id="macro-cancel">취소</button><button type="button" class="primary" id="macro-save">저장</button></div></div>
+</div></article></section><section id="ho-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">HANDOVER</div><h2>인수인계</h2><p class="sub">내용을 적고, 확인이 필요한 팀장님 칸은 O로 두세요. 확인한 팀장님이 직접 “확인”으로 바꿉니다. 끝난 오래된 줄은 삭제하세요.</p></div><div class="ho-tools"><input id="ho-q" placeholder="검색" aria-label="인수인계 검색" autocomplete="off"><button type="button" class="quiet" id="ho-lead-edit">팀장 편집</button><button type="button" class="quiet hidden" id="ho-lead-add">+ 팀장 추가</button><button type="button" class="primary" id="ho-add">+ 인수인계 추가</button></div></div><div class="panel-body"><div class="ho-note hidden" id="ho-warn"></div><div class="ho-legend"><span><i class="e">실장</i></span><span><i class="l">선임팀장</i></span><span><i class="s">★</i>중요 강조(줄 왼쪽 별)</span><span>⚠ 리드타임 2일 이내·기한 지남</span></div><div class="table-wrap" id="ho-body"></div><datalist id="ho-cats"></datalist><datalist id="ho-froms"></datalist><details class="secondary-board" id="ho-hist-box"><summary>인수인계 이력 <span id="ho-hist-n"></span></summary><div id="ho-hist"></div></details><p class="tiny">내용·확인 상태는 다른 팀장님 화면에도 공유됩니다. “별도 저장” 이력은 이 PC에만 보관됩니다.</p></div></article></section><section id="ro-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">ROSTER</div><h2>재직 리스트</h2><p class="sub">담당 팀장은 오늘 데일리를 먼저 따르고, 데일리에 없으면 엑셀에 적힌 팀장을 씁니다. 붙여넣고 저장하면 다른 팀장님 화면에도 공유됩니다. 이 PC에는 모든 열이 저장되고, 공유되는 것은 C사번·T사번·이름·근무시간·시프트·팀장·번호입니다.</p></div><div class="ro-head-tools"><span class="ro-meta" id="ro-count"></span></div></div><div class="panel-body"><div class="ho-note hidden" id="ro-warn"></div><input id="ro-q" class="ro-search" type="search" placeholder="이름 · T사번 · C사번 검색" aria-label="재직 리스트 검색" autocomplete="off"><details id="ro-paste-box"><summary>엑셀 붙여넣기 (저장하면 기존 명단을 바꿉니다)</summary><textarea id="ro-raw" spellcheck="false" placeholder="엑셀에서 행을 복사해 붙여넣으세요.&#10;열 순서: C사번 T사번 K사번 이름 근무시간 시프트 담당팀장 입사일 SM투입일 x y z 번호"></textarea><div class="ro-paste-actions"><button type="button" class="primary" id="ro-save">저장</button><button type="button" class="quiet" id="ro-clear">명단 비우기</button><span class="tiny" id="ro-note">C·T·K사번, 이름, 근무시간, 시프트, 담당팀장, 입사일, SM투입일, 번호가 모두 저장됩니다. x y z 열은 무시합니다.</span></div></details><div id="ro-team-wrap" class="hidden"><label for="ro-team"><b>팀장</b></label><select id="ro-team" aria-label="팀장 선택"></select></div><div id="ro-list"></div></div></article></section><section id="macro-view" class="hidden"><article class="panel macro-panel"><div class="macro-hero"><div class="macro-title"><div class="step">MACRO</div><h2>매크로 검색</h2><p class="sub" id="macro-sub">번호나 설명·키워드 한 단어만 입력해도 찾아요.</p></div><div class="macro-search"><span class="macro-icon">⌕</span><input id="macro-q" type="search" placeholder="예: 문자, EDP, 17000" autocomplete="off"><span class="macro-count" id="macro-count"></span></div><div class="macro-hero-actions"><button type="button" class="primary" id="macro-add-btn">＋ 매크로 추가</button><button type="button" class="quiet" id="macro-bulk-btn">여러 개 붙여넣기</button></div></div>
+<div class="macro-form hidden" id="macro-form"><div class="macro-form-grid"><label>번호<input id="macro-no" placeholder="17000" maxlength="20"></label><label>대분류<input id="macro-cat" list="macro-cat-list" placeholder="예: 정산 (비워도 됨)" maxlength="20" autocomplete="off"></label><label class="wide">설명 · 키워드<input id="macro-desc" placeholder="추가정산 EDP 정산완료 문자" maxlength="200"></label></div><div class="macro-form-actions"><span class="tiny" id="macro-form-msg"></span><button type="button" class="quiet" id="macro-cancel">취소</button><button type="button" class="primary" id="macro-save">저장</button></div></div>
 <div class="macro-form hidden" id="macro-bulk"><label class="macro-bulk-label">윗줄 번호, 아랫줄 설명·키워드 순서로 붙여넣으세요.<textarea id="macro-bulk-text" spellcheck="false" placeholder="17000&#10;추가정산 EDP 정산완료 문자&#10;17001&#10;환불 안내 문자"></textarea></label><div class="macro-form-actions"><span class="tiny" id="macro-bulk-msg"></span><button type="button" class="quiet" id="macro-bulk-cancel">취소</button><button type="button" class="primary" id="macro-bulk-save">모두 추가</button></div></div>
-<div class="macro-list" id="macro-list"></div></article></section><section id="rt-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">REALTIME</div><h2>실시간 배정</h2><p class="sub" id="rt-sub">데일리를 읽으면 단독 담당자와 식사를 자동으로 배정합니다.</p></div><div class="rt-actions"><label class="rt-date-wrap">배정 날짜 <select id="rt-date"></select></label><span class="rt-state" id="rt-state">—</span><button type="button" class="quiet hidden" id="rt-toggle">새 배정 보기</button><button type="button" class="rt-btn" id="rt-recalc" title="지금 데일리 기준으로 다시 배정해서 확정본을 덮어씁니다">↻ 지금 기준 재산정</button><button type="button" class="rt-btn" id="rt-edit">✎ 수기 변경</button><button type="button" class="primary" id="rt-confirm">배정 확정</button></div></div><div class="panel-body">
+<div class="macro-filterbar"><div class="macro-chips hidden" id="macro-cats"></div><div class="macro-bulkcat hidden" id="macro-bulkcat"><span class="tiny" id="macro-bulkcat-n"></span><input id="macro-bulkcat-in" list="macro-cat-list" placeholder="대분류 이름" maxlength="20" autocomplete="off"><button type="button" class="quiet" id="macro-bulkcat-go">모두 이 대분류로 지정</button></div></div><datalist id="macro-cat-list"></datalist><div class="macro-list" id="macro-list"></div></article></section><section id="rt-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">REALTIME</div><h2>실시간 배정</h2><p class="sub" id="rt-sub">데일리를 읽으면 단독 담당자와 식사를 자동으로 배정합니다.</p></div><div class="rt-actions"><label class="rt-date-wrap">배정 날짜 <select id="rt-date"></select></label><span class="rt-state" id="rt-state">—</span><button type="button" class="quiet hidden" id="rt-toggle">새 배정 보기</button><button type="button" class="rt-btn" id="rt-recalc" title="지금 데일리 기준으로 다시 배정해서 확정본을 덮어씁니다">↻ 지금 기준 재산정</button><button type="button" class="rt-btn" id="rt-edit">✎ 수기 변경</button><button type="button" class="primary" id="rt-confirm">배정 확정</button></div></div><div class="panel-body">
 <div class="rt-hint hidden" id="rt-date-hint">배정 날짜에 오늘만 보이면, 데일리 스크립트가 아직 이전 버전이에요. 새 데일리 스크립트로 바꾸면 1~2분 뒤 다음 날짜들이 생겨요.</div><div class="rt-edit-note hidden" id="rt-edit-note">수기 변경 중 · 이름을 띄어쓰기로 구분해서 고친 뒤 <b>수기 변경 확정</b>을 누르면 (엑셀 C열·L열을 여러 줄 복사해 첫 칸에 붙여넣어도 아래로 채워집니다) 그날은 이 내용으로 반영됩니다. 재산정을 누르면 다시 자동 배정으로 덮어써집니다.</div><div class="rt-warn hidden" id="rt-warn"></div>
 <div class="rt-copy"><button type="button" class="rt-all" data-rt-copy="ALL">시트 전체 복사 → A1에 Ctrl+Shift+V</button><span class="rt-or">칸별로:</span><button type="button" data-rt-copy="C">단독 담당자 → C14</button><button type="button" data-rt-copy="L">식사 → L15</button><button type="button" data-rt-copy="Q">시프트 인원 → Q8</button><button type="button" data-rt-copy="W">식사 인원 → W10</button></div>
 <div class="rt-grid"><div class="table-wrap" id="rt-body"></div><div class="rt-side"><div class="table-wrap" id="rt-shift"></div></div></div>
@@ -3751,10 +3805,12 @@ function normalize(input){
  let rt=null;{const src=Array.isArray(input.rt)?input.rt:input.rt?[input.rt]:[];const normSnap=sn=>({manual:Boolean(sn.manual),at:Number(sn.at)||0,who:String(sn.who??'').slice(0,20),hash:String(sn.hash??'').slice(0,40),dailyAt:String(sn.dailyAt??'').slice(0,40),warnings:(Array.isArray(sn.warnings)?sn.warnings:[]).slice(0,6).map(x=>String(x).slice(0,600)),hours:sn.hours.slice(0,30).map(h=>({hour:Number(h.hour)||0,present:Number(h.present)||0,mealCount:Number(h.mealCount)||0,delay:(Array.isArray(h.delay)?h.delay:[]).slice(0,20).map(x=>String(x).slice(0,20)),meal:(Array.isArray(h.meal)?h.meal:[]).slice(0,30).map(x=>String(x).slice(0,20))})),shiftCounts:(Array.isArray(sn.shiftCounts)?sn.shiftCounts:[]).slice(0,40).map(x=>({start:Number(x.start)||0,end:Number(x.end)||0,hours:Number(x.hours)||0,count:Number(x.count)||0}))});rt=src.filter(it=>it&&typeof it==='object'&&/^\d{4}-\d{2}-\d{2}$/.test(String(it.date||''))&&it.snap&&typeof it.snap==='object'&&Array.isArray(it.snap.hours)).slice(0,4).map(it=>({date:it.date,snap:normSnap(it.snap)}));if(!rt.length)rt=null;}
  let extMap=null;if(Array.isArray(input.extMap)){extMap=input.extMap.slice(0,1500).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,60),Number(r[2])||0,r[3]?1:0]);if(!extMap.length)extMap=null;}
  let extSrc=null;if(input.extSrc&&typeof input.extSrc==='object'&&typeof input.extSrc.text==='string')extSrc={text:input.extSrc.text.slice(0,8000),at:Number(input.extSrc.at)||0};
- let macros=null;if(Array.isArray(input.macros)){macros=input.macros.slice(0,1500).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,20),String(r[2]??'').slice(0,200),Number(r[3])||0,r[4]?1:0]);if(!macros.length)macros=null;}
+ let macros=null;if(Array.isArray(input.macros)){macros=input.macros.slice(0,1500).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,20),String(r[2]??'').slice(0,200),Number(r[3])||0,r[4]?1:0,String(r[5]??'').slice(0,20)]);if(!macros.length)macros=null;}
+ let handover=null;if(Array.isArray(input.handover)){handover=input.handover.slice(0,200).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,10),String(r[2]??'').slice(0,40),String(r[3]??'').slice(0,10),String(r[4]??'').slice(0,500),String(r[5]??'').slice(0,30),String(r[6]??'').slice(0,200),r[7]?1:0,Number(r[8])||0,r[9]?1:0,Number(r[10])||0]);if(!handover.length)handover=null;} let hoLeaders=null;if(input.hoLeaders&&Array.isArray(input.hoLeaders.list)){hoLeaders={at:Number(input.hoLeaders.at)||0,list:input.hoLeaders.list.slice(0,30).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,20),String(r[1]??'').slice(0,20),r[2]?1:0])};if(!hoLeaders.list.length)hoLeaders=null;}
+ let roster=null;if(input.roster&&typeof input.roster==='object'&&Array.isArray(input.roster.rows)){roster={at:Number(input.roster.at)||0,rows:input.roster.rows.slice(0,300).filter(r=>Array.isArray(r)).map(r=>[0,1,2,3,4,5].map(i=>String(r[i]??'').slice(0,30)).concat([String(r[6]??'').slice(0,20)]))};}
  let rtRules=null;if(input.rtRules&&typeof input.rtRules==='object'&&Array.isArray(input.rtRules.rows)){rtRules={at:Number(input.rtRules.at)||0,rows:input.rtRules.rows.slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,5).map(x=>String(x??'').slice(0,60))),preg:(Array.isArray(input.rtRules.preg)?input.rtRules.preg:[]).slice(0,20).map(x=>String(x).slice(0,20)),list:(Array.isArray(input.rtRules.list)?input.rtRules.list:[]).slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,3).map(x=>String(x??'').slice(0,10)))};}
  let stamps=null;if(input.stamps&&typeof input.stamps==='object'){const m=(o,lim)=>{const out={};for(const [k,v]of Object.entries(o||{}).slice(0,lim)){if(typeof k==='string'&&k.length<=140&&Array.isArray(v)&&Number.isFinite(Number(v[0])))out[k]=[Number(v[0]),v[1]?1:0];}return out;};const at={};for(const f of ['raw','training','exceptions','eduReport']){const n=Number(input.stamps.at?.[f]);if(Number.isFinite(n))at[f]=n;}stamps={ex:m(input.stamps.ex,200),tr:m(input.stamps.tr,200),aj:m(input.stamps.aj,200),at};}
- return {type:'ginjo-shared-input',version:1,date,calculationAt,raw,exclusions,training:names(input.training,'교육',26),exceptions:names(input.exceptions,'일반 예외',10),trainees,edu,...(eduReport?{eduReport}:{}),...(ot?{ot}:{}),...(hourLog?{hourLog}:{}),...(stamps?{stamps}:{}),...(changes?{changes}:{}),...(rt?{rt}:{}),...(rtRules?{rtRules}:{}),...(macros?{macros}:{}),...(extMap?{extMap}:{}),...(extSrc?{extSrc}:{}),...(adjust.length?{adjust}:{}),...(dailyEdits?{dailyEdits}:{})};
+ return {type:'ginjo-shared-input',version:1,date,calculationAt,raw,exclusions,training:names(input.training,'교육',26),exceptions:names(input.exceptions,'일반 예외',10),trainees,edu,...(eduReport?{eduReport}:{}),...(ot?{ot}:{}),...(hourLog?{hourLog}:{}),...(stamps?{stamps}:{}),...(changes?{changes}:{}),...(rt?{rt}:{}),...(rtRules?{rtRules}:{}),...(macros?{macros}:{}),...(handover?{handover}:{}),...(hoLeaders?{hoLeaders}:{}),...(roster?{roster}:{}),...(extMap?{extMap}:{}),...(extSrc?{extSrc}:{}),...(adjust.length?{adjust}:{}),...(dailyEdits?{dailyEdits}:{})};
 }
 function parseSharedPayload(value){
  if(value===null||value===undefined||value==='')return null;
@@ -3765,7 +3821,7 @@ function parseSharedPayload(value){
  return normalize(input);
 }
 function makeSharedPayload(input){
- const result=normalize({...input,type:'ginjo-shared-input',version:1});const json=JSON.stringify(result);
+ const result=normalize({...input,type:'ginjo-shared-input',version:1});let json=JSON.stringify(result);if(json.length>60000&&result.roster){const r2={...result};delete r2.roster;json=JSON.stringify(r2);try{globalThis.__roDropped=Date.now();}catch{}}if(json.length>60000&&(result.handover||result.hoLeaders)){const r3=JSON.parse(json);delete r3.handover;delete r3.hoLeaders;json=JSON.stringify(r3);}
  if(json.length>60000)throw Error('저장할 내용이 60,000자를 넘습니다. 원문 또는 수기 수정 범위를 줄여주세요.');return json;
 }
 function sharedFormURL(value){
@@ -3876,7 +3932,7 @@ function sample(){
  bridge.stop();state.demo=true;state.daily=null;state.result=null;state.journal.clear();state.pending=false;state.dirty=false;$('run-btn').disabled=false;
  const data=E.makeSample();state.daily=E.normalizeDaily(data.daily);state.rawSample=true;$('raw').value=data.raw;setFields();$('training').value='';$('exceptions').value='';fillTime(data.at);capture(E.calculate(state.daily,data.raw,{at:data.at}),true);
 }
-function setView(view){state.view=view;state.filter='전체';document.querySelectorAll('#nav button,#nav2 button,#nav-close [data-view]').forEach(button=>button.classList.toggle('active',button.dataset.view===view));try{window.__navCloseSync&&window.__navCloseSync(view);}catch{}const other=['settings','daily','issues','forecast','edu','ot','trainee','rt','macro','ext'].includes(view);$('ext-view').classList.toggle('hidden',view!=='ext');if(view==='ext')renderExt();$('macro-view').classList.toggle('hidden',view!=='macro');if(view==='macro'){renderMacros();setTimeout(()=>$('macro-q').focus(),0);}$('rt-view').classList.toggle('hidden',view!=='rt');if(view==='rt')setTimeout(()=>{try{renderRT();}catch(e){console.error(e);}},0);$('trainee-view').classList.toggle('hidden',view!=='trainee');if(view==='people'){try{renderOverview();renderTraineeSoon();}catch(error){}}$('ot-view').classList.toggle('hidden',view!=='ot');if(view==='ot')renderOT();$('dashboard').classList.toggle('hidden',other);$('settings').classList.toggle('show',view==='settings');$('daily-editor').classList.toggle('hidden',view!=='daily');$('issues-view').classList.toggle('hidden',view!=='issues');$('forecast-view').classList.toggle('hidden',view!=='forecast');$('edu-view').classList.toggle('hidden',view!=='edu');if(view==='daily')renderDailyEditor();else if(view==='issues')renderIssues();else if(view==='forecast')renderForecast();else if(view==='edu')renderEdu();else if(view!=='settings')renderTable();}
+function setView(view){if(view==='trainee'){view='people';setTimeout(()=>{const d=$('trainee-board');if(d){d.open=true;try{d.scrollIntoView({block:'center'});}catch{}}},60);}state.view=view;state.filter='전체';document.querySelectorAll('#nav button,#nav2 button,#nav-close [data-view]').forEach(button=>button.classList.toggle('active',button.dataset.view===view));try{window.__navCloseSync&&window.__navCloseSync(view);}catch{}const other=['settings','daily','issues','forecast','edu','ot','trainee','rt','macro','ext','handover','roster'].includes(view);$('ext-view').classList.toggle('hidden',view!=='ext');if(view==='ext')renderExt();$('ho-view').classList.toggle('hidden',view!=='handover');if(view==='handover')hoRender();$('ro-view').classList.toggle('hidden',view!=='roster');if(view==='roster'){roRender();$('ro-paste-box').open=!roLoad().rows.length;setTimeout(()=>$('ro-q').focus(),0);}$('macro-view').classList.toggle('hidden',view!=='macro');if(view==='macro'){renderMacros();setTimeout(()=>$('macro-q').focus(),0);}$('rt-view').classList.toggle('hidden',view!=='rt');if(view==='rt')setTimeout(()=>{try{renderRT();}catch(e){console.error(e);}},0);if(view==='people'){try{renderOverview();renderTraineeSoon();}catch(error){}}$('ot-view').classList.toggle('hidden',view!=='ot');if(view==='ot')renderOT();$('dashboard').classList.toggle('hidden',other);$('settings').classList.toggle('show',view==='settings');$('daily-editor').classList.toggle('hidden',view!=='daily');$('issues-view').classList.toggle('hidden',view!=='issues');$('forecast-view').classList.toggle('hidden',view!=='forecast');$('edu-view').classList.toggle('hidden',view!=='edu');if(view==='daily')renderDailyEditor();else if(view==='issues')renderIssues();else if(view==='forecast')renderForecast();else if(view==='edu')renderEdu();else if(view!=='settings')renderTable();}
 function statusClass(status){return status==='대화 가능'?'green':['회의','교육'].includes(status)?'purple':status==='오프라인'?'red':['식사','휴식','자리에 없음'].includes(status)?'amber':'';}
 function updateBadge(){
  const sourceTime=Date.parse(state.result?.at??state.daily?.capturedAt??''),old=Number.isFinite(sourceTime)&&Date.now()-sourceTime>10*60000;
@@ -4020,7 +4076,7 @@ function restoreShared(data){
   sharedStatus('운영일이 바뀌어(저장 '+input.date+' → 데일리 '+state.daily.date+') 상태 원문·수기 추가·예외 입력은 초기화되었습니다. 신입 교육 기간과 교육 인원 기록은 유지됩니다.');
   return;
  }
- $('raw').value=input.raw;state.rawSample=false;setFields(input.exclusions);$('training').value=input.training.join('\n');$('exceptions').value=input.exceptions.join('\n');fillTime(input.calculationAt);$('use-now').checked=false;setTraineesUI(input.trainees||[],true);setEduEntries(input.edu||[]);setEduReport(input.eduReport||null);if(input.ot&&input.ot.date===input.date)mergeOT(input.ot.date,input.ot);if(input.hourLog&&input.hourLog.date===state.daily.date)mergeHourLog(input.hourLog);if(input.changes)try{mergeChanges(input.changes);}catch{}try{mergeRT(input);}catch{}try{if(input.macros)mergeMacros(input.macros);}catch{}try{mergeExt(input);}catch{}state.inputDay=input.date;state.adjust=(input.adjust||[]).slice(0,20);try{renderAdjustList();}catch{}state.lastSharedInput=input;try{adoptSharedStamps(input.date,input.stamps);}catch{}
+ $('raw').value=input.raw;state.rawSample=false;setFields(input.exclusions);$('training').value=input.training.join('\n');$('exceptions').value=input.exceptions.join('\n');fillTime(input.calculationAt);$('use-now').checked=false;setTraineesUI(input.trainees||[],true);setEduEntries(input.edu||[]);setEduReport(input.eduReport||null);if(input.ot&&input.ot.date===input.date)mergeOT(input.ot.date,input.ot);if(input.hourLog&&input.hourLog.date===state.daily.date)mergeHourLog(input.hourLog);if(input.changes)try{mergeChanges(input.changes);}catch{}try{mergeRT(input);}catch{}try{if(input.macros)mergeMacros(input.macros);}catch{}try{mergeExt(input);}catch{}try{mergeHandover(input);}catch{}try{mergeRoster(input);}catch{}state.inputDay=input.date;state.adjust=(input.adjust||[]).slice(0,20);try{renderAdjustList();}catch{}state.lastSharedInput=input;try{adoptSharedStamps(input.date,input.stamps);}catch{}
  const stamp=Number.isFinite(Date.parse(saved.modified))?new Date(saved.modified).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}):'수정 시각 없음';
  sharedStatus('공유 저장된 입력 복원 · '+stamp+(saved.editor?' · '+saved.editor:'')+' · 상태 기준은 저장 당시 시각입니다.');
  restoreDailyEdits(input);
@@ -4036,7 +4092,7 @@ async function prepareShared(){
    B.validateRequest({raw:$('raw').value,calculationAt:at,exclusions:fields(),training:lines('training'),exceptions:lines('exceptions')});calculate();at=state.result.at;date=state.result.date;
   }else if(!state.manualDailyEdits&&!traineesFromUI().length&&!(state.edu||[]).length&&!state.eduReport&&!(state.adjust||[]).length&&!fields().some(r=>r.name))throw Error('상태 원문을 넣거나 저장할 입력을 먼저 등록하세요.');
   if(E.businessClock(at).date!==date)throw Error('저장 기준 시각과 데일리 운영일이 다릅니다. 기준 날짜와 시각을 확인하세요.');
-  const payload=S.makeSharedPayload({date,calculationAt:at,raw:$('raw').value,exclusions:fields(),training:lines('training'),exceptions:lines('exceptions'),trainees:traineesFromUI(),edu:state.edu||[],...(state.eduReport?{eduReport:state.eduReport}:{}),...(otSharedPart()?{ot:otSharedPart()}:{}),...(hourLogSharedPart()?{hourLog:hourLogSharedPart()}:{}),...(stampsForShare()?{stamps:stampsForShare()}:{}),...(changesSharedPart()?{changes:changesSharedPart()}:{}),...(rtSharedPart()||{}),...(macroSharedPart()||{}),...(extSharedPart()||{}),...((state.adjust||[]).length?{adjust:state.adjust}:{}),...(state.manualDailyEdits?{dailyEdits:state.manualDailyEdits}:{})});
+  const payload=S.makeSharedPayload({date,calculationAt:at,raw:$('raw').value,exclusions:fields(),training:lines('training'),exceptions:lines('exceptions'),trainees:traineesFromUI(),edu:state.edu||[],...(state.eduReport?{eduReport:state.eduReport}:{}),...(otSharedPart()?{ot:otSharedPart()}:{}),...(hourLogSharedPart()?{hourLog:hourLogSharedPart()}:{}),...(stampsForShare()?{stamps:stampsForShare()}:{}),...(changesSharedPart()?{changes:changesSharedPart()}:{}),...(rtSharedPart()||{}),...(macroSharedPart()||{}),...(handoverSharedPart()||{}),...(rosterSharedPart()||{}),...(extSharedPart()||{}),...((state.adjust||[]).length?{adjust:state.adjust}:{}),...(state.manualDailyEdits?{dailyEdits:state.manualDailyEdits}:{})});
   $('shared-copy-text').value=payload;$('shared-save-dialog').showModal();
   sharedStatus('저장할 내용을 준비했습니다. 수기 데일리도 포함됩니다. 아직 저장되지 않았으니 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.');
   try{await navigator.clipboard.writeText(payload);$('shared-copy-note').textContent='복사했습니다. 공유 저장창의 Payload 칸 전체에 붙여넣고 저장하세요. 수기 데일리도 함께 저장됩니다.';}
@@ -4287,7 +4343,7 @@ async function autoShareAfterRun(){
   const hasRaw=Boolean($('raw').value.trim());if(hasRaw&&!state.result){try{calculate();}catch{}}if(hasRaw&&!state.result){sharedStatus('자동 저장 실패: 상태 원문을 계산하지 못했습니다. 원문을 확인하세요.');return;}
   const at=hasRaw?state.result.at:calculationClock(),date=hasRaw?state.result.date:E.businessClock(at).date;
   if(E.businessClock(at).date!==date)throw Error('저장 기준 시각과 데일리 운영일이 다릅니다.');
-  const payload=S.makeSharedPayload({date,calculationAt:at,raw:$('raw').value,exclusions:fields(),training:lines('training'),exceptions:lines('exceptions'),trainees:traineesFromUI(),edu:state.edu||[],...(state.eduReport?{eduReport:state.eduReport}:{}),...(otSharedPart()?{ot:otSharedPart()}:{}),...(hourLogSharedPart()?{hourLog:hourLogSharedPart()}:{}),...(stampsForShare()?{stamps:stampsForShare()}:{}),...(changesSharedPart()?{changes:changesSharedPart()}:{}),...(rtSharedPart()||{}),...(macroSharedPart()||{}),...(extSharedPart()||{}),...((state.adjust||[]).length?{adjust:state.adjust}:{}),...(state.manualDailyEdits?{dailyEdits:state.manualDailyEdits}:{})});
+  const payload=S.makeSharedPayload({date,calculationAt:at,raw:$('raw').value,exclusions:fields(),training:lines('training'),exceptions:lines('exceptions'),trainees:traineesFromUI(),edu:state.edu||[],...(state.eduReport?{eduReport:state.eduReport}:{}),...(otSharedPart()?{ot:otSharedPart()}:{}),...(hourLogSharedPart()?{hourLog:hourLogSharedPart()}:{}),...(stampsForShare()?{stamps:stampsForShare()}:{}),...(changesSharedPart()?{changes:changesSharedPart()}:{}),...(rtSharedPart()||{}),...(macroSharedPart()||{}),...(handoverSharedPart()||{}),...(rosterSharedPart()||{}),...(extSharedPart()||{}),...((state.adjust||[]).length?{adjust:state.adjust}:{}),...(state.manualDailyEdits?{dailyEdits:state.manualDailyEdits}:{})});
   const result=await shareWrite(payload);
   if(result!=='none'&&result!=='denied'){}else{try{$('issue-save-state').textContent='공유 저장 안 됨 · 오른쪽 위 공유 저장 연결 확인';$('issue-save-state').className='bad';}catch{}}
   if(result==='none'){sharedStatus('자동 저장 폴더가 연결되지 않았습니다. ③으로 한 번 연결하면 계산·등록할 때 자동 저장됩니다. 지금은 ① 복사 방식으로 저장하세요.');toast('자동 저장 폴더가 연결되지 않아 공유 저장하지 못했습니다. 현황 화면 아래 ③ 연결을 확인하세요.');return;}
@@ -4432,7 +4488,7 @@ function renderNowIssues(){
  wrap.innerHTML=(sus.length?`<div class="sus-box"><b>시프트 해석 확인 필요 ${sus.length}명</b> <span class="tiny">데일리에 적힌 시프트 시각과 근무구분(J열)으로 계산한 근무시간이 지금 시간에서 서로 다릅니다.</span><table class="data"><thead><tr><th>이름 / 사번</th><th>시프트 (근무구분)</th><th>계산된 근무</th><th>확인 내용</th></tr></thead><tbody>${sus.map(x=>`<tr><td class="person">${esc(x.name)}<span class="id">${esc(x.id)}</span></td><td>${esc(x.shift)} <span class="tiny">(${esc(x.flag||'—')})</span></td><td>${esc(x.calc)}</td><td class="reason">${esc(x.reason)}</td></tr>`).join('')}</tbody></table></div>`:'')+`<div class="table-wrap"><table class="data"><thead><tr><th>이름 / 사번</th><th>시프트</th><th>현재 상태</th><th>구분</th><th>예상 원인</th></tr></thead><tbody>${rows.length?rows.map(x=>`<tr><td class="person">${esc(x.name||x.id)}<span class="id">${esc(x.id)}</span></td><td>${esc(x.shift||'—')}</td><td><span class="pill ${statusClass(x.status)}">${esc(x.status)}</span></td><td>${x.planned?'<span class="pill red">데일리O · 출근X</span>':'<span class="pill amber">데일리X · 출근O</span>'}</td><td class="reason">${esc(x.reason)}</td></tr>`).join(''):'<tr><td colspan="5" class="compact-empty">검색 결과가 없습니다.</td></tr>'}</tbody></table></div>`;
  return (diff||bcDiff)?new Set([...plan.rows.map(x=>String(x.idKey??x.id).toLowerCase()),...sus.map(x=>String(x.id).toLowerCase())]).size:0;
 }
-function renderIssues(){
+function renderIssues(){try{$('zone-now-range').textContent=$('current-hour').textContent;$('zone-next-range').textContent=$('next-hour').textContent;}catch{}
  const box=$('issues-body');if(!box)return;
  const nowCount=renderNowIssues();try{renderDayCheck();}catch{}
  const result=state.result,rows=issueRows(result),c=result?.current,n=result?.next;
@@ -4468,7 +4524,7 @@ async function registerManual(){
   set(name,start.replace(':',''),end.replace(':',''));
   const hasRaw=Boolean($('raw').value.trim());
   if(hasRaw){try{clearError();calculate();}catch(error){set('','','');renderManualList();throw error;}}
-  else{const ids=(state.daily.schedule||[]).filter(r=>String(r.id||'').trim().toUpperCase()===name.toUpperCase()||String(r.name||'').replace(/\s+/g,'')===name.replace(/\s+/g,''));if(new Set(ids.map(r=>String(r.idKey??r.id).toLowerCase())).size!==1){set('','','');renderManualList();throw Error('수기 추가: 데일리에서 '+name+'를 한 명으로 찾지 못했습니다. 동명이인은 사번을 입력하세요.');}}
+  else{const ids=(state.daily.schedule||[]).filter(r=>String(r.id||'').trim().toUpperCase()===name.toUpperCase()||String(r.name||'').replace(/\s+/g,'')===name.replace(/\s+/g,''));if(new Set(ids.map(r=>String(r.idKey??r.id).toLowerCase())).size!==1){set('','','');renderManualList();throw Error('수기 추가: 데일리에서 '+name+'을(를) 한 명으로 찾지 못했습니다. 동명이인은 사번을 입력하세요.');}}
   $('manual-name').value='';$('manual-start').value='';$('manual-end').value='';logChange('수기 추가 등록 · '+name+' '+start+'~'+end);
   autoMarkUnsaved();state.dirty=true;renderManualList();
   if(hasRaw)await run();
@@ -4542,7 +4598,7 @@ function setEduEntries(list){
  if(state.view==='edu')renderEdu();
 }
 function parseEduReport(text){
- const lines=String(text||'').replace(/\r/g,'').split('\n').map(v=>v.replace(/ /g,' ').trim()).filter(Boolean);
+ const lines=String(text||'').replace(/\r/g,'').split('\n').map(v=>v.replace(/ /g,' ').trim()).filter(Boolean);
  const idRe=/\b(?:cssp-[a-zA-Z0-9_-]+|[Kk](?:[Ee])?\d+)\b/,durRe=/^(?:(\d+)\s*일\s*)?(?:(\d+)\s*시(?:간)?\s*)?(?:(\d+)\s*분\s*)?(?:(\d+)\s*초)?$/,dayOnly=/^(\d+)\s*일$/;
  const teams=[];let team=null,cur=null;
  for(const line of lines){
@@ -4670,16 +4726,16 @@ if($('report-btn')){
 $('raw').addEventListener('paste',()=>{setTimeout(()=>{if(!$('raw').value.trim())return;logChange('상태 원문 붙여넣기');state.rawSample=false;state.dirty=true;useCurrentStatusTime();autoMarkUnsaved();run();},60);});
 /* 수기 추가 미리보기 */
 function previewManual(){
- const out=$('pv-result');
+ const out=$('pv-result');out.classList.remove('hidden');
  try{
   if(!state.daily)throw Error('데일리를 먼저 불러오세요.');
-  const name=$('pv-name').value.trim(),start=ginjoNormalizeClock($('pv-start').value),end=ginjoNormalizeClock($('pv-end').value),ok=v=>/^(?:[01]?\d|2[0-8]):[0-5]\d$/.test(v)||v==='29:00';
+  const name=$('manual-name').value.trim(),start=ginjoNormalizeClock($('manual-start').value),end=ginjoNormalizeClock($('manual-end').value),ok=v=>/^(?:[01]?\d|2[0-8]):[0-5]\d$/.test(v)||v==='29:00';
   if(!name)throw Error('이름 또는 사번을 입력하세요.');if(!ok(start)||!ok(end)||start===end)throw Error('시작·종료를 1300처럼 입력하세요.');
   const base={training:trainingNames(lines('training'),traineesFromUI(),state.daily.date),exceptions:lines('exceptions'),adjust:state.adjust||[]},cur=fields(),extra={name,start,end};
   const before=E.forecastDay(state.daily,{...base,exclusions:cur}),after=E.forecastDay(state.daily,{...base,exclusions:[...cur,extra]});
   const map=new Map(before.hours.map(h=>[h.hour,h])),rows=[];
   for(const a of after.hours){const b=map.get(a.hour);if(b&&Math.abs(b.minutes-a.minutes)>0.5)rows.push({hour:a.hour,b,a});}
-  if(!rows.length)throw Error(name+'는 그 시간에 근무 예정이 없어 변화가 없습니다. 이름·시간을 확인하세요.');
+  if(!rows.length)throw Error(name+'은(는) 그 시간에 근무 예정이 없어 변화가 없습니다. 이름·시간을 확인하세요.');
   let currentRow='',curBad=false;
   if(state.result&&$('raw').value.trim()){try{const r1=E.calculate(state.daily,$('raw').value,{at:state.result.at,exclusions:cur,...base}),r2=E.calculate(state.daily,$('raw').value,{at:state.result.at,exclusions:[...cur,extra],...base});if(Math.abs(r1.current.minutes-r2.current.minutes)>0.5){curBad=r2.current.status!=='정상'&&r1.current.status==='정상';}if(Math.abs(r1.current.minutes-r2.current.minutes)>0.5)currentRow=`<tr class="${r2.current.status!=='정상'&&r1.current.status==='정상'?'down':''}"><td>${hourLabel(r1.hour)}시 (지금 실제)</td><td>${percentage(r1.current.rate)}% ${r1.current.status}</td><td>${percentage(r2.current.rate)}% ${r2.current.status}</td></tr>`;}catch{}}
   const bad=curBad||rows.some(x=>x.a.status!=='정상'&&x.b.status==='정상');
@@ -4687,7 +4743,43 @@ function previewManual(){
   $('pv-register').addEventListener('click',()=>{$('manual-name').value=name;$('manual-start').value=start.replace(':','');$('manual-end').value=end.replace(':','');registerManual();});
  }catch(error){out.textContent=error.message||String(error);}
 }
-if($('pv-run')){$('pv-run').addEventListener('click',previewManual);for(const id of ['pv-name','pv-start','pv-end'])$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();previewManual();}});}
+if($('pv-run'))$('pv-run').addEventListener('click',previewManual);
+/* 60분 미만 OT 미리보기 */
+function previewAdjust(){
+ const out=$('pv2-result');out.classList.remove('hidden');
+ try{
+  if(!state.daily)throw Error('데일리를 먼저 불러오세요.');
+  const name=$('adj-name').value.trim(),start=ginjoNormalizeClock($('adj-start').value),end=ginjoNormalizeClock($('adj-end').value),ok=v=>/^(?:[01]?\d|2[0-8]):[0-5]\d$/.test(v)||v==='29:00';
+  if(!name)throw Error('이름 또는 사번을 입력하세요.');
+  if(!ok(start)||!ok(end)||start===end)throw Error('시작·종료를 1800처럼 입력하세요.');
+  const found=(state.daily.schedule||[]).filter(r=>String(r.id||'').trim().toUpperCase()===name.toUpperCase()||String(r.name||'').replace(/\s+/g,'')===name.replace(/\s+/g,''));
+  if(new Set(found.map(r=>String(r.idKey??r.id).toLowerCase())).size!==1)throw Error('데일리에서 '+name+'을(를) 한 명으로 찾지 못했습니다. 동명이인은 사번을 입력하세요.');
+  const toMin=v=>{const [h,m]=v.split(':').map(Number);return h*60+m;},len=((toMin(end)-toMin(start))%1440+1440)%1440;
+  if(len>=60)throw Error('60분보다 짧게 입력하세요. 60분 이상이면 데일리 OT 그대로 두면 됩니다.');
+  const extra={name,start,end},adj=state.adjust||[];
+  if(adj.some(r=>adjKey(r)===adjKey(extra)))throw Error('이미 등록된 시간입니다.');
+  const base={training:trainingNames(lines('training'),traineesFromUI(),state.daily.date),exceptions:lines('exceptions')},cur=fields();
+  const before=E.forecastDay(state.daily,{...base,exclusions:cur,adjust:adj}),after=E.forecastDay(state.daily,{...base,exclusions:cur,adjust:[...adj,extra]});
+  const map=new Map(before.hours.map(h=>[h.hour,h])),rows=[];
+  for(const a of after.hours){const b=map.get(a.hour);if(b&&Math.abs(b.minutes-a.minutes)>0.5)rows.push({hour:a.hour,b,a});}
+  let currentRows='',bad=false;
+  const hasRaw=Boolean(state.result&&$('raw').value.trim());
+  if(hasRaw){
+   try{
+    const r1=E.calculate(state.daily,$('raw').value,{at:state.result.at,exclusions:cur,...base,adjust:adj}),r2=E.calculate(state.daily,$('raw').value,{at:state.result.at,exclusions:cur,...base,adjust:[...adj,extra]});
+    const line=(label,x,y)=>{const worse=y.status!=='정상'&&x.status==='정상';if(worse)bad=true;return `<tr class="${worse?'down':''}"><td>${label}</td><td>${percentage(x.rate)}% ${x.status}</td><td>${percentage(y.rate)}% ${y.status}${y.status==='미달'?' ('+format(y.add,0)+'분 부족)':''}</td></tr>`;};
+    if(Math.abs(r1.current.minutes-r2.current.minutes)>0.5)currentRows+=line(hourLabel(r1.hour)+'시 (지금 실제)',r1.current,r2.current);
+    if(r1.next&&r2.next&&Math.abs(r1.next.minutes-r2.next.minutes)>0.5)currentRows+=line(hourLabel(r1.hour+1)+'시 (다음 시간 예상)',r1.next,r2.next);
+   }catch{}
+  }
+  if(!rows.length&&!currentRows)throw Error(hasRaw?'등록해도 투입률에 변화가 없습니다. 60분 미만 OT는 그 시간에 실제 근무·로그인이 확인된 경우에만 보정됩니다. 이름·시간을 확인하세요.':'상태 원문을 붙여넣고 계산한 뒤에 미리볼 수 있습니다.');
+  const bodyRows=currentRows+rows.map(x=>{const worse=x.a.status!=='정상'&&x.b.status==='정상';if(worse)bad=true;return `<tr class="${worse?'down':''}"><td>${hourLabel(x.hour)}시</td><td>${percentage(x.b.rate)}% ${x.b.status}</td><td>${percentage(x.a.rate)}% ${x.a.status}${x.a.status==='미달'?' ('+format(x.a.add,0)+'분 부족)':''}</td></tr>`;}).join('');
+  out.innerHTML=`<table class="pv-table"><thead><tr><th>시간</th><th>지금</th><th>등록하면</th></tr></thead><tbody>${bodyRows}</tbody></table><div class="pv-actions">${bad?'<span class="pill red">등록하면 미달 또는 과투입이 되는 시간이 있습니다</span>':'<span class="pill green">등록해도 정상 범위입니다</span>'}<button type="button" class="primary" id="pv2-register">이대로 등록</button></div>`;
+  $('pv2-register').addEventListener('click',()=>registerAdjust());
+ }catch(error){out.textContent=error.message||String(error);}
+}
+if($('pv2-run'))$('pv2-run').addEventListener('click',previewAdjust);
+
 
 /* ===== 투입률 공유 (시간대별 누적·수정) ===== */
 function hourLogKey(date){return 'ginjo-hourlog-'+date;}
@@ -5002,7 +5094,7 @@ async function registerAdjust(){
   if(!ok(start)||!ok(end)||start===end)throw Error('60분 미만 OT: 시작·종료를 1800처럼 입력하세요.');
   if(!state.daily)throw Error('데일리를 먼저 불러오세요.');
   const found=(state.daily.schedule||[]).filter(r=>String(r.id||'').trim().toUpperCase()===name.toUpperCase()||String(r.name||'').replace(/\s+/g,'')===name.replace(/\s+/g,''));
-  if(new Set(found.map(r=>String(r.idKey??r.id).toLowerCase())).size!==1)throw Error('60분 미만 OT: 데일리에서 '+name+'를 한 명으로 찾지 못했습니다. 동명이인은 사번을 입력하세요.');
+  if(new Set(found.map(r=>String(r.idKey??r.id).toLowerCase())).size!==1)throw Error('60분 미만 OT: 데일리에서 '+name+'을(를) 한 명으로 찾지 못했습니다. 동명이인은 사번을 입력하세요.');
   const toMin=v=>{const [h,m]=v.split(':').map(Number);return h*60+m;},len=((toMin(end)-toMin(start))%1440+1440)%1440;
   if(len>=60)throw Error('60분 미만 OT: 60분보다 짧게 입력하세요. 60분 이상이면 데일리 OT 그대로 두면 됩니다.');
   if(state.adjust.length>=20)throw Error('60분 미만 OT는 최대 20건입니다.');
@@ -5084,7 +5176,7 @@ setInterval(()=>{try{renderTraineeSoon();renderOtLateBox();}catch{}},20000);
 const LAY_KEY='ginjo-layout-v1';
 function layLoad(){try{const v=JSON.parse(localStorage.getItem(LAY_KEY)||'null');return v&&typeof v==='object'?{order:v.order||{},hidden:Array.isArray(v.hidden)?v.hidden:[]}:{order:{},hidden:[]};}catch{return {order:{},hidden:[]};}}
 function laySave(v){try{localStorage.setItem(LAY_KEY,JSON.stringify(v));}catch{}}
-const LAY_NAMES={pgrid:'우선 확인 카드',away:'자리에 없음',training:'교육·식사·휴식',meal:'OT 인원',check:'지각·미출근 확인',people:'전체 상태 명단',preview:'수기 추가 미리보기',changes:'최근 변경 기록',history:'시간대 이력',daycheck:'하루 전체 시프트 점검'};
+const LAY_NAMES={pgrid:'우선 확인 카드',away:'자리에 없음',training:'교육·식사·휴식',meal:'OT 인원',check:'지각·미출근 확인',people:'전체 상태 명단',preview:'수기 추가 미리보기',changes:'최근 변경 기록',history:'시간대 이력',trainee:'신입 교육',daycheck:'하루 전체 시프트 점검'};
 function layContainers(){const board=document.querySelector('.operations-board'),grid=board?.querySelector('.priority-grid');return [['board',board],['grid',grid]].filter(x=>x[1]);}
 function layTag(){
  const board=document.querySelector('.operations-board');if(!board)return;
@@ -5121,18 +5213,44 @@ function layOrderNow(){const v=layLoad();for(const [cid,box] of layContainers())
 function macroLoad(){try{const v=JSON.parse(localStorage.getItem('ginjo-macros')||'[]');return Array.isArray(v)?v.filter(x=>x&&x.id):[];}catch{return [];}}
 function macroSave(list){try{localStorage.setItem('ginjo-macros',JSON.stringify(list));}catch{}}
 function macroLive(){return macroLoad().filter(x=>!x.del);}
-function macroSharedPart(){const l=macroLoad();return l.length?{macros:l.map(x=>[x.id,x.no,x.desc,x.at,x.del?1:0])}:null;}
-function mergeMacros(arr){if(!Array.isArray(arr))return;const map=new Map(macroLoad().map(x=>[x.id,x]));let ch=false;for(const r of arr){if(!Array.isArray(r))continue;const it={id:String(r[0]),no:String(r[1]??''),desc:String(r[2]??''),at:Number(r[3])||0,del:Boolean(r[4])};const mine=map.get(it.id);if(!mine||it.at>mine.at){map.set(it.id,it);ch=true;}}if(ch){macroSave([...map.values()]);if(state.view==='macro')renderMacros();}}
+function macroSharedPart(){const l=macroLoad();return l.length?{macros:l.map(x=>[x.id,x.no,x.desc,x.at,x.del?1:0,x.cat||''])}:null;}
+function mergeMacros(arr){if(!Array.isArray(arr))return;const map=new Map(macroLoad().map(x=>[x.id,x]));let ch=false;for(const r of arr){if(!Array.isArray(r))continue;const it={id:String(r[0]),no:String(r[1]??''),desc:String(r[2]??''),at:Number(r[3])||0,del:Boolean(r[4]),cat:String(r[5]??'')};const mine=map.get(it.id);if(!mine||it.at>mine.at){map.set(it.id,it);ch=true;}}if(ch){macroSave([...map.values()]);if(state.view==='macro')renderMacros();}}
 function macroTerms(q){return String(q||'').toLowerCase().split(/\s+/).filter(Boolean);}
 function macroHL(text,terms){let html=esc(text);for(const w of terms){const re=new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');html=html.replace(/(<[^>]*>)|([^<]+)/g,(m,tag,txt)=>tag?tag:txt.replace(re,s=>`<mark>${s}</mark>`));}return html;}
-function renderMacros(){const box=$('macro-list');if(!box)return;const terms=macroTerms($('macro-q').value);const all=macroLive();
- const hit=all.filter(x=>{const hay=(x.no+' '+x.desc).toLowerCase();return terms.every(w=>hay.includes(w));}).sort((a,b)=>{const q=terms.join('');const ae=a.no.toLowerCase()===q?0:1,be=b.no.toLowerCase()===q?0:1;return ae-be||a.no.localeCompare(b.no,'ko',{numeric:true});});
- $('macro-count').textContent=terms.length?`${hit.length} / ${all.length}`:`${all.length}개`;
+let macroCat='';
+const macroNone='__none';
+function macroCatSort(a,b){return String(a).localeCompare(String(b),'ko');}
+function macroHits(){
+ const terms=macroTerms($('macro-q').value),all=macroLive();
+ const inCat=x=>macroCat===''||(macroCat===macroNone?!(x.cat||'').trim():(x.cat||'').trim()===macroCat);
+ const hit=all.filter(x=>inCat(x)&&terms.every(w=>(x.no+' '+x.desc+' '+(x.cat||'')).toLowerCase().includes(w))).sort((a,b)=>{const q=terms.join('');const ae=a.no.toLowerCase()===q?0:1,be=b.no.toLowerCase()===q?0:1;return ae-be||a.no.localeCompare(b.no,'ko',{numeric:true});});
+ return {terms,all,hit};
+}
+function renderMacros(){const box=$('macro-list');if(!box)return;
+ const {terms,all,hit}=macroHits();
+ const counts=new Map();for(const x of all){const c=(x.cat||'').trim();counts.set(c,(counts.get(c)||0)+1);}
+ if(macroCat!==''&&macroCat!==macroNone&&!counts.has(macroCat))macroCat='';
+ const named=[...counts.keys()].filter(Boolean).sort(macroCatSort);
+ $('macro-cat-list').innerHTML=named.map(c=>`<option value="${esc(c)}">`).join('');
+ const bar=$('macro-cats');
+ if(named.length){bar.classList.remove('hidden');bar.innerHTML=`<button type="button" class="macro-chip${macroCat===''?' on':''}" data-cat="">전체 <i>${all.length}</i></button>`+named.map(c=>`<button type="button" class="macro-chip${macroCat===c?' on':''}" data-cat="${esc(c)}">${esc(c)} <i>${counts.get(c)}</i></button>`).join('')+(counts.get('')?`<button type="button" class="macro-chip${macroCat===macroNone?' on':''}" data-cat="${macroNone}">미분류 <i>${counts.get('')}</i></button>`:'');}
+ else{bar.classList.add('hidden');bar.innerHTML='';}
+ const filtering=terms.length>0||macroCat!=='';
+ const bb=$('macro-bulkcat');bb.classList.toggle('hidden',!(filtering&&hit.length));
+ $('macro-bulkcat-n').textContent=filtering?`지금 보이는 ${hit.length}개를`:'';
+ $('macro-count').textContent=filtering?`${hit.length} / ${all.length}`:`${all.length}개`;
  if(!all.length){box.innerHTML='<div class="macro-empty"><b>아직 등록된 매크로가 없어요</b>＋ 매크로 추가로 첫 매크로를 넣어보세요.</div>';return;}
- if(!hit.length){box.innerHTML=`<div class="macro-empty"><b>"${esc($('macro-q').value)}" 결과가 없어요</b>다른 단어로 찾아보거나 새로 추가하세요.</div>`;return;}
- box.innerHTML=hit.slice(0,300).map(x=>`<div class="macro-card" data-id="${esc(x.id)}"><button type="button" class="macro-no" data-copy="${esc(x.no)}" title="눌러서 번호 복사">${macroHL(x.no,terms)}<span class="copy">복사</span></button><div class="macro-desc">${x.desc.split(/\s+/).filter(Boolean).map(w=>`<span>${macroHL(w,terms)}</span>`).join('')}</div><div class="macro-tools"><button type="button" data-edit>수정</button><button type="button" class="del" data-del>삭제</button></div></div>`).join('');}
+ if(!hit.length){box.innerHTML=`<div class="macro-empty"><b>${terms.length?`"${esc($('macro-q').value)}" `:''}결과가 없어요</b>다른 단어로 찾아보거나 새로 추가하세요.</div>`;return;}
+ const card=x=>`<div class="macro-card" data-id="${esc(x.id)}"><button type="button" class="macro-no" data-copy="${esc(x.no)}" title="눌러서 번호 복사">${macroHL(x.no,terms)}<span class="copy">복사</span></button><div class="macro-desc">${x.desc.split(/\s+/).filter(Boolean).map(w=>`<span>${macroHL(w,terms)}</span>`).join('')}</div><input class="macro-cat-in" list="macro-cat-list" maxlength="20" placeholder="대분류 지정" value="${esc(x.cat||'')}" title="대분류를 고르거나 새로 입력하고 Enter" autocomplete="off"><div class="macro-tools"><button type="button" data-edit>수정</button><button type="button" class="del" data-del>삭제</button></div></div>`;
+ if(!filtering&&named.length){
+  let html='',left=300;
+  const groups=[...named.map(c=>[c,hit.filter(x=>(x.cat||'').trim()===c)]),['미분류',hit.filter(x=>!(x.cat||'').trim())]];
+  for(const [c,list] of groups){if(!list.length||left<=0)continue;const part=list.slice(0,left);left-=part.length;html+=`<div class="macro-group"><b>${esc(c)}</b><small>${list.length}개</small></div>`+part.map(card).join('');}
+  box.innerHTML=html;return;
+ }
+ box.innerHTML=hit.slice(0,300).map(card).join('');}
 let macroEditId='';
-function macroOpenForm(it){$('macro-save').disabled=false;$('macro-form-msg').style.color='';$('macro-bulk').classList.add('hidden');$('macro-form').classList.remove('hidden');macroEditId=it?.id||'';$('macro-no').value=it?.no||'';$('macro-desc').value=it?.desc||'';$('macro-form-msg').textContent=it?'수정 중':'';$('macro-save').textContent=it?'수정 저장':'저장';setTimeout(()=>$('macro-no').focus(),0);}
+function macroOpenForm(it){$('macro-save').disabled=false;$('macro-form-msg').style.color='';$('macro-bulk').classList.add('hidden');$('macro-form').classList.remove('hidden');macroEditId=it?.id||'';$('macro-no').value=it?.no||'';$('macro-desc').value=it?.desc||'';$('macro-cat').value=it?(it.cat||''):(macroCat&&macroCat!==macroNone?macroCat:'');$('macro-form-msg').textContent=it?'수정 중':'';$('macro-save').textContent=it?'수정 저장':'저장';setTimeout(()=>$('macro-no').focus(),0);}
 async function macroShare(){try{autoMarkUnsaved();await autoShareAfter();}catch{}}
 $('macro-q').addEventListener('input',renderMacros);
 $('macro-q').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';renderMacros();}});
@@ -5143,8 +5261,8 @@ $('macro-no').addEventListener('keydown',e=>{if(e.key==='Enter')$('macro-desc').
 $('macro-no').addEventListener('input',e=>{const nk=s=>String(s).replace(/\s+/g,'').toLowerCase();const v=nk(e.target.value);const dup=v&&macroLive().find(x=>nk(x.no)===v&&x.id!==macroEditId);$('macro-form-msg').textContent=dup?`이미 있는 번호예요 · ${dup.desc}`:(macroEditId?'수정 중':'');$('macro-form-msg').style.color=dup?'#b54340':'';$('macro-save').disabled=Boolean(dup);});
 $('macro-save').addEventListener('click',async()=>{const no=$('macro-no').value.trim(),desc=$('macro-desc').value.trim().replace(/\s+/g,' ');if(!no||!desc){$('macro-form-msg').textContent='번호와 설명을 모두 입력하세요.';return;}
  const list=macroLoad();const nk=s=>String(s).replace(/\s+/g,'').toLowerCase();const dup=list.find(x=>!x.del&&nk(x.no)===nk(no)&&x.id!==macroEditId);if(dup){$('macro-form-msg').textContent=`${no} 번호는 이미 있어요 · ${dup.desc}`;$('macro-q').value=dup.no;renderMacros();return;}
- if(macroEditId){const it=list.find(x=>x.id===macroEditId);if(it){it.no=no;it.desc=desc;it.at=Date.now();}logChange('매크로 수정 · '+no);}
- else{list.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),no,desc,at:Date.now(),del:false});logChange('매크로 추가 · '+no);}
+ if(macroEditId){const it=list.find(x=>x.id===macroEditId);if(it){it.no=no;it.desc=desc;it.cat=$('macro-cat').value.trim().slice(0,20);it.at=Date.now();}logChange('매크로 수정 · '+no);}
+ else{list.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),no,desc,cat:$('macro-cat').value.trim().slice(0,20),at:Date.now(),del:false});logChange('매크로 추가 · '+no);}
  macroSave(list);$('macro-form').classList.add('hidden');macroEditId='';renderMacros();toast('저장했습니다. 다른 팀장님 화면에도 공유됩니다.');await macroShare();});
 $('macro-bulk-btn').addEventListener('click',()=>{$('macro-form').classList.add('hidden');$('macro-bulk').classList.remove('hidden');$('macro-bulk-text').focus();});
 $('macro-bulk-cancel').addEventListener('click',()=>$('macro-bulk').classList.add('hidden'));
@@ -5157,6 +5275,28 @@ $('macro-list').addEventListener('click',async e=>{const card=e.target.closest('
  if(e.target.closest('[data-copy]')){try{await navigator.clipboard.writeText(it.no);toast(it.no+' 복사했습니다.');}catch{toast('복사하지 못했습니다.');}return;}
  if(e.target.closest('[data-edit]')){macroOpenForm(it);window.scrollTo({top:0,behavior:'smooth'});return;}
  if(e.target.closest('[data-del]')){if(!confirm(`${it.no} 매크로를 삭제할까요?`))return;it.del=true;it.at=Date.now();macroSave(list);logChange('매크로 삭제 · '+it.no);renderMacros();await macroShare();}});
+
+$('macro-cats').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(!b)return;macroCat=b.dataset.cat;renderMacros();});
+$('macro-list').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList&&e.target.classList.contains('macro-cat-in')){e.preventDefault();e.target.blur();}});
+$('macro-list').addEventListener('change',async e=>{
+ const inp=e.target;if(!inp.classList||!inp.classList.contains('macro-cat-in'))return;
+ const card=inp.closest('.macro-card');if(!card)return;
+ const list=macroLoad(),it=list.find(x=>x.id===card.dataset.id);if(!it)return;
+ const cat=inp.value.trim().replace(/\s+/g,' ').slice(0,20);
+ if((it.cat||'')===cat)return;
+ it.cat=cat;it.at=Date.now();macroSave(list);
+ try{logChange('매크로 대분류 · '+it.no+' → '+(cat||'비움'));}catch{}
+ renderMacros();await macroShare();
+});
+$('macro-bulkcat-go').addEventListener('click',async()=>{
+ const {hit}=macroHits();if(!hit.length)return;
+ const cat=$('macro-bulkcat-in').value.trim().replace(/\s+/g,' ').slice(0,20);
+ if(!confirm(cat?`지금 보이는 ${hit.length}개 매크로의 대분류를 "${cat}"(으)로 지정할까요?`:`지금 보이는 ${hit.length}개 매크로의 대분류를 비울까요?`))return;
+ const ids=new Set(hit.map(x=>x.id)),list=macroLoad(),now=Date.now();let n=0;
+ for(const it of list){if(ids.has(it.id)&&(it.cat||'')!==cat){it.cat=cat;it.at=now;n++;}}
+ macroSave(list);try{logChange('매크로 대분류 일괄 · '+n+'개 → '+(cat||'비움'));}catch{}
+ $('macro-bulkcat-in').value='';macroCat=cat&&macroCat!==''&&macroCat!==macroNone?cat:macroCat;renderMacros();toast(n+'개의 대분류를 '+(cat?'"'+cat+'"(으)로 지정했습니다.':'비웠습니다.')+' 다른 팀장님 화면에도 공유됩니다.');await macroShare();
+});
 
 /* ===== 외부 팀즈 멘션 */
 function extMapLoad(){try{const v=JSON.parse(localStorage.getItem('ginjo-ext-map')||'[]');return Array.isArray(v)?v.filter(x=>x&&x.k):[];}catch{return [];}}
@@ -5180,7 +5320,7 @@ function renderExt(fromShared){const ta=$('ext-src');if(!ta)return;const src=ext
  $('ext-src-at').textContent=src.at?'원문 저장 '+new Date(src.at+9*3600000).toISOString().slice(5,16).replace('T',' ').replace('-','/'):'';
  const map=extMapLoad().filter(x=>!x.del);const pairs=map.map(x=>[x.k,x.e]);let o;try{o=GinjoExternal.build(extLines(ta.value),pairs,extNowHour());}catch(e){o={f:[],hDay:[],hNight:[],iDay:[],iNight:[],j:[],missing:[],err:e.message};}extLast=o;
  const show=(id,arr)=>{const key=id.slice(4);let gi=-1;$(id).innerHTML=arr.map(l=>{if(extIsDept(l)){gi++;return `<span class="dept">${esc(l)}</span><button type="button" class="ext-dcopy" data-p="${key}" data-g="${gi}" title="이 부서 멘션만 복사">멘션 복사</button>`;}return esc(l);}).join('\n');};
- show('ext-j',o.j);show('ext-iDay',o.iDay);show('ext-iNight',o.iNight);show('ext-hDay',o.hDay);show('ext-hNight',o.hNight);show('ext-f',o.f);
+ show('ext-j',o.j);show('ext-f',o.f);
  const now=new Date(Date.now()+9*3600000).toISOString().slice(11,16);$('ext-now').textContent=now+' 기준';
  const mb=$('ext-missing');mb.innerHTML=o.err?'변환 실패: '+esc(o.err):o.missing.length?`영문 이름이 없어 빠진 사람 ${o.missing.length}명: `+o.missing.map(n=>`${esc(n)}<button type="button" data-ext-fill="${esc(n)}">＋</button>`).join(' · '):'';mb.classList.toggle('hidden',!o.err&&!o.missing.length);
  $('ext-map-count').textContent=map.length+'명';renderExtMap();}
@@ -5492,6 +5632,317 @@ $('nav-last-daily').addEventListener('click',()=>{const c=lastDailyLoad();if(!c)
  nav.addEventListener('dragend',()=>{drag?.classList.remove('nav-dragging');drag=null;clear();});
  nav.addEventListener('dragover',e=>{const b=e.target.closest?.('button[data-view]');if(!drag||!b||b===drag)return;e.preventDefault();const r=b.getBoundingClientRect();clear();b.classList.add(e.clientY>r.top+r.height/2?'nav-over-after':'nav-over-before');});
  nav.addEventListener('drop',e=>{const b=e.target.closest?.('button[data-view]');if(!drag||!b||b===drag)return;e.preventDefault();nav.insertBefore(drag,b.classList.contains('nav-over-after')?b.nextSibling:b);clear();try{localStorage.setItem(KEY,JSON.stringify(btns().map(x=>x.dataset.view)));}catch{}});
+})();
+
+/* ===== 인수인계 (20261122) */
+const HO_EXEC=['조보람','김유라','김성민'],HO_LEAD=['이경윤','하예람'];
+const HO_DEF_LEADERS=[['l1','김유진'],['l2','홍예은'],['l3','남문옥'],['l4','이병정'],['l5','노승연'],['l6','김진아'],['l7','류가람']];
+let hoEdit=false,hoDropped=0,hoT=0;
+function hoJ(key,def){try{const v=JSON.parse(localStorage.getItem(key)||'null');return v==null?def:v;}catch{return def;}}
+function hoPut(key,v){try{localStorage.setItem(key,JSON.stringify(v));}catch{}}
+function hoRows(){const v=hoJ('ginjo-handover',[]);return Array.isArray(v)?v.filter(x=>x&&x.i):[];}
+function hoRowsSave(l){hoPut('ginjo-handover',l);}
+function hoLeadersGet(){const v=hoJ('ginjo-ho-leaders',null);if(v&&Array.isArray(v.list)&&v.list.length)return v;return {at:0,list:HO_DEF_LEADERS.map(([id,name])=>({id,name,del:false}))};}
+function hoLeadersSave(v){hoPut('ginjo-ho-leaders',v);}
+function hoHist(){const v=hoJ('ginjo-ho-hist',[]);return Array.isArray(v)?v:[];}
+function hoToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function hoDiff(a,b){return Math.round((Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/86400000);}
+function hoRank(s){s=String(s||'');if(HO_EXEC.some(n=>s.includes(n)))return 'exec';if(HO_LEAD.some(n=>s.includes(n)))return 'lead';return '';}
+function hoLead(r){
+ if(!r.l||!/^\d{4}-\d{2}-\d{2}$/.test(r.l))return null;
+ const left=hoDiff(r.l,hoToday());
+ if(left<0)return {cls:'over',txt:'⚠ 기한 지남 '+(-left)+'일'};
+ if(left===0)return {cls:'warn',txt:'⚠ 오늘 마감'};
+ const span=/^\d{4}-\d{2}-\d{2}$/.test(r.d||'')?hoDiff(r.l,r.d):0;
+ if(left<=2||(span>=4&&left<=span*0.25))return {cls:'warn',txt:'⚠ D-'+left};
+ return {cls:'ok',txt:'D-'+left};
+}
+function hoShare(){clearTimeout(hoT);hoT=setTimeout(async()=>{try{autoMarkUnsaved();await autoShareAfter();}catch{}},1500);}
+function hoBusy(){const b=$('ho-body');return Boolean(b&&document.activeElement&&b.contains(document.activeElement));}
+
+/* 다른 팀장 화면과 공유 (오래된 줄이 많으면 용량 때문에 최근 줄만 공유) */
+function handoverSharedPart(){
+ const lv=hoLeadersGet(),o={};hoDropped=0;
+ const now=Date.now();
+ const live=hoRows().filter(r=>!r.x||now-(r.a||0)<14*864e5).sort((a,b)=>(a.x?1:0)-(b.x?1:0)||(b.ct||0)-(a.ct||0));
+ const out=[];let size=0;
+ for(const r of live){
+  const k=Object.entries(r.k||{}).filter(([,v])=>v).map(([a,v])=>a+':'+(v==='확인'?'C':'O')).join('|');
+  const arr=r.x?[r.i,'','','','','','',0,r.a||0,1,r.ct||0]:[r.i,r.d||'',r.c||'',r.l||'',r.t||'',r.f||'',k,r.h?1:0,r.a||0,0,r.ct||0];
+  const n=JSON.stringify(arr).length+1;
+  if(size+n>7000){if(!r.x)hoDropped++;continue;}
+  out.push(arr);size+=n;
+ }
+ if(out.length)o.handover=out;
+ if(lv.at)o.hoLeaders={at:lv.at,list:lv.list.map(x=>[x.id,x.name,x.del?1:0])};
+ return Object.keys(o).length?o:null;
+}
+function mergeHandover(input){
+ let ch=false;
+ if(Array.isArray(input.handover)){
+  const map=new Map(hoRows().map(x=>[x.i,x]));
+  for(const r of input.handover){
+   if(!Array.isArray(r))continue;
+   const k={};String(r[6]||'').split('|').forEach(p=>{const [a,b]=p.split(':');if(a&&b)k[a]=b==='C'?'확인':'O';});
+   const it={i:String(r[0]),d:String(r[1]||''),c:String(r[2]||''),l:String(r[3]||''),t:String(r[4]||''),f:String(r[5]||''),k,h:r[7]?1:0,a:Number(r[8])||0,x:r[9]?1:0,ct:Number(r[10])||0};
+   const mine=map.get(it.i);
+   if(!mine||it.a>(mine.a||0)){map.set(it.i,it);ch=true;}
+  }
+  if(ch)hoRowsSave([...map.values()]);
+ }
+ if(input.hoLeaders&&Array.isArray(input.hoLeaders.list)){
+  const cur=hoLeadersGet();
+  if((Number(input.hoLeaders.at)||0)>(cur.at||0)){hoLeadersSave({at:Number(input.hoLeaders.at),list:input.hoLeaders.list.map(r=>({id:String(r[0]),name:String(r[1]||''),del:Boolean(r[2])}))});ch=true;}
+ }
+ if(ch&&state.view==='handover'&&!hoBusy())hoRender();
+}
+
+function hoOpt(v,cur){return '<option value="'+v+'"'+(cur===v?' selected':'')+'>'+(v||'—')+'</option>';}
+function hoFromOpts(leaders,cur){
+ cur=String(cur||'');
+ const names=[...HO_EXEC,...HO_LEAD,...leaders.map(l=>l.name),...(()=>{try{return roLoad().rows.map(p=>p.l);}catch{return [];}})()].map(v=>String(v||'').trim()).filter(Boolean);
+ const seen=new Set();const list=[];for(const n of names){if(!seen.has(n)){seen.add(n);list.push(n);}}
+ if(cur&&!seen.has(cur))list.push(cur);
+ return '<option value="">— 선택 —</option>'+list.map(n=>'<option value="'+esc(n)+'"'+(n===cur?' selected':'')+'>'+esc(n)+'</option>').join('');
+}
+function hoRowHtml(r,leaders){
+ const rank=hoRank(r.f),ld=hoLead(r);
+ const cls=['ho-r',rank?'ho-'+rank:'',r.h?'ho-hi':'',ld&&ld.cls==='warn'?'ho-warn':'',ld&&ld.cls==='over'?'ho-over':''].filter(Boolean).join(' ');
+ return '<tr class="'+cls+'" data-id="'+esc(r.i)+'">'
+  +'<td class="ho-c0"><button type="button" class="ho-star'+(r.h?' on':'')+'" data-a="star" title="중요 강조 켜기/끄기">'+(r.h?'★':'☆')+'</button></td>'
+  +'<td class="ho-d"><input type="date" class="ho-in" data-f="d" value="'+esc(r.d||'')+'"></td>'
+  +'<td class="ho-c"><input class="ho-in" data-f="c" list="ho-cats" maxlength="40" placeholder="분류" value="'+esc(r.c||'')+'"></td>'
+  +'<td class="ho-lt"><input type="date" class="ho-in" data-f="l" value="'+esc(r.l||'')+'"><span class="ho-badge'+(ld?' '+ld.cls:' hidden')+'">'+esc(ld?ld.txt:'')+'</span></td>'
+  +'<td class="ho-t"><textarea class="ho-in ho-text" data-f="t" rows="2" maxlength="500" placeholder="내용">'+esc(r.t||'')+'</textarea></td>'
+  +'<td class="ho-f"><select class="ho-in ho-from" data-f="f" aria-label="전달자">'+hoFromOpts(leaders,r.f)+'</select><span class="ho-rank '+rank+(rank?'':' hidden')+'">'+(rank==='exec'?'실장':rank==='lead'?'선임팀장':'')+'</span></td>'
+  +leaders.map(l=>{const v=(r.k||{})[l.id]||'';return '<td class="ho-k"><select class="ho-sel'+(v==='O'?' sO':v==='확인'?' sC':'')+'" data-k="'+esc(l.id)+'" aria-label="'+esc(l.name)+'">'+hoOpt('',v)+hoOpt('O',v)+hoOpt('확인',v)+'</select></td>';}).join('')
+  +'<td class="ho-act"><button type="button" class="report-btn" data-a="save" title="이 줄을 이력에 따로 남깁니다">별도 저장</button><button type="button" class="report-btn ho-del" data-a="del" title="이 줄 전체를 지웁니다">삭제</button></td></tr>';
+}
+function hoRender(){
+ const leaders=hoLeadersGet().list.filter(x=>!x.del);
+ const q=($('ho-q').value||'').trim().toLowerCase();
+ let rows=hoRows().filter(r=>!r.x).sort((a,b)=>(b.ct||0)-(a.ct||0));
+ if(q)rows=rows.filter(r=>[r.d,r.c,r.l,r.t,r.f].some(v=>String(v||'').toLowerCase().includes(q)));
+ const heads=leaders.map(l=>hoEdit?'<th class="ho-lh"><input class="ho-ln" data-lid="'+esc(l.id)+'" value="'+esc(l.name)+'" maxlength="12" aria-label="팀장 이름"><button type="button" class="ho-lx" data-lid="'+esc(l.id)+'" title="이 팀장 칸 숨기기">✕</button></th>':'<th class="ho-lh">'+esc(l.name)+'</th>').join('');
+ $('ho-body').innerHTML='<table class="data ho-table"><thead><tr><th class="ho-c0">★</th><th>기재일</th><th>분류</th><th>리드타임</th><th>내용</th><th>전달자</th>'+heads+'<th class="ho-act">관리</th></tr></thead><tbody>'
+  +(rows.length?rows.map(r=>hoRowHtml(r,leaders)).join(''):'<tr><td colspan="'+(7+leaders.length)+'" class="ho-empty">'+(q?'검색 결과가 없습니다.':'아직 인수인계가 없습니다. 오른쪽 위 “+ 인수인계 추가”를 눌러 시작하세요.')+'</td></tr>')
+  +'</tbody></table>';
+ const all=hoRows().filter(r=>!r.x);
+ const uniq=a=>[...new Set(a.map(v=>String(v||'').trim()).filter(Boolean))];
+ $('ho-cats').innerHTML=uniq(all.map(r=>r.c)).map(v=>'<option value="'+esc(v)+'">').join('');
+ $('ho-froms').innerHTML=uniq([...HO_EXEC,...HO_LEAD,...leaders.map(l=>l.name),...(()=>{try{return roLoad().rows.map(p=>p.l);}catch{return [];}})(),...all.map(r=>r.f)]).map(v=>'<option value="'+esc(v)+'">').join('');
+ $('ho-lead-add').classList.toggle('hidden',!hoEdit);$('ho-lead-edit').textContent=hoEdit?'팀장 편집 완료':'팀장 편집';$('ho-lead-edit').classList.toggle('on',hoEdit);
+ handoverSharedPart();
+ const w=$('ho-warn');w.classList.toggle('hidden',!hoDropped);w.textContent=hoDropped?'공유 용량이 가득 차서 오래된 '+hoDropped+'줄은 다른 팀장님 화면에 보이지 않습니다. 끝난 오래된 줄을 삭제해 주세요.':'';
+ hoRenderHist();
+}
+function hoRefreshRow(tr,r){
+ const rank=hoRank(r.f),ld=hoLead(r);
+ tr.className=['ho-r',rank?'ho-'+rank:'',r.h?'ho-hi':'',ld&&ld.cls==='warn'?'ho-warn':'',ld&&ld.cls==='over'?'ho-over':''].filter(Boolean).join(' ');
+ const b=tr.querySelector('.ho-badge');if(b){b.className='ho-badge'+(ld?' '+ld.cls:' hidden');b.textContent=ld?ld.txt:'';}
+ const k=tr.querySelector('.ho-rank');if(k){k.className='ho-rank '+rank+(rank?'':' hidden');k.textContent=rank==='exec'?'실장':rank==='lead'?'선임팀장':'';}
+ const s=tr.querySelector('.ho-star');if(s){s.classList.toggle('on',Boolean(r.h));s.textContent=r.h?'★':'☆';}
+}
+function hoRenderHist(){
+ const list=hoHist().sort((a,b)=>(b.s||0)-(a.s||0));
+ $('ho-hist-n').textContent='('+list.length+'건)';
+ const fmt=ms=>{const d=new Date(ms);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+ $('ho-hist').innerHTML=list.length?'<div class="table-wrap"><table class="data ho-hist-table"><thead><tr><th>저장</th><th>기재일</th><th>분류</th><th>리드타임</th><th>내용</th><th>전달자</th><th>팀장 확인 상태</th><th></th></tr></thead><tbody>'
+  +list.map(h=>'<tr data-hid="'+esc(h.i)+'"><td>'+esc(fmt(h.s))+(h.by?'<br><small>'+esc(h.by)+'</small>':'')+'</td><td>'+esc(h.d||'')+'</td><td>'+esc(h.c||'')+'</td><td>'+esc(h.l||'')+'</td><td class="ho-hist-t">'+esc(h.t||'')+'</td><td>'+esc(h.f||'')+'</td><td>'+(h.k||[]).map(p=>esc(p[0])+' <b class="'+(p[1]==='확인'?'ho-ok':'ho-open')+'">'+esc(p[1])+'</b>').join(' · ')+'</td><td><button type="button" class="report-btn ho-del" data-ha="del" title="이력 한 건 지우기">✕</button></td></tr>').join('')
+  +'</tbody></table></div>':'<p class="tiny">아직 저장한 이력이 없습니다. 줄 오른쪽 “별도 저장”을 누르면 그 줄 한 건이 이력에 남습니다.</p>';
+}
+(function(){
+ const body=$('ho-body');
+ const findRow=tr=>{const id=tr&&tr.dataset.id;const list=hoRows();return {list,row:list.find(x=>x.i===id)};};
+ const touch=(list,r)=>{r.a=Date.now();hoRowsSave(list);hoShare();};
+ body.addEventListener('input',e=>{
+  const f=e.target.dataset&&e.target.dataset.f;if(!f)return;
+  const tr=e.target.closest('tr');const {list,row}=findRow(tr);if(!row)return;
+  row[f]=e.target.value;touch(list,row);hoRefreshRow(tr,row);
+ });
+ body.addEventListener('focusin',e=>{const t=e.target;if(!(t.dataset&&t.dataset.f==='c'))return;t.dataset.prev=t.value;t.dataset.touched='';t.value='';});
+ body.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.f==='c')t.dataset.touched='1';},true);
+ body.addEventListener('keydown',e=>{const t=e.target;if(t.dataset&&t.dataset.f==='c'&&(e.key==='Backspace'||e.key==='Delete')){t.dataset.touched='1';if(t.value===''){const tr=t.closest('tr'),{list,row}=findRow(tr);if(row){row[t.dataset.f]='';touch(list,row);hoRefreshRow(tr,row);}}}});
+ body.addEventListener('focusout',e=>{const t=e.target;if(!(t.dataset&&t.dataset.f==='c'))return;if(!t.dataset.touched&&t.value===''&&t.dataset.prev!==undefined)t.value=t.dataset.prev;});
+ body.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.classList.contains('ho-sel')){
+   const tr=t.closest('tr');const {list,row}=findRow(tr);if(!row)return;
+   row.k=row.k||{};if(t.value)row.k[t.dataset.k]=t.value;else delete row.k[t.dataset.k];
+   t.className='ho-sel'+(t.value==='O'?' sO':t.value==='확인'?' sC':'');touch(list,row);
+   try{logChange('인수인계 확인 · '+(hoLeadersGet().list.find(x=>x.id===t.dataset.k)?.name||'')+' '+(t.value||'비움'));}catch{}
+   return;
+  }
+  if(t.classList.contains('ho-ln')){
+   const lv=hoLeadersGet(),it=lv.list.find(x=>x.id===t.dataset.lid);if(!it)return;
+   const name=t.value.trim();if(!name){t.value=it.name;return;}
+   it.name=name;lv.at=Date.now();hoLeadersSave(lv);hoShare();hoRender();
+  }
+ });
+ body.addEventListener('click',e=>{
+  const x=e.target.closest('.ho-lx');
+  if(x){
+   if(!confirm('이 팀장 칸을 숨길까요? 이미 입력된 O/확인 기록은 남아 있고, 이력에도 그대로 보관됩니다.'))return;
+   const lv=hoLeadersGet(),it=lv.list.find(v=>v.id===x.dataset.lid);if(!it)return;
+   if(lv.list.filter(v=>!v.del).length<=1){toast('팀장 칸은 최소 한 개는 있어야 합니다.');return;}
+   it.del=true;lv.at=Date.now();hoLeadersSave(lv);hoShare();hoRender();return;
+  }
+  const b=e.target.closest('button[data-a]');if(!b)return;
+  const tr=b.closest('tr');const {list,row}=findRow(tr);if(!row)return;
+  if(b.dataset.a==='star'){row.h=row.h?0:1;touch(list,row);hoRefreshRow(tr,row);return;}
+  if(b.dataset.a==='del'){
+   if(!confirm('이 인수인계 줄을 통째로 지울까요?\n(“별도 저장”으로 이력에 남기지 않았다면 복구할 수 없습니다.)'))return;
+   row.x=1;touch(list,row);try{logChange('인수인계 삭제 · '+(row.c||'')+' '+String(row.t||'').slice(0,20));}catch{}hoRender();toast('삭제했습니다.');return;
+  }
+  if(b.dataset.a==='save'){
+   const names=new Map(hoLeadersGet().list.map(l=>[l.id,l.name]));
+   const k=Object.entries(row.k||{}).filter(([,v])=>v).map(([id,v])=>[names.get(id)||id,v]);
+   const h=hoHist();h.push({i:Date.now().toString(36)+Math.random().toString(36).slice(2,6),s:Date.now(),by:(typeof myName==='function'?myName():''),d:row.d||'',c:row.c||'',l:row.l||'',t:row.t||'',f:row.f||'',k});
+   hoPut('ginjo-ho-hist',h.slice(-1000));hoRenderHist();toast('이 줄을 이력에 따로 저장했습니다.');
+   try{logChange('인수인계 별도 저장 · '+(row.c||'')+' '+String(row.t||'').slice(0,20));}catch{}
+  }
+ });
+ $('ho-hist').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-ha="del"]');if(!b)return;
+  if(!confirm('이력 한 건을 지울까요?'))return;
+  const id=b.closest('tr').dataset.hid;hoPut('ginjo-ho-hist',hoHist().filter(h=>h.i!==id));hoRenderHist();
+ });
+ $('ho-add').addEventListener('click',()=>{
+  const now=Date.now(),list=hoRows();
+  const r={i:now.toString(36)+Math.random().toString(36).slice(2,6),d:hoToday(),c:'',l:'',t:'',f:'',k:{},h:0,a:now,x:0,ct:now};
+  list.push(r);hoRowsSave(list);$('ho-q').value='';hoRender();hoShare();
+  const ta=$('ho-body').querySelector('tr[data-id="'+r.i+'"] .ho-text');if(ta)ta.focus();
+ });
+ $('ho-q').addEventListener('input',()=>{if(!hoBusy()||document.activeElement===$('ho-q'))hoRender();});
+ $('ho-lead-edit').addEventListener('click',()=>{hoEdit=!hoEdit;hoRender();});
+ $('ho-lead-add').addEventListener('click',()=>{
+  const lv=hoLeadersGet();const id='l'+Date.now().toString(36);
+  lv.list.push({id,name:'새 팀장',del:false});lv.at=Date.now();hoLeadersSave(lv);hoShare();hoRender();
+  const inp=$('ho-body').querySelector('.ho-ln[data-lid="'+id+'"]');if(inp){inp.focus();inp.select();}
+ });
+ setInterval(()=>{if(state.view!=='handover'||hoBusy())return;try{hoRender();}catch{}},60000);
+})();
+
+/* ===== 재직 리스트 (20261122) */
+let roShareOver=false;
+function roLoad(){try{const v=JSON.parse(localStorage.getItem('ginjo-roster')||'null');return v&&Array.isArray(v.rows)?v:{at:0,rows:[]};}catch{return {at:0,rows:[]};}}
+function roSave(v){try{localStorage.setItem('ginjo-roster',JSON.stringify(v));return true;}catch{return false;}}
+/* 다른 팀장 화면과 공유: 필요한 7개 열만 (C사번 T사번 이름 근무시간 시프트 팀장 번호) */
+function rosterSharedPart(){
+ const db=roLoad();if(!db.at)return null;
+ const rows=db.rows.map(p=>[p.c,p.t,p.n,p.h,p.s,p.l,p.p]);
+ roShareOver=JSON.stringify(rows).length>14000;
+ if(roShareOver)return null;
+ return {roster:{at:db.at,rows}};
+}
+function mergeRoster(input){
+ const r=input.roster;if(!r||!Array.isArray(r.rows))return;
+ const cur=roLoad();if((Number(r.at)||0)<=(cur.at||0))return;
+ roSave({at:Number(r.at),rows:r.rows.map(a=>({c:a[0]||'',t:a[1]||'',k:'',n:a[2]||'',h:a[3]||'',s:a[4]||'',l:a[5]||'',j:'',m:'',p:a[6]||''}))});
+ const act=document.activeElement;
+ if(state.view==='roster'&&!(act&&(act===$('ro-q')||act===$('ro-raw'))))roRender();
+}
+function roShare(){try{autoMarkUnsaved();Promise.resolve(autoShareAfter()).catch(()=>{});}catch{}}
+function roPhone(v){
+ const raw=String(v||'').trim();let s=raw.replace(/[^\d]/g,'');
+ if(!s)return raw;
+ if(s.length===10&&s[0]==='1')s='0'+s;
+ if(s.length===11)return s.slice(0,3)+'-'+s.slice(3,7)+'-'+s.slice(7);
+ if(s.length===10)return s.slice(0,3)+'-'+s.slice(3,6)+'-'+s.slice(6);
+ return raw;
+}
+/* 엑셀 열 순서: C사번 T사번 K사번 이름 근무시간 시프트 담당팀장 입사일 SM투입일 x y z 번호 (x y z는 무시) */
+function roParse(text){
+ const lines=String(text||'').replace(/\r/g,'').split('\n'),rows=[];let skipped=0,header=0;
+ const isPhone=v=>/^0?1\d[\d\s-]{7,10}$/.test(String(v||'').trim());
+ for(const line of lines){
+  if(!line.trim())continue;
+  const cells=line.split('\t').map(x=>x.trim().replace(/^"(.*)"$/s,'$1').trim());
+  if(rows.length===0&&(cells.includes('이름')||/사번/.test(cells[0]||''))){header++;continue;}
+  const [c,t,k,n,h,s,l,j,m]=cells;
+  let p=cells[12]||'';if(!isPhone(p)){const f=cells.slice(9).find(isPhone);if(f)p=f;}
+  if(!n&&!c&&!t){skipped++;continue;}
+  rows.push({c:c||'',t:t||'',k:k||'',n:n||'',h:h||'',s:s||'',l:l||'',j:j||'',m:m||'',p:roPhone(p)});
+ }
+ return {rows,skipped,header};
+}
+function roLeaderMap(){
+ const m=new Map();
+ for(const r of state.daily?.schedule||[]){
+  if(!r.leader)continue;
+  for(const key of [r.id,r.idKey]){const k=String(key||'').trim().toLowerCase();if(k&&!m.has(k))m.set(k,r.leader);}
+ }
+ return m;
+}
+/* 팀장은 오늘 데일리가 우선, 데일리에 없으면 엑셀 값 */
+function roLeaderOf(p,map){
+ for(const key of [p.c,p.t,p.k]){const k=String(key||'').trim().toLowerCase();if(k&&map.has(k))return leaderGroup(map.get(k));}
+ return leaderGroup(p.l);
+}
+function roNorm(v){return String(v||'').toLowerCase().replace(/\s+/g,'');}
+function roRender(){
+ const db=roLoad(),map=roLeaderMap();
+ const all=db.rows.map(p=>({p,lead:roLeaderOf(p,map)}));
+ const q=roNorm($('ro-q').value);
+ const at=db.at?new Date(db.at):null;
+ $('ro-count').textContent=all.length?all.length+'명 · 저장 '+(at.getMonth()+1)+'/'+at.getDate()+' '+String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):'저장된 명단이 없습니다';
+ rosterSharedPart();
+ const dropped=globalThis.__roDropped&&Date.now()-globalThis.__roDropped<600000;
+ const warn=roShareOver?'명단이 커서 다른 팀장님 화면에는 공유되지 않습니다.':dropped?'공유 저장 용량이 부족해서 최근 저장에서 재직 리스트가 빠졌습니다.':'';
+ $('ro-warn').textContent=warn;$('ro-warn').classList.toggle('hidden',!warn);
+ const box=$('ro-list'),filt=$('ro-team-wrap');
+ if(!all.length){filt.classList.add('hidden');box.innerHTML='<p class="tiny">아직 명단이 없습니다. 위 “엑셀 붙여넣기”에서 저장해 주세요.</p>';return;}
+ if(q){
+  filt.classList.add('hidden');
+  const hit=all.filter(x=>roNorm(x.p.n).includes(q)||roNorm(x.p.t).includes(q)||roNorm(x.p.c).includes(q));
+  hit.sort((a,b)=>{const ea=[a.p.t,a.p.c].some(v=>roNorm(v)===q)?0:1,eb=[b.p.t,b.p.c].some(v=>roNorm(v)===q)?0:1;return ea-eb||String(a.p.n).localeCompare(String(b.p.n),'ko');});
+  const shown=hit.slice(0,20);
+  box.innerHTML=(shown.length?shown.map(x=>{const p=x.p;return '<div class="ro-hit"><div class="ro-lead">'+esc(x.lead)+(x.lead==='미지정'?'':' 팀')+'</div><div><small>T사번</small><b>'+esc(p.t||'—')+'</b></div><div class="ro-name"><small>이름</small><b>'+esc(p.n||'—')+'</b></div><div><small>근무시간</small><b>'+esc(p.h||'—')+'</b></div><div><small>시프트</small><b>'+esc(p.s||'—')+'</b></div><div><small>번호</small><b>'+esc(p.p||'—')+'</b></div>'+(p.p?'<button type="button" class="report-btn ro-copy" data-copy="'+esc(p.p)+'">번호 복사</button>':'<span></span>')+'</div>';}).join(''):'<p class="tiny">일치하는 인원이 없습니다.</p>')
+   +(hit.length>shown.length?'<p class="tiny">'+hit.length+'명이 일치합니다. 처음 '+shown.length+'명만 보여드립니다. 더 입력해서 좁혀 주세요.</p>':'');
+  return;
+ }
+ const groups=new Map(EDU_LEADERS.map(n=>[n,[]]));
+ for(const x of all){if(!groups.has(x.lead))groups.set(x.lead,[]);groups.get(x.lead).push(x);}
+ for(const [k,v] of [...groups]){if(!v.length)groups.delete(k);}
+ if(groups.has('미지정')){const v=groups.get('미지정');groups.delete('미지정');groups.set('미지정',v);}
+ let pick='';try{pick=localStorage.getItem('ginjo-ro-team')||'';}catch{}
+ if(!groups.has(pick))pick='';
+ filt.classList.remove('hidden');
+ $('ro-team').innerHTML='<option value="">전체 팀장</option>'+[...groups.keys()].map(n=>'<option value="'+esc(n)+'"'+(n===pick?' selected':'')+'>'+esc(n)+(n==='미지정'?'':' 팀')+' ('+groups.get(n).length+')</option>').join('');
+ const names=pick?[pick]:[...groups.keys()];
+ box.innerHTML='<div class="edu-teams ro-teams">'+names.map(n=>{
+  const rows=groups.get(n).slice().sort((a,b)=>String(a.p.n).localeCompare(String(b.p.n),'ko'));
+  return '<div class="edu-team"><div class="edu-team-head"><b>'+esc(n)+(n==='미지정'?' (데일리·엑셀 팀장 없음)':' 팀')+'</b><small>'+rows.length+'명</small></div><table class="ro-table"><thead><tr><th>T사번</th><th>이름</th><th>근무시간</th><th>시프트</th><th>번호</th></tr></thead><tbody>'
+   +rows.map(x=>'<tr><td>'+esc(x.p.t)+'</td><td><b>'+esc(x.p.n)+'</b></td><td>'+esc(x.p.h)+'</td><td>'+esc(x.p.s)+'</td><td>'+esc(x.p.p)+'</td></tr>').join('')
+   +'</tbody></table></div>';}).join('')+'</div>';
+}
+(function(){
+ $('ro-q').addEventListener('input',roRender);
+ $('ro-q').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';roRender();}});
+ $('ro-team').addEventListener('change',e=>{try{localStorage.setItem('ginjo-ro-team',e.target.value);}catch{}roRender();});
+ $('ro-save').addEventListener('click',()=>{
+  const r=roParse($('ro-raw').value);
+  if(!r.rows.length){$('ro-note').textContent='읽을 수 있는 줄이 없습니다. 엑셀에서 행을 복사해 그대로 붙여넣어 주세요. (열 순서: C사번 T사번 K사번 이름 근무시간 시프트 담당팀장 입사일 SM투입일 x y z 번호)';return;}
+  const cur=roLoad().rows.length;
+  if(cur&&!confirm('저장된 '+cur+'명을 새로 붙여넣은 '+r.rows.length+'명으로 바꿉니다. 계속할까요?'))return;
+  if(!roSave({at:Date.now(),rows:r.rows})){$('ro-note').textContent='저장하지 못했습니다. 브라우저 저장 공간을 확인하세요.';return;}
+  $('ro-raw').value='';$('ro-note').textContent=r.rows.length+'명 저장 완료'+(r.header?' · 제목 줄은 건너뜀':'')+(r.skipped?' · 빈 줄 '+r.skipped+'건 건너뜀':'');
+  try{logChange('재직 리스트 저장 · '+r.rows.length+'명');}catch{}
+  toast(r.rows.length+'명을 저장했습니다. 다른 팀장님 화면에도 공유됩니다.');roRender();roShare();
+ });
+ $('ro-clear').addEventListener('click',()=>{
+  if(!roLoad().rows.length){$('ro-raw').value='';return;}
+  if(!confirm('저장된 재직 리스트를 모두 지울까요?'))return;
+  roSave({at:Date.now(),rows:[]});
+  $('ro-note').textContent='비웠습니다.';roRender();roShare();
+ });
+ $('ro-list').addEventListener('click',e=>{
+  const b=e.target.closest('.ro-copy');if(!b)return;
+  const v=b.dataset.copy||'';
+  const done=()=>toast('번호를 복사했습니다.');
+  try{navigator.clipboard.writeText(v).then(done,()=>{const t=document.createElement('textarea');t.value=v;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch{}t.remove();});}catch{}
+ });
+ setInterval(()=>{if(state.view!=='roster')return;const a=document.activeElement;if(a&&(a===$('ro-q')||a===$('ro-raw')))return;try{roRender();}catch{}},60000);
 })();
 
 window.addEventListener('beforeunload',()=>bridge.stop());setInterval(updateBadge,30000);fillTime();
