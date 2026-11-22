@@ -378,7 +378,7 @@
 .rt-rules-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:0 12px 12px}
 .rt-rules-table td,.rt-rules-table th{padding:4px 8px;font-size:12px;text-align:center;border:1px solid #dfe6ed}
 .rt-rules-table th{background:#eef3f8}
-.rt-rules-table td.meal{text-align:left;min-width:160px}
+.rt-rules-table td.meal{text-align:left;min-width:160px}.rt-rules-table td.cn input.rt-n{width:56px;text-align:center}.rt-rules-table td.ovr{background:#fff8d6;font-weight:800}
 .rt-paste{display:grid;gap:6px;font-size:12px;align-content:start}
 .rt-paste label{font-weight:700;color:#526c82}
 .rt-paste textarea{min-height:120px;font-size:12px;padding:6px;border:1px solid var(--line);border-radius:6px;font-family:inherit}
@@ -1762,6 +1762,8 @@ function assignMeals(ruleValues, staffs, timeRowMap, mealOutputMap) {
         }
         if (candidates.length === 0)
             continue;
+        const headOverride = /^\d{1,3}$/.test(toText(ruleValues[i][3]).trim()) ? Number(toText(ruleValues[i][3]).trim()) : null;
+        const headBase = headOverride === null ? candidates.length : headOverride;
         // 각 구간 비율을 배정 전 같은 대상 인원에 적용하고 누적 반올림으로 잔여 인원을 배정한다.
         let cumulativePercent = 0;
         let allocatedCount = 0;
@@ -1775,7 +1777,7 @@ function assignMeals(ruleValues, staffs, timeRowMap, mealOutputMap) {
             if (meal.endHour - meal.startHour !== 1)
                 continue;
             cumulativePercent = Math.min(100, cumulativePercent + meal.percent);
-            const targetCount = Math.ceil(candidates.length * cumulativePercent / 100);
+            const targetCount = Math.ceil(headBase * cumulativePercent / 100);
             let takeCount = targetCount - allocatedCount;
             for (let j = 0; j < candidates.length && takeCount > 0; j++) {
                 const staff = candidates[j];
@@ -3814,7 +3816,7 @@ function normalize(input){
  let macros=null;if(Array.isArray(input.macros)){macros=input.macros.slice(0,1500).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,20),String(r[2]??'').slice(0,200),Number(r[3])||0,r[4]?1:0,String(r[5]??'').slice(0,20)]);if(!macros.length)macros=null;}
  let handover=null;if(Array.isArray(input.handover)){handover=input.handover.slice(0,200).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,10),String(r[2]??'').slice(0,40),String(r[3]??'').slice(0,10),String(r[4]??'').slice(0,500),String(r[5]??'').slice(0,30),String(r[6]??'').slice(0,200),r[7]?1:0,Number(r[8])||0,r[9]?1:0,Number(r[10])||0]);if(!handover.length)handover=null;} let hoLeaders=null;if(input.hoLeaders&&Array.isArray(input.hoLeaders.list)){hoLeaders={at:Number(input.hoLeaders.at)||0,list:input.hoLeaders.list.slice(0,30).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,20),String(r[1]??'').slice(0,20),r[2]?1:0])};if(!hoLeaders.list.length)hoLeaders=null;}
  let roster=null;if(input.roster&&typeof input.roster==='object'&&Array.isArray(input.roster.rows)){roster={at:Number(input.roster.at)||0,rows:input.roster.rows.slice(0,300).filter(r=>Array.isArray(r)).map(r=>[0,1,2,3,4,5].map(i=>String(r[i]??'').slice(0,30)).concat([String(r[6]??'').slice(0,20)]))};}
- let rtRules=null;if(input.rtRules&&typeof input.rtRules==='object'&&Array.isArray(input.rtRules.rows)){rtRules={at:Number(input.rtRules.at)||0,rows:input.rtRules.rows.slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,5).map(x=>String(x??'').slice(0,60))),preg:(Array.isArray(input.rtRules.preg)?input.rtRules.preg:[]).slice(0,20).map(x=>String(x).slice(0,20)),list:(Array.isArray(input.rtRules.list)?input.rtRules.list:[]).slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,3).map(x=>String(x??'').slice(0,10)))};}
+ let rtRules=null;if(input.rtRules&&typeof input.rtRules==='object'&&Array.isArray(input.rtRules.rows)){rtRules={at:Number(input.rtRules.at)||0,rows:input.rtRules.rows.slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,6).map(x=>String(x??'').slice(0,60))),preg:(Array.isArray(input.rtRules.preg)?input.rtRules.preg:[]).slice(0,20).map(x=>String(x).slice(0,20)),list:(Array.isArray(input.rtRules.list)?input.rtRules.list:[]).slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,3).map(x=>String(x??'').slice(0,10)))};}
  let stamps=null;if(input.stamps&&typeof input.stamps==='object'){const m=(o,lim)=>{const out={};for(const [k,v]of Object.entries(o||{}).slice(0,lim)){if(typeof k==='string'&&k.length<=140&&Array.isArray(v)&&Number.isFinite(Number(v[0])))out[k]=[Number(v[0]),v[1]?1:0];}return out;};const at={};for(const f of ['raw','training','exceptions','eduReport']){const n=Number(input.stamps.at?.[f]);if(Number.isFinite(n))at[f]=n;}stamps={ex:m(input.stamps.ex,200),tr:m(input.stamps.tr,200),aj:m(input.stamps.aj,200),at};}
  return {type:'ginjo-shared-input',version:1,date,calculationAt,raw,exclusions,training:names(input.training,'교육',26),exceptions:names(input.exceptions,'일반 예외',10),trainees,edu,...(eduReport?{eduReport}:{}),...(ot?{ot}:{}),...(hourLog?{hourLog}:{}),...(stamps?{stamps}:{}),...(changes?{changes}:{}),...(rt?{rt}:{}),...(rtRules?{rtRules}:{}),...(macros?{macros}:{}),...(handover?{handover}:{}),...(hoLeaders?{hoLeaders}:{}),...(roster?{roster}:{}),...(extMap?{extMap}:{}),...(extSrc?{extSrc}:{}),...(adjust.length?{adjust}:{}),...(dailyEdits?{dailyEdits}:{})};
 }
@@ -5407,7 +5409,7 @@ function renderRTDates(){const sel=$('rt-date');if(!sel)return;const list=rtDate
 function rtHash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return (h>>>0).toString(36)+'.'+s.length.toString(36);}
 let rtCache={key:'',res:null};const rtCacheMap=new Map();
 function rtCompute(date){const rules=rtRulesLoad(),rows=rtStaffRows(date);if(!rows.length)throw Error('이 날짜의 데일리 명단이 없습니다. 데일리 스크립트를 최신으로 바꿨는지 확인하세요.');const key=JSON.stringify([rows,rules.rows,rules.preg]);if(rtCacheMap.has(key))return rtCacheMap.get(key);
- GinjoRealtime.setPregnancy(rules.preg);const res=GinjoRealtime.plan(rules.rows.map(r=>[r[1],r[2],r[3],'',r[4]]),rows);res.hash=rtHash(key);rtCacheMap.set(key,res);if(rtCacheMap.size>6)rtCacheMap.delete(rtCacheMap.keys().next().value);return res;}
+ GinjoRealtime.setPregnancy(rules.preg);const res=GinjoRealtime.plan(rules.rows.map(r=>[r[1],r[2],r[3],r[5]||'',r[4]]),rows);res.hash=rtHash(key);rtCacheMap.set(key,res);if(rtCacheMap.size>6)rtCacheMap.delete(rtCacheMap.keys().next().value);return res;}
 const rtShowLive={on:false};const rtEdit={on:false,date:''};let rtRulesEditing=false;
 function rtHM(iso){const t=Date.parse(iso||'');return Number.isFinite(t)?new Date(t+9*3600000).toISOString().slice(11,16):'—';}
 function rtNorm(s){return String(s||'').trim().split(/\s+/).filter(Boolean).sort().join(' ');}
@@ -5442,7 +5444,7 @@ function renderRT(){
  $('rt-shift').innerHTML=`<table class="data rt-shift-table"><thead><tr><th>start</th><th>End</th><th>H</th><th>인원</th></tr></thead><tbody>${rules.list.map((r,i)=>`<tr class="${q[i]===0?'zero':''}"><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${r[2]!==''?esc(r[2])+'H':''}</td><td><b>${q[i]}</b></td></tr>`).join('')}<tr><td colspan="3">합계</td><td><b>${q.reduce((a,x)=>a+(Number(x)||0),0)}</b></td></tr>${extra.map(x=>`<tr class="extra" title="목록에 없는 시프트"><td>${x.start}</td><td>${x.end}</td><td>${x.hours}H</td><td><b>${x.count}</b></td></tr>`).join('')}</tbody></table>${extra.length?'<div class="tiny">노란 줄은 시프트 인원 목록에 없는 조합입니다.</div>':''}`;
 }
 function renderRTRules(rules){const box=$('rt-rules');if(!box)return;const cnt=new Map();try{for(const x of (rtCompute(rtSel()).shiftCounts||[]))cnt.set(x.start+'|'+x.hours,(cnt.get(x.start+'|'+x.hours)||0)+x.count);}catch{}
- box.innerHTML=`<table class="rt-rules-table"><thead><tr><th>구분</th><th>start</th><th>End</th><th>hrs</th><th>인원</th><th>식사시간</th></tr></thead><tbody>${rules.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td>${cnt.get(Number(r[1])+'|'+Number(r[3]))||0}</td><td class="meal">${esc(r[4])}</td></tr>`).join('')}</tbody></table>`;
+ box.innerHTML=`<table class="rt-rules-table"><thead><tr><th>구분</th><th>start</th><th>End</th><th>hrs</th><th>인원</th><th>식사시간</th></tr></thead><tbody>${rules.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td><td class="cn${String(r[5]??'').trim()!==''?' ovr':''}"${String(r[5]??'').trim()!==''?' title="직접 입력한 인원 (비우면 데일리 기준 자동)"':''}>${String(r[5]??'').trim()!==''?esc(r[5]):(cnt.get(Number(r[1])+'|'+Number(r[3]))||0)}</td><td class="meal">${esc(r[4])}</td></tr>`).join('')}</tbody></table>`;
  const pr=$('rt-preg');if(pr&&document.activeElement!==pr)pr.value=(rules.preg||[]).join(', ');
  const sl=$('rt-shiftlist-paste');if(sl&&document.activeElement!==sl&&!sl.dataset.dirty)sl.value=rules.list.map(r=>r.join('\t')).join('\n');
  $('rt-rules-at').textContent=rules.at?'저장 '+rtHM(new Date(rules.at).toISOString()):'기본값 사용 중';}
@@ -5470,12 +5472,13 @@ $('rt-recalc').addEventListener('click',async()=>{const c0=rtCurrent();if(!c0)re
   rtShowLive.on=false;logChange('실시간 배정 재산정 · '+rtDateLabel(c.date));renderRT();try{renderRtDuty();}catch{}toast('지금 데일리 기준으로 다시 배정해서 확정했습니다.');try{autoMarkUnsaved();await autoShareAfter();}catch{}},30);});
 $('rt-rules-edit').addEventListener('click',async()=>{
  if(!rtRulesEditing){rtRulesEditing=true;$('rt-rules-box').open=true;const rules=rtRulesLoad();renderRTRules(rules);
-  document.querySelectorAll('#rt-rules td.meal').forEach((td,i)=>{const v=rules.rows[i]?.[4]||'';td.innerHTML=`<input data-i="${i}" value="${esc(v)}" data-orig="${esc(v)}" placeholder="예: 14-15 100%">`;});
-  $('rt-rules-edit').textContent='등록';$('rt-rules-edit').classList.add('save');$('rt-rules-cancel').classList.remove('hidden');$('rt-rules-edit-msg').textContent='고친 뒤 등록을 누르세요. 엑셀에서 식사시간 열(또는 표 줄)을 복사해 첫 칸에 붙여넣으면 아래로 채워집니다.';document.querySelector('#rt-rules input')?.focus();return;}
- const cur=rtRulesLoad(),rows=cur.rows.map(r=>r.slice());let n=0;document.querySelectorAll('#rt-rules input[data-i]').forEach(i=>{const k=Number(i.dataset.i);if(rows[k]){const v=i.value.trim();if(v!==String(rows[k][4]||'').trim())n++;rows[k][4]=v;}});
+  document.querySelectorAll('#rt-rules td.cn').forEach((td,i)=>{const v=String(rules.rows[i]?.[5]??'').trim(),auto=td.classList.contains('ovr')?'':td.textContent.trim();td.classList.remove('ovr');td.innerHTML=`<input class="rt-n" data-i="${i}" data-k="n" inputmode="numeric" value="${esc(v)}" data-orig="${esc(v)}" placeholder="${esc(auto)}" title="비우면 데일리 기준 자동 인원">`;});
+  document.querySelectorAll('#rt-rules td.meal').forEach((td,i)=>{const v=rules.rows[i]?.[4]||'';td.innerHTML=`<input data-i="${i}" data-k="m" value="${esc(v)}" data-orig="${esc(v)}" placeholder="예: 14-15 100%">`;});
+  $('rt-rules-edit').textContent='등록';$('rt-rules-edit').classList.add('save');$('rt-rules-cancel').classList.remove('hidden');$('rt-rules-edit-msg').textContent='고친 뒤 등록을 누르세요. 엑셀에서 인원·식사시간 2열(또는 식사시간 1열)을 복사해 첫 칸에 붙여넣으면 아래로 채워집니다. 인원을 비우면 데일리 기준 자동입니다.';document.querySelector('#rt-rules input')?.focus();return;}
+ const cur=rtRulesLoad(),rows=cur.rows.map(r=>r.slice());let n=0;document.querySelectorAll('#rt-rules input[data-i]').forEach(i=>{const k=Number(i.dataset.i);if(rows[k]){const v=i.value.trim();const idx=i.dataset.k==='n'?5:4;if(v!==String(rows[k][idx]??'').trim())n++;while(rows[k].length<=idx)rows[k].push('');rows[k][idx]=v;}});
  rtRulesEditing=false;$('rt-rules-edit').textContent='✎ 편집';$('rt-rules-edit').classList.remove('save');$('rt-rules-cancel').classList.add('hidden');$('rt-rules-edit-msg').textContent='식사시간 칸을 직접 고치려면 편집을 누르세요.';
- if(!n){renderRT();toast('바뀐 식사시간이 없습니다.');return;}
- rtRulesSave({...cur,at:Date.now(),rows});rtCacheMap.clear();logChange('식사 규칙 편집 등록 ('+n+'칸)');renderRT();toast(`식사시간 ${n}칸을 등록했습니다. 새 규칙은 재산정하거나 다시 확정할 때 반영됩니다.`);try{autoMarkUnsaved();await autoShareAfter();}catch{}});
+ if(!n){renderRT();toast('바뀐 내용이 없습니다.');return;}
+ rtRulesSave({...cur,at:Date.now(),rows});rtCacheMap.clear();logChange('식사 규칙 편집 등록 ('+n+'칸)');renderRT();toast(`인원·식사시간 ${n}칸을 등록했습니다. 새 규칙은 재산정하거나 다시 확정할 때 반영됩니다.`);try{autoMarkUnsaved();await autoShareAfter();}catch{}});
 $('rt-rules-cancel').addEventListener('click',()=>{rtRulesEditing=false;$('rt-rules-edit').textContent='✎ 편집';$('rt-rules-edit').classList.remove('save');$('rt-rules-cancel').classList.add('hidden');$('rt-rules-edit-msg').textContent='식사시간 칸을 직접 고치려면 편집을 누르세요.';renderRTRules(rtRulesLoad());});
 $('rt-rules').addEventListener('input',e=>{const i=e.target.closest('input[data-i]');if(i)i.classList.toggle('changed',i.value.trim()!==i.dataset.orig.trim());});
 
@@ -5488,7 +5491,19 @@ function rtSpreadPaste(e,sel,lastCell){const el=e.target;if(!el.matches(sel))ret
  let i=same.indexOf(el);for(const l of lines){const target=same[i++];if(!target)break;target.value=pick(l);target.dispatchEvent(new Event('input',{bubbles:true}));}
  toast(`${Math.min(lines.length,same.length-same.indexOf(el))}칸에 붙여넣었습니다.`);}
 $('rt-body').addEventListener('paste',e=>rtSpreadPaste(e,'.rt-in',false));
-$('rt-rules').addEventListener('paste',e=>rtSpreadPaste(e,'input[data-i]',true));
+$('rt-rules').addEventListener('paste',e=>{
+ const el=e.target;if(!el.matches||!el.matches('input[data-i]'))return;
+ const txt=(e.clipboardData||window.clipboardData)?.getData('text')||'';
+ const lines=txt.replace(/\r/g,'').split('\n');while(lines.length&&lines[lines.length-1]==='')lines.pop();
+ const cells=lines.map(l=>l.split('\t').map(x=>x.replace(/^"|"$/g,'').trim()));
+ const two=cells.length&&cells.every(c=>c.length>=2)&&cells.every(c=>c[c.length-2]===''||/^\d{1,3}$/.test(c[c.length-2]));
+ if(!two){if(el.dataset.k==='n'){e.preventDefault();const ns=[...document.querySelectorAll('#rt-rules input[data-k="n"]')];let i=ns.indexOf(el);for(const c of cells){const t=ns[i++];if(!t)break;t.value=c[c.length-1].replace(/[^\d]/g,'');t.dispatchEvent(new Event('input',{bubbles:true}));}toast('인원 '+Math.min(cells.length,ns.length)+'칸에 붙여넣었습니다.');return;}rtSpreadPaste(e,'input[data-i][data-k="m"]',true);return;}
+ e.preventDefault();
+ const ns=[...document.querySelectorAll('#rt-rules input[data-k="n"]')],ms=[...document.querySelectorAll('#rt-rules input[data-k="m"]')];
+ let i=Number(el.dataset.i);let cnt=0;
+ for(const c of cells){const nIn=ns[i],mIn=ms[i];if(!nIn||!mIn)break;nIn.value=c[c.length-2];mIn.value=c[c.length-1];nIn.dispatchEvent(new Event('input',{bubbles:true}));mIn.dispatchEvent(new Event('input',{bubbles:true}));i++;cnt++;}
+ toast(cnt+'줄(인원·식사시간)을 붙여넣었습니다. 등록을 눌러 저장하세요.');
+});
 $('rt-toggle').addEventListener('click',()=>{rtShowLive.on=!rtShowLive.on;renderRT();});
 $('rt-date').addEventListener('change',e=>{rtSelDate=e.target.value;rtShowLive.on=false;rtEdit.on=false;state.rtCmp={};$('rt-cmp-c').value='';$('rt-cmp-l').value='';$('rt-body').innerHTML='<div class="empty">계산 중…</div>';setTimeout(()=>{try{renderRT();}catch(err){console.error(err);}},30);});
 $('rt-confirm').addEventListener('click',async()=>{const c=rtCurrent();
@@ -5848,7 +5863,18 @@ function mergeRoster(input){
  const act=document.activeElement;
  if(state.view==='roster'&&!(act&&(act===$('ro-q')||act===$('ro-raw'))))roRender();
 }
-function roShare(){try{autoMarkUnsaved();Promise.resolve(autoShareAfter()).catch(()=>{});}catch{}}
+async function roShare(){
+ const say=(t,bad)=>{try{const n=$('ro-note');n.textContent=t;n.style.color=bad?'#c0392b':'';}catch{}if(bad){try{toast(t);}catch{}}};
+ try{
+  if(!APP_CONFIG.sharedEnabled)return say('공유 저장 기능이 꺼져 있어서 이 PC에만 저장됐습니다.',true);
+  if(state.demo)return say('샘플 화면이라 공유되지 않습니다.',true);
+  if(!state.daily)return say('데일리를 아직 불러오지 못해서 공유되지 않았습니다. 데일리가 불러와진 뒤 다시 저장해 주세요.',true);
+  if(state.dailyDraftDirty)return say('데일리 수정 중이라 공유되지 않았습니다. 데일리 수정을 끝낸 뒤 다시 저장해 주세요.',true);
+  if(roShareOver)return say('명단이 커서 공유되지 않습니다. (이 PC에만 저장)',true);
+  autoMarkUnsaved();await autoShareAfter();
+  setTimeout(()=>{try{const s=$('issue-save-state'),t=(s&&s.textContent)||'';if(s&&s.className==='ok')say('공유 저장 완료 · '+t+' (다른 팀장님은 새 버전 화면에서 몇 분 안에 보입니다)');else say('공유 저장이 안 됐습니다: '+(t||'공유 저장 폴더 연결을 확인하세요.')+' — 이 PC에만 저장된 상태입니다.',true);}catch{}},1500);
+ }catch(err){say('공유 저장 중 오류: '+(err&&err.message||err),true);}
+}
 function roPhone(v){
  const raw=String(v||'').trim();let s=raw.replace(/[^\d]/g,'');
  if(!s)return raw;
