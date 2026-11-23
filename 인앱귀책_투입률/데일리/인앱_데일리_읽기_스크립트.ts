@@ -35,9 +35,8 @@ function main(
     });
   }
 
-  const found = findSheet(workbook, at.date);
-  const name = found.name;
-  const sheet = found.sheet;
+  const name = findSheetName(workbook, at.date);
+  const sheet = workbook.getWorksheet(name);
 
   if (!sheet) {
     throw new Error("원본에 " + sheetName(at.date) + " 시트가 없습니다. 원본 월 파일 선택을 확인하세요.");
@@ -139,9 +138,8 @@ function readForecast(workbook: ExcelScript.Workbook, today: string): { forecast
 
   for (let n = 1; n <= 9; n++) {
     const date = addDays(today, n);
-    const found = findSheet(workbook, date);
-    const name = found.name;
-    const sheet = found.sheet;
+    const name = findSheetName(workbook, date);
+    const sheet = workbook.getWorksheet(name);
 
     if (!sheet) {
       forecast.push({ date: date, sheetName: name, error: "시트 없음" });
@@ -188,14 +186,15 @@ function sheetName(date: string): string {
   return 시트머리말 + " " + date.slice(5, 7) + "(" + Number(date.slice(8, 10)) + ")";
 }
 
-// 시트머리말 시트를 먼저 찾고, 없으면 예전머리말 시트를 찾습니다.
-function findSheet(workbook: ExcelScript.Workbook, date: string): { sheet: ExcelScript.Worksheet | undefined; name: string } {
+// 시트머리말 시트를 먼저 찾고, 없으면 예전머리말 시트를 찾습니다. (시트 이름만 돌려줍니다)
+function findSheetName(workbook: ExcelScript.Workbook, date: string): string {
   const name = sheetName(date);
-  const sheet = workbook.getWorksheet(name);
-  if (sheet || !예전머리말) return { sheet: sheet, name: name };
-  const oldName = 예전머리말 + " " + date.slice(5, 7) + "(" + Number(date.slice(8, 10)) + ")";
-  const oldSheet = workbook.getWorksheet(oldName);
-  return oldSheet ? { sheet: oldSheet, name: oldName } : { sheet: undefined, name: name };
+  if (workbook.getWorksheet(name)) return name;
+  if (예전머리말) {
+    const oldName = 예전머리말 + " " + date.slice(5, 7) + "(" + Number(date.slice(8, 10)) + ")";
+    if (workbook.getWorksheet(oldName)) return oldName;
+  }
+  return name;
 }
 
 function addDays(date: string, n: number): string {
