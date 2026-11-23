@@ -10,6 +10,11 @@
 const 시트머리말 = "귀책";
 // 위 이름의 시트가 없으면 예전 이름("긴급 11(23)")도 찾아봅니다. 필요 없으면 ""로 비워 두세요.
 const 예전머리말 = "긴급";
+// 오늘 시트에 엑셀 오류 셀(#N/A 등)이 있을 때: true면 그 칸만 빈칸으로 두고 계속 진행하며 warnings에 기록합니다.
+// false면 예전처럼 실행을 멈춥니다. (멈추면 데일리.json이 갱신되지 않습니다)
+const 오류셀허용 = true;
+// 이 스크립트 버전입니다. 데일리.json 안의 scriptVersion 으로 어떤 스크립트가 돌았는지 확인할 수 있습니다.
+const 스크립트버전 = "20261124.1";
 
 function main(
   workbook: ExcelScript.Workbook,
@@ -42,16 +47,30 @@ function main(
     throw new Error("원본에 " + sheetName(at.date) + " 시트가 없습니다. 원본 월 파일 선택을 확인하세요.");
   }
 
+  const startedAt = Date.now();
+  const warnings: string[] = [];
   const today = readBlocks(sheet);
   if (today.bad.length > 0) {
-    throw new Error(name + "!" + today.bad.join(", ") + "에 엑셀 오류가 있습니다.");
+    if (!오류셀허용) {
+      throw new Error(name + "!" + today.bad.join(", ") + "에 엑셀 오류가 있습니다.");
+    }
+    for (const b of today.blocks) {
+      b.values = b.values.map(row => row.map(v => (isErr(v) ? "" : v)));
+    }
+    warnings.push(name + "!" + today.bad.join(", ") + " 엑셀 오류 칸을 빈칸으로 처리했습니다.");
   }
   if (!today.blocks[0].values.some(row => String(row[0]).trim())) {
     throw new Error("데일리 사번(C열)이 비어 있습니다.");
   }
 
   // 운영일 기준 +1~+9일 (내일은 시트 전체도 같이)
-  const r = readForecast(workbook, at.date);
+  // 향후 예상을 읽다가 실패해도 오늘 데일리 갱신은 계속합니다.
+  let r: { forecast: ForecastItem[]; next: FullDay | undefined } = { forecast: [], next: undefined };
+  try {
+    r = readForecast(workbook, at.date);
+  } catch (error) {
+    warnings.push("향후 예상을 읽지 못했습니다: " + String(error));
+  }
   const forecast = r.forecast;
   let next: FullDay | undefined = r.next;
 
@@ -78,7 +97,11 @@ function main(
     sourceSheet: name,
     blocks: today.blocks,
     forecast: forecast,
-    next: next
+    next: next,
+    scriptVersion: 스크립트버전,
+    readMs: Date.now() - startedAt,
+    lastRow: lastFilledRow(today.blocks[0].values),
+    warnings: warnings
   });
 }
 
@@ -180,6 +203,16 @@ function readForecast(workbook: ExcelScript.Workbook, today: string): { forecast
   }
 
   return { forecast, next };
+}
+
+// 사번(C열)이 있는 마지막 행 번호입니다. (점검용)
+function lastFilledRow(values: Cell[][]): number {
+  let last = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = String(values[i][0] ?? "").trim();
+    if (v && v !== "-") last = i + 6;
+  }
+  return last;
 }
 
 function sheetName(date: string): string {
