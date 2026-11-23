@@ -108,17 +108,17 @@ function hasErr(rows: Cell[][]): boolean {
 }
 
 // 한 시트를 2번만 읽어서 예전과 같은 7개 블록으로 나눕니다.
-// C6:R140 → C(0) E:G(2~4) I:K(6~8) L:M(9~10) R(15)
+// C6:R180 → C(0) E:G(2~4) I:K(6~8) L:M(9~10) R(15)
 // AY6:CD29 → AY:BC(0~4) BL:CD(13~31)
 function readBlocks(sheet: ExcelScript.Worksheet): { blocks: { address: string; values: Cell[][] }[]; bad: string[] } {
-  const body = sheet.getRange("C6:R140").getValues() as Cell[][];
+  const body = sheet.getRange("C6:R180").getValues() as Cell[][];
   const hour = sheet.getRange("AY6:CD29").getValues() as Cell[][];
   const blocks = [
-    { address: "C6:C140", values: cols(body, 0, 0) },
-    { address: "E6:G140", values: cols(body, 2, 4) },
-    { address: "I6:K140", values: cols(body, 6, 8) },
-    { address: "L6:M140", values: cols(body, 9, 10) },
-    { address: "R6:R140", values: cols(body, 15, 15) },
+    { address: "C6:C180", values: cols(body, 0, 0) },
+    { address: "E6:G180", values: cols(body, 2, 4) },
+    { address: "I6:K180", values: cols(body, 6, 8) },
+    { address: "L6:M180", values: cols(body, 9, 10) },
+    { address: "R6:R180", values: cols(body, 15, 15) },
     { address: "AY6:BC29", values: cols(hour, 0, 4) },
     { address: "BL6:CD29", values: cols(hour, 13, 31) }
   ];
@@ -144,7 +144,7 @@ function readForecast(workbook: ExcelScript.Workbook, today: string): { forecast
     const get = (address: string) => day.blocks.find(b => b.address === address)!.values;
 
     // 실시간 배정용 명단: E(이름) G(시프트) J(근무시간) — 이름 있는 행만
-    const eg = get("E6:G140"), ik = get("I6:K140");
+    const eg = get("E6:G180"), ik = get("I6:K180");
     const staff: Cell[][] = [];
     for (let i = 0; i < eg.length; i++) {
       if (String(eg[i][0] ?? "").trim() === "") continue;
@@ -152,7 +152,7 @@ function readForecast(workbook: ExcelScript.Workbook, today: string): { forecast
     }
 
     // 내일 시트는 05:00 바로 넘어가도록 전체를 담아 둡니다.
-    if (n === 1 && day.bad.length === 0 && get("C6:C140").some(row => String(row[0]).trim())) {
+    if (n === 1 && day.bad.length === 0 && get("C6:C180").some(row => String(row[0]).trim())) {
       next = { date: date, sourceSheet: name, blocks: day.blocks };
     }
 
