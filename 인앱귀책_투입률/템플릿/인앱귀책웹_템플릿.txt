@@ -4856,7 +4856,7 @@ function renderTraineeSoon(){
  const today=traineeToday(),soon=traineesFromUI().map(t=>({...t,s:traineeStatus(t,today)})).filter(t=>t.s.k==='soon');
  const items=[];
  if(soon.length)items.push(`<span class="notice-item trainee">신입 교육 종료 임박 · ${soon.map(t=>esc(t.name)+' '+(dayDiff(t.end,today)===0?'오늘':'D-'+dayDiff(t.end,today))+' ('+t.end.slice(5).replace('-','/')+')').join(', ')}</span>`);
- const cap=Date.parse(state.daily?.capturedAt||'');if(APP_CONFIG.embedded&&Number.isFinite(cap)){const age=Math.floor((Date.now()-cap)/60000);if(age>=5)items.unshift(`<span class="notice-item stale">데일리 갱신이 ${age}분째 멈춤 · Power Automate 데일리 플로우 실행 기록을 확인하세요 (원본 생성 ${new Date(cap+9*3600000).toISOString().slice(11,16)})</span>`);}
+ const cap=Date.parse(state.daily?.capturedAt||'');if(APP_CONFIG.embedded&&Number.isFinite(cap)){const age=Math.floor((Date.now()-cap)/60000);if(age>=10)items.unshift(`<span class="notice-item stale">데일리 갱신이 ${age}분째 멈춤 · Power Automate 데일리 플로우 실행 기록을 확인하세요 (원본 생성 ${new Date(cap+9*3600000).toISOString().slice(11,16)})</span>`);}
  try{const late=otLateList();if(late.length)items.unshift(`<span class="notice-item otlate">${esc(otLateText(late))}</span>`);const nw=nextHourWarn();if(nw)items.unshift(`<span class="notice-item nexthour${nw.over?' over':''}">⏰ ${esc(nw.text)}</span>`);}catch{}
  box.innerHTML=items.join('');box.classList.toggle('hidden',!items.length);
 }
