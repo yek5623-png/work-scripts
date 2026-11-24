@@ -1,13 +1,13 @@
 <!doctype html>
-<!-- INAPP_GWIJAEK_TEMPLATE_SOURCE / 20261125.6
+<!-- INAPP_GWIJAEK_TEMPLATE_SOURCE / 20261125.7
 적용 대상: Power Automate의 Read_template가 읽는 인앱귀책웹_템플릿.txt 원본.
 이 파일 하나가 인앱 화면과 귀책 화면을 모두 담습니다. (안쪽에 각각의 전체 화면이 들어 있습니다)
 데이터 자리: 아래 SHELL_DATA 의 두 자리(인앱용, 귀책용)를 Power Automate가 각각 바꿔 넣습니다. 이 자리 문구는 파일 안에서 한 번씩만 써야 합니다.
 화면 코드는 <script type="text/plain" id="inner-src"> 안쪽에 있습니다. 거기서 </script> 글자는 <\/script> 로 적혀 있습니다. 고칠 때 그대로 지켜주세요.
-20261125.6: 긴조웹_템플릿.txt(20261118.75 + 개발 테스트 로그)에서 분리. 인앱/귀책 2개 화면, 사이드바 묶음, 매크로 검색 제거, 외부 팀즈 주석, 마감업무 묶음 제거,
+20261125.7: 긴조웹_템플릿.txt(20261118.75 + 개발 테스트 로그)에서 분리. 인앱/귀책 2개 화면, 사이드바 묶음, 매크로 검색 제거, 외부 팀즈 주석, 마감업무 묶음 제거,
         입력·저장값(브라우저 저장소·공유 저장 연결)을 인앱/귀책에 따로 보관.
 -->
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';img-src data:;connect-src 'self';frame-src about: data:;base-uri 'none';form-action 'none'"><meta name="ginjo-build" content="20261125.6"><title>투입률</title><style>:root{color-scheme:light;--side:#f7f4e4;--line:#e6dcc0;--ink:#5f4f36;--mut:#8f7d5f;--hover:#efe8cf;--act:#e3d6ae;--accent:#2f6fd6;--bg:#f3ede2}
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';img-src data:;connect-src 'self';frame-src about: data:;base-uri 'none';form-action 'none'"><meta name="ginjo-build" content="20261125.7"><title>투입률</title><style>:root{color-scheme:light;--side:#f7f4e4;--line:#e6dcc0;--ink:#5f4f36;--mut:#8f7d5f;--hover:#efe8cf;--act:#e3d6ae;--accent:#2f6fd6;--bg:#f3ede2}
 html.dark{color-scheme:dark;--side:#151c26;--line:#27323f;--ink:#e0e8f1;--mut:#a3b1c2;--hover:#1e2a3a;--act:#2a3b50;--bg:#0b1017}
 *{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg)}
 body{display:grid;grid-template-columns:136px minmax(0,1fr);font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:var(--ink)}
@@ -970,19 +970,19 @@ html.dark .theme-btn{background:#1c273a;color:#ffdf7f;border-color:#3a4c66}
 html.dark{--bg:#0c1017}
 html.dark .slim-side{background:#09111b}
 
-.leave-fly{display:none;position:absolute;left:100%;margin-left:6px;width:300px;z-index:90;padding:10px 12px 12px;border-radius:10px;background:#203a55;color:#dce8f4;filter:drop-shadow(6px 6px 14px rgba(10,25,45,.35));font-size:12px;text-align:left}
+.leave-fly{display:none;position:absolute;left:100%;margin-left:6px;z-index:90;border-radius:10px;background:#203a55;filter:drop-shadow(6px 6px 14px rgba(10,25,45,.35))}
 .leave-fly.on{display:block}.leave-fly::before{content:'';position:absolute;inset:0 100% 0 -8px;width:8px}
-.leave-fly h4{margin:0 0 8px;font-size:12.5px;color:#fff}.leave-fly .lv-row{display:grid;grid-template-columns:1fr 54px 54px;gap:5px;margin-bottom:5px}
-.leave-fly input{box-sizing:border-box;width:100%;min-width:0;padding:6px 7px;border-radius:6px;border:1px solid #4a6a8a;background:rgba(255,255,255,.08);color:inherit;font:inherit}
-.leave-fly .lv-days{margin:2px 0 7px;font-weight:800;color:#ffd34d;min-height:16px}
-.slim-side #nav .leave-fly button{border:0;border-radius:6px;padding:7px 10px;font:inherit;font-weight:800;cursor:pointer;background:#3a5f86;color:#fff;min-width:0;white-space:nowrap}
-.slim-side #nav .leave-fly button.lv-final{width:100%;margin-top:8px;background:#2f6fd6}.slim-side #nav .leave-fly button.lv-final:disabled{opacity:.45;cursor:default}
-.leave-fly .lv-list{max-height:210px;overflow:auto;display:grid;gap:4px}.leave-fly .lv-item{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;background:rgba(255,255,255,.07)}
-.leave-fly .lv-item small{display:block;opacity:.8}.leave-fly .lv-item.old{opacity:.5}.slim-side #nav .leave-fly .lv-item button{padding:2px 7px;background:transparent;border:1px solid #6a88a6;font-weight:600}
-.leave-fly .lv-state{margin-top:6px;font-size:11px;opacity:.9;line-height:1.4}.leave-fly .lv-state.bad{color:#ff9b8f}.leave-fly .lv-state.warn{color:#ffd34d}
+.slim-side #nav .leave-fly button{display:block;width:100%;border-radius:10px;margin:0;padding:10px 16px;background:transparent;color:#dce8f4;font-size:12.5px;font-weight:800;white-space:nowrap;text-align:left}
+.slim-side #nav .leave-fly button:hover{background:#2f5577;color:#fff}.slim-side #nav .leave-fly button.active{background:#2f6fd6;color:#fff}
+html:not(.dark) .leave-fly{background:#f5f2de;filter:drop-shadow(6px 6px 14px rgba(90,70,40,.18))}html:not(.dark) .slim-side #nav .leave-fly button{color:#4a3b28}html:not(.dark) .slim-side #nav .leave-fly button:hover{background:#f2edd2;color:#2f2416}
+html.dark .leave-fly{background:#0d1722}html.dark .slim-side #nav .leave-fly button{color:#e6eef7}html.dark .slim-side #nav .leave-fly button:hover{background:#1f384f;color:#fff}
 #nav{position:relative}
-html:not(.dark) .leave-fly{background:#f5f2de;color:#4a3b28;filter:drop-shadow(6px 6px 14px rgba(90,70,40,.18))}html:not(.dark) .leave-fly h4{color:#2f2416}html:not(.dark) .leave-fly input{border-color:#d9cda6;background:#fff}html:not(.dark) .leave-fly .lv-days{color:#9a6a1c}html:not(.dark) .slim-side #nav .leave-fly button{background:#e6dcb8;color:#2f2416}html:not(.dark) .slim-side #nav .leave-fly button.lv-final{background:#2f6fd6;color:#fff}html:not(.dark) .leave-fly .lv-item{background:rgba(0,0,0,.05)}html:not(.dark) .slim-side #nav .leave-fly .lv-item button{border-color:#c9bb92}html:not(.dark) .leave-fly .lv-state.bad{color:#b83b2e}html:not(.dark) .leave-fly .lv-state.warn{color:#9a6a1c}
-html.dark .leave-fly{background:#0d1722;color:#e6eef7}html.dark .leave-fly h4{color:#fff}
+.lv-tabs{display:flex;gap:6px;margin:4px 0 12px}.lv-tab{border:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 18px;border-radius:8px;font:inherit;font-weight:800;cursor:pointer}.lv-tab.on{background:#2f6fd6;border-color:#2f6fd6;color:#fff}
+.lv-form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;padding:12px;border:1px solid var(--line);border-radius:10px;margin-bottom:12px}.lv-form label{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--muted)}.lv-form input{padding:8px 9px;border:1px solid var(--line);border-radius:7px;font:inherit;background:transparent;color:inherit}
+.lv-days{flex:1 0 100%;font-weight:800;color:#9a6a1c;min-height:18px}.lv-hint{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.5}
+.lv-item{display:flex;align-items:center;gap:14px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px}.lv-item b{min-width:110px}.lv-item small{color:var(--muted)}.lv-item.old{opacity:.5}.lv-item .lv-st{margin-left:auto;font-weight:800;font-size:12px}
+.lv-final-row{display:flex;align-items:center;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.lv-state{font-size:12px;color:var(--muted)}.lv-state.bad{color:#c0392b}.lv-state.warn{color:#9a6a1c}
+.ro-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#f3e3b8;color:#7a5200;font-size:11px;font-weight:800}
 .slim-side .nav-group{margin-top:auto}.slim-side .nav-edit-box{margin-top:0;padding-top:6px}
 .ho-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.ho-tools input{font-size:12px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;width:150px;font-family:inherit;background:transparent;color:inherit}
 .ho-tools .quiet.on{background:#2f6fd6;color:#fff;border-color:#2f6fd6}
@@ -1079,7 +1079,7 @@ html.dark .dev-k.error{background:#3a1c19;color:#f4bdb7}html.dark .dev-k.share{b
 <div class="ext-outs"><div class="ext-out wide"><div class="ext-out-head"><b>현 시간 출근인원</b><span class="tiny" id="ext-now"></span><button type="button" class="report-btn ext-pop" id="ext-popup">⧉ 따로 띄우기</button><button type="button" class="report-btn" data-ext-copy="j" style="margin-left:0">복사</button></div><pre id="ext-j"></pre></div>
 <div class="ext-out wide"><div class="ext-out-head"><b>부서별 전체</b><button type="button" class="report-btn" data-ext-copy="f">복사</button></div><pre id="ext-f"></pre></div></div></div>
 <details class="rt-box" id="ext-map-box"><summary>이름 매핑 (한글 → 영문 팀즈 이름) <span class="tiny" id="ext-map-count"></span></summary><div class="ext-map-body"><div><div class="ext-map-tools"><input id="ext-map-q" placeholder="이름 검색"><span class="tiny">엑셀 M:N 두 열(한글 이름, 영문 이름)을 복사해 오른쪽에 붙여넣으면 한 번에 등록됩니다.</span></div><div class="ext-map-list" id="ext-map-list"></div></div><div class="rt-paste"><label for="ext-map-paste">여러 명 붙여넣기 · 엑셀 M:N 두 열 그대로 또는 "한글이름 영문이름"</label><textarea id="ext-map-paste" spellcheck="false" placeholder="홍길동 Gildong Hong&#10;김철수 Cheolsu Kim"></textarea><div class="rt-paste-actions"><button type="button" class="primary" id="ext-map-save">등록</button><span class="tiny" id="ext-map-msg"></span></div><label>한 명 추가</label><div class="ext-one"><input id="ext-map-k" placeholder="한글 이름"><input id="ext-map-e" placeholder="영문 이름 (예: Gildong Hong)"><button type="button" class="quiet" id="ext-map-add">추가</button></div></div></div></details>
-</div></article></section><section id="ho-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">HANDOVER</div><h2>인수인계</h2><p class="sub">내용을 적고, 확인이 필요한 팀장님 칸은 O로 두세요. 확인한 팀장님이 직접 “확인”으로 바꿉니다. 끝난 오래된 줄은 삭제하세요.</p></div><div class="ho-tools"><input id="ho-q" placeholder="검색" aria-label="인수인계 검색" autocomplete="off"><button type="button" class="quiet" id="ho-lead-edit">팀장 편집</button><button type="button" class="quiet hidden" id="ho-lead-add">+ 팀장 추가</button><button type="button" class="primary" id="ho-add">+ 인수인계 추가</button></div></div><div class="panel-body"><div class="ho-note hidden" id="ho-warn"></div><div class="ho-legend"><span><i class="e">실장</i></span><span><i class="l">선임팀장</i></span><span><i class="s">★</i>중요 강조(줄 왼쪽 별)</span><span>⚠ 리드타임 2일 이내·기한 지남</span></div><div class="table-wrap" id="ho-body"></div><datalist id="ho-cats"></datalist><datalist id="ho-froms"></datalist><details class="secondary-board" id="ho-hist-box"><summary>인수인계 이력 <span id="ho-hist-n"></span></summary><div id="ho-hist"></div></details><p class="tiny">내용·확인 상태는 다른 팀장님 화면에도 공유됩니다. “별도 저장” 이력은 이 PC에만 보관됩니다.</p></div></article></section><section id="dev-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">DEVELOPER</div><h2>개발 테스트 로그</h2><p class="sub">쓰다가 난 오류와 공유 저장 실패가 날짜·팀장·화면·누른 버튼과 함께 쌓입니다. 다른 팀장님 화면의 기록도 공유 저장으로 모입니다. (공유 저장 자체가 안 되는 PC의 기록은 그 PC에만 남습니다.)</p></div><div class="ho-tools"><button type="button" class="primary" id="dev-copy">로그 복사</button><button type="button" class="quiet" id="dev-clear">전체 지우기</button></div></div><div class="panel-body"><div class="dev-share" id="dev-share"></div><div class="macro-chips" id="dev-chips"></div><div class="table-wrap" id="dev-list"></div><details class="secondary-board" id="dev-bk-box"><summary>백업 · 복원</summary><div class="dev-bk"><p class="tiny">매크로, 인수인계(이력 포함), 재직 리스트, 식사 규칙, 외부 팀즈 설정, 내 이름·메뉴 순서를 파일 하나로 내려받고 다시 불러옵니다. 복원하면 다른 팀장님 화면에도 공유됩니다.</p><div class="dev-bk-actions"><button type="button" class="primary" id="dev-backup">백업 내려받기</button><label class="quiet dev-restore-label">백업 불러오기<input type="file" id="dev-restore" accept=".json,application/json" hidden></label><span class="tiny" id="dev-bk-note"></span></div></div></details></div></article></section><section id="ro-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">ROSTER</div><h2>재직 리스트</h2><p class="sub">담당 팀장은 오늘 데일리를 먼저 따르고, 데일리에 없으면 엑셀에 적힌 팀장을 씁니다. 붙여넣고 저장하면 다른 팀장님 화면에도 공유됩니다. 이 PC에는 모든 열이 저장되고, 공유되는 것은 C사번·T사번·이름·근무시간·시프트·팀장·번호입니다.</p></div><div class="ro-head-tools"><span class="ro-meta" id="ro-count"></span></div></div><div class="panel-body"><div class="ho-note hidden" id="ro-warn"></div><input id="ro-q" class="ro-search" type="search" placeholder="이름 · T사번 · C사번 검색" aria-label="재직 리스트 검색" autocomplete="off"><details id="ro-paste-box"><summary>엑셀 붙여넣기 (저장하면 기존 명단을 바꿉니다)</summary><textarea id="ro-raw" spellcheck="false" placeholder="엑셀에서 행을 복사해 붙여넣으세요.&#10;열 순서: C사번 T사번 K사번 이름 근무시간 시프트 담당팀장 입사일 SM투입일 x y z 번호"></textarea><div class="ro-paste-actions"><button type="button" class="primary" id="ro-save">저장</button><button type="button" class="quiet" id="ro-clear">명단 비우기</button><span class="tiny" id="ro-note">C·T·K사번, 이름, 근무시간, 시프트, 담당팀장, 입사일, SM투입일, 번호가 모두 저장됩니다. x y z 열은 무시합니다.</span></div></details><div id="ro-team-wrap" class="hidden"><label for="ro-team"><b>팀장</b></label><select id="ro-team" aria-label="팀장 선택"></select></div><div id="ro-list"></div></div></article></section><section id="macro-view" class="hidden"><article class="panel macro-panel"><div class="macro-hero"><div class="macro-title"><div class="step">MACRO</div><h2>매크로 검색</h2><p class="sub" id="macro-sub">번호나 설명·키워드 한 단어만 입력해도 찾아요.</p></div><div class="macro-search"><span class="macro-icon">⌕</span><input id="macro-q" type="search" placeholder="예: 문자, EDP, 17000" autocomplete="off"><span class="macro-count" id="macro-count"></span></div><div class="macro-hero-actions"><button type="button" class="primary" id="macro-add-btn">＋ 매크로 추가</button><button type="button" class="quiet" id="macro-bulk-btn">여러 개 붙여넣기</button></div></div>
+</div></article></section><section id="ho-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">HANDOVER</div><h2>인수인계</h2><p class="sub">내용을 적고, 확인이 필요한 팀장님 칸은 O로 두세요. 확인한 팀장님이 직접 “확인”으로 바꿉니다. 끝난 오래된 줄은 삭제하세요.</p></div><div class="ho-tools"><input id="ho-q" placeholder="검색" aria-label="인수인계 검색" autocomplete="off"><button type="button" class="quiet" id="ho-lead-edit">팀장 편집</button><button type="button" class="quiet hidden" id="ho-lead-add">+ 팀장 추가</button><button type="button" class="primary" id="ho-add">+ 인수인계 추가</button></div></div><div class="panel-body"><div class="ho-note hidden" id="ho-warn"></div><div class="ho-legend"><span><i class="e">실장</i></span><span><i class="l">선임팀장</i></span><span><i class="s">★</i>중요 강조(줄 왼쪽 별)</span><span>⚠ 리드타임 2일 이내·기한 지남</span></div><div class="table-wrap" id="ho-body"></div><datalist id="ho-cats"></datalist><datalist id="ho-froms"></datalist><details class="secondary-board" id="ho-hist-box"><summary>인수인계 이력 <span id="ho-hist-n"></span></summary><div id="ho-hist"></div></details><p class="tiny">내용·확인 상태는 다른 팀장님 화면에도 공유됩니다. “별도 저장” 이력은 이 PC에만 보관됩니다.</p></div></article></section><section id="dev-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">DEVELOPER</div><h2>개발 테스트 로그</h2><p class="sub">쓰다가 난 오류와 공유 저장 실패가 날짜·팀장·화면·누른 버튼과 함께 쌓입니다. 다른 팀장님 화면의 기록도 공유 저장으로 모입니다. (공유 저장 자체가 안 되는 PC의 기록은 그 PC에만 남습니다.)</p></div><div class="ho-tools"><button type="button" class="primary" id="dev-copy">로그 복사</button><button type="button" class="quiet" id="dev-clear">전체 지우기</button></div></div><div class="panel-body"><div class="dev-share" id="dev-share"></div><div class="macro-chips" id="dev-chips"></div><div class="table-wrap" id="dev-list"></div><details class="secondary-board" id="dev-bk-box"><summary>백업 · 복원</summary><div class="dev-bk"><p class="tiny">매크로, 인수인계(이력 포함), 재직 리스트, 식사 규칙, 외부 팀즈 설정, 내 이름·메뉴 순서를 파일 하나로 내려받고 다시 불러옵니다. 복원하면 다른 팀장님 화면에도 공유됩니다.</p><div class="dev-bk-actions"><button type="button" class="primary" id="dev-backup">백업 내려받기</button><label class="quiet dev-restore-label">백업 불러오기<input type="file" id="dev-restore" accept=".json,application/json" hidden></label><span class="tiny" id="dev-bk-note"></span></div></div></details></div></article></section><section id="ro-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">ROSTER</div><h2>재직 리스트</h2><p class="sub">담당 팀장은 오늘 데일리를 먼저 따르고, 데일리에 없으면 엑셀에 적힌 팀장을 씁니다. 붙여넣고 저장하면 다른 팀장님 화면에도 공유됩니다. 이 PC에는 모든 열이 저장되고, 공유되는 것은 C사번·T사번·이름·근무시간·시프트·팀장·번호입니다.</p></div><div class="ro-head-tools"><span class="ro-meta" id="ro-count"></span></div></div><div class="panel-body"><div class="ho-note hidden" id="ro-warn"></div><input id="ro-q" class="ro-search" type="search" placeholder="이름 · T사번 · C사번 검색" aria-label="재직 리스트 검색" autocomplete="off"><details id="ro-paste-box"><summary>엑셀 붙여넣기 (저장하면 기존 명단을 바꿉니다)</summary><textarea id="ro-raw" spellcheck="false" placeholder="엑셀에서 행을 복사해 붙여넣으세요.&#10;열 순서: C사번 T사번 K사번 이름 근무시간 시프트 담당팀장 입사일 SM투입일 x y z 번호"></textarea><div class="ro-paste-actions"><button type="button" class="primary" id="ro-save">저장</button><button type="button" class="quiet" id="ro-clear">명단 비우기</button><span class="tiny" id="ro-note">C·T·K사번, 이름, 근무시간, 시프트, 담당팀장, 입사일, SM투입일, 번호가 모두 저장됩니다. x y z 열은 무시합니다.</span></div></details><div id="ro-team-wrap" class="hidden"><label for="ro-team"><b>팀장</b></label><select id="ro-team" aria-label="팀장 선택"></select></div><div id="ro-list"></div></div></article></section><section id="leave-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">LEAVE</div><h2>장기 휴무 인원</h2><p class="sub">휴무(짧은 휴가)와 휴직(재직에서 제외)을 날짜로 등록합니다. 등록 추가 후 최종 확정을 눌러야 다른 팀장님 화면에 공유됩니다.</p></div></div><div class="panel-body"><div class="lv-tabs"><button type="button" class="lv-tab on" data-tab="m">휴무</button><button type="button" class="lv-tab" data-tab="j">휴직</button></div><p class="lv-hint" id="lv-hint"></p><div class="lv-form"><label>이름 · 사번<input id="lv-n" maxlength="30" autocomplete="off" placeholder="이름 또는 T/C사번"></label><label>시작일<input id="lv-s" type="date"></label><label><span id="lv-e-wrap-label">종료일</span><input id="lv-e" type="date"></label><button type="button" class="primary" id="lv-add">등록 추가</button><div class="lv-days" id="lv-days"></div></div><div id="lv-list"></div><div class="lv-final-row"><button type="button" class="primary" id="lv-final">최종 확정 · 공유</button><span class="lv-state" id="lv-state"></span></div></div></article></section><section id="macro-view" class="hidden"><article class="panel macro-panel"><div class="macro-hero"><div class="macro-title"><div class="step">MACRO</div><h2>매크로 검색</h2><p class="sub" id="macro-sub">번호나 설명·키워드 한 단어만 입력해도 찾아요.</p></div><div class="macro-search"><span class="macro-icon">⌕</span><input id="macro-q" type="search" placeholder="예: 문자, EDP, 17000" autocomplete="off"><span class="macro-count" id="macro-count"></span></div><div class="macro-hero-actions"><button type="button" class="primary" id="macro-add-btn">＋ 매크로 추가</button><button type="button" class="quiet" id="macro-bulk-btn">여러 개 붙여넣기</button></div></div>
 <div class="macro-form hidden" id="macro-form"><div class="macro-form-grid"><label>번호<input id="macro-no" placeholder="17000" maxlength="20"></label><label>대분류<input id="macro-cat" list="macro-cat-list" placeholder="예: 정산 (비워도 됨)" maxlength="20" autocomplete="off"></label><label class="wide">설명 · 키워드<input id="macro-desc" placeholder="추가정산 EDP 정산완료 문자" maxlength="200"></label></div><div class="macro-form-actions"><span class="tiny" id="macro-form-msg"></span><button type="button" class="quiet" id="macro-cancel">취소</button><button type="button" class="primary" id="macro-save">저장</button></div></div>
 <div class="macro-form hidden" id="macro-bulk"><label class="macro-bulk-label">윗줄 번호, 아랫줄 설명·키워드 순서로 붙여넣으세요.<textarea id="macro-bulk-text" spellcheck="false" placeholder="17000&#10;추가정산 EDP 정산완료 문자&#10;17001&#10;환불 안내 문자"></textarea></label><div class="macro-form-actions"><span class="tiny" id="macro-bulk-msg"></span><button type="button" class="quiet" id="macro-bulk-cancel">취소</button><button type="button" class="primary" id="macro-bulk-save">모두 추가</button></div></div>
 <div class="macro-filterbar"><div class="macro-chips hidden" id="macro-cats"></div><div class="macro-bulkcat hidden" id="macro-bulkcat"><span class="tiny" id="macro-bulkcat-n"></span><input id="macro-bulkcat-in" list="macro-cat-list" placeholder="대분류 이름" maxlength="20" autocomplete="off"><button type="button" class="quiet" id="macro-bulkcat-go">모두 이 대분류로 지정</button></div></div><datalist id="macro-cat-list"></datalist><div class="macro-list" id="macro-list"></div></article></section><section id="rt-view" class="hidden"><article class="panel"><div class="panel-heading"><div><div class="step">REALTIME</div><h2>실시간 배정</h2><p class="sub" id="rt-sub">데일리를 읽으면 단독 담당자와 식사를 자동으로 배정합니다.</p></div><div class="rt-actions"><label class="rt-date-wrap">배정 날짜 <select id="rt-date"></select></label><span class="rt-state" id="rt-state">—</span><button type="button" class="quiet hidden" id="rt-toggle">새 배정 보기</button><button type="button" class="rt-btn" id="rt-recalc" title="지금 데일리 기준으로 다시 배정해서 확정본을 덮어씁니다">↻ 지금 기준 재산정</button><button type="button" class="rt-btn" id="rt-edit">✎ 수기 변경</button><button type="button" class="primary" id="rt-confirm">배정 확정</button></div></div><div class="panel-body">
@@ -1096,7 +1096,7 @@ html.dark .dev-k.error{background:#3a1c19;color:#f4bdb7}html.dark .dev-k.share{b
 
 <section id="settings" class="settings"><div class="settings-grid"><article class="panel"><div class="panel-heading"><div><div class="step">CONNECTION</div><h2>연결·저장</h2></div></div><div class="panel-body"><p id="embedded-note">이 화면은 Power Automate가 HTML 안에 넣은 데일리로 계산하고, 1분마다 새 데일리를 다시 읽습니다.</p><p class="tiny hidden" id="folder-state"></p></div></article><article class="panel"><div class="panel-heading"><div><div class="step">SHARE · SCRIPT</div><h2>공유 저장 · 스크립트</h2></div></div><div class="panel-body"><p class="tiny">공유 저장은 ③ 자동 저장 폴더로 연결합니다. 화면 오른쪽 위 공유 저장 표시로 연결 상태를 확인하고, 연결이 안 되어 있으면 눌러서 연결하세요.</p><div class="code-button"><span>데일리 웹 내보내기 (Office Script)</span><button data-code="daily">코드 복사</button></div></div></article><article class="panel manual-card"><div class="panel-heading"><div><div class="step">MANUAL</div><h2>데일리 수동 불러오기</h2><p class="sub">플로우가 멈췄을 때만 쓰세요. 엑셀 웹에서 <b>수동용 스크립트</b>를 실행하고, 출력된 긴 글자를 전부 복사해 붙여넣으면 됩니다.</p></div></div><div class="panel-body"><textarea id="manual-json" spellcheck="false" placeholder='{"type":"ginjo-daily-blocks", ... } 로 시작하는 글자를 통째로 붙여넣으세요.'></textarea><div class="manual-actions"><span class="tiny" id="manual-state"></span><button type="button" class="quiet" id="manual-file">JSON 파일 선택</button><button type="button" class="quiet" id="manual-last">마지막 정상 데일리 열기</button><button type="button" class="quiet" id="manual-clear">수동 데일리 해제</button><button type="button" class="primary" id="manual-load">불러오기 (이 PC만)</button></div><div class="manual-share"><div><b>모든 팀장님 화면에 반영</b><span class="tiny">붙여넣은 데일리를 넣은 대시보드 HTML을 만들어, 동기화 폴더의 대시보드 파일에 덮어씁니다. 플로우가 하는 일과 같아서 1분 새로고침에도 유지되고 다른 팀장님 화면도 바뀝니다.</span></div><button type="button" class="primary" id="manual-publish">대시보드 HTML 덮어쓰기</button></div></div></article></div></section>
 <section id="shared-panel" class="shared-panel hidden"><div><strong>공유 입력</strong><p id="shared-status">공유 저장 내용을 확인하고 있습니다.</p><small>저장 후 기존 자동화의 다음 실행에 반영됩니다. 반영되면 화면이 자동으로 갱신됩니다.</small></div><div class="shared-actions"><button id="shared-prepare-btn" class="primary">① 저장할 내용 복사</button><a id="shared-open-link" class="button-link" target="_blank" rel="noopener noreferrer">② 공유 저장창 열기 ↗</a><button id="shared-folder-btn" title="한 번 연결하면 계산할 때 공유 저장 파일이 자동으로 저장됩니다">③ 자동 저장 폴더 연결</button></div></section>
-<div class="error" id="error-box"><span id="error-text"></span><button id="debug-btn">오류 상세</button></div><section class="bottom-connection" aria-label="연결 상태"><div class="connection-line"><span class="badge sample" id="connection-badge">연결 확인 중</span><span>③ 자동 저장 폴더를 연결해 두면 계산 버튼을 누를 때 공유 저장 파일이 자동으로 저장됩니다. 연결하지 않았다면 ① 저장할 내용 복사 → ② 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</span></div><div class="banner" id="mode-banner"><div><strong>샘플 데이터입니다.</strong> 실제 회사 자료가 아닙니다. 연결 · 사용 방법에서 업무 파일을 연결하세요.</div><button class="quiet" id="setup-btn">연결 설정 →</button></div></section><footer><span id="footer-source">샘플 · 회사 데이터 연결 전</span><span>인앱귀책 투입률 / html만 20261125.6</span></footer></main></div>
+<div class="error" id="error-box"><span id="error-text"></span><button id="debug-btn">오류 상세</button></div><section class="bottom-connection" aria-label="연결 상태"><div class="connection-line"><span class="badge sample" id="connection-badge">연결 확인 중</span><span>③ 자동 저장 폴더를 연결해 두면 계산 버튼을 누를 때 공유 저장 파일이 자동으로 저장됩니다. 연결하지 않았다면 ① 저장할 내용 복사 → ② 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</span></div><div class="banner" id="mode-banner"><div><strong>샘플 데이터입니다.</strong> 실제 회사 자료가 아닙니다. 연결 · 사용 방법에서 업무 파일을 연결하세요.</div><button class="quiet" id="setup-btn">연결 설정 →</button></div></section><footer><span id="footer-source">샘플 · 회사 데이터 연결 전</span><span>인앱귀책 투입률 / html만 20261125.7</span></footer></main></div>
 <dialog id="report-dialog" class="report-dialog"><h2>보고 복사</h2><p class="tiny">아래 내용을 확인하고 복사하세요. 직접 고쳐서 복사해도 됩니다.</p><textarea id="report-text" spellcheck="false" aria-label="보고 내용"></textarea><div class="actions"><button class="primary" id="report-copy">복사</button><button id="report-close">닫기</button></div></dialog>
 <dialog id="shared-save-dialog"><h2>공유 저장 준비</h2><p id="shared-copy-note">아직 저장되지 않았습니다. 아래 내용을 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</p><div class="shared-actions"><button id="shared-copy-again">다시 복사</button><a id="shared-dialog-link" class="button-link" target="_blank" rel="noopener noreferrer">공유 저장창 열기 ↗</a></div><textarea id="shared-copy-text" readonly aria-label="공유 저장할 내용" spellcheck="false"></textarea><p class="tiny">공유 저장창에서 저장을 눌러야 서버에 저장됩니다. 다음 자동화 실행 후 화면이 자동 갱신되며 복원됩니다. 최대 1~2분 걸릴 수 있습니다. 다른 팀장님과 동시에 저장하면 마지막 저장 내용이 공유됩니다.</p><details><summary>공유 저장창이 열리지 않을 때</summary><p>아래 주소를 복사해 회사 브라우저의 새 탭에서 여세요.</p><p id="shared-form-address" class="shared-form-address"></p></details><div class="actions"><button id="shared-save-close">닫기</button></div></dialog><input id="file-input" type="file" accept=".json,application/json" hidden><dialog id="dialog"><h2 id="dialog-title">오류 상세</h2><pre id="dialog-text"></pre><textarea id="dialog-input" class="hidden" aria-label="JSON 붙여넣기" style="width:100%;height:300px"></textarea><div class="actions"><button id="dialog-copy">복사</button><button id="dialog-apply" class="primary hidden">불러오기</button><button id="dialog-close">닫기</button></div></dialog><div id="toast" role="status"></div>
 <script>
@@ -3788,7 +3788,7 @@ function normalize(input){
  let extSrc=null;if(input.extSrc&&typeof input.extSrc==='object'&&typeof input.extSrc.text==='string')extSrc={text:input.extSrc.text.slice(0,8000),at:Number(input.extSrc.at)||0};
  let macros=null;if(Array.isArray(input.macros)){macros=input.macros.slice(0,1500).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,20),String(r[2]??'').slice(0,200),Number(r[3])||0,r[4]?1:0,String(r[5]??'').slice(0,20)]);if(!macros.length)macros=null;}
  let handover=null;if(Array.isArray(input.handover)){handover=input.handover.slice(0,200).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,10),String(r[2]??'').slice(0,40),String(r[3]??'').slice(0,10),String(r[4]??'').slice(0,500),String(r[5]??'').slice(0,30),String(r[6]??'').slice(0,200),r[7]?1:0,Number(r[8])||0,r[9]?1:0,Number(r[10])||0]);if(!handover.length)handover=null;} let hoLeaders=null;if(input.hoLeaders&&Array.isArray(input.hoLeaders.list)){hoLeaders={at:Number(input.hoLeaders.at)||0,list:input.hoLeaders.list.slice(0,30).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,20),String(r[1]??'').slice(0,20),r[2]?1:0])};if(!hoLeaders.list.length)hoLeaders=null;}
- let leave=null;if(input.leave&&typeof input.leave==='object'&&Array.isArray(input.leave.rows)){leave={at:Number(input.leave.at)||0,rows:input.leave.rows.slice(0,100).filter(r=>Array.isArray(r)&&r[0]&&/^\d{4}-\d{2}-\d{2}$/.test(String(r[1]))&&/^\d{4}-\d{2}-\d{2}$/.test(String(r[2]))).map(r=>[String(r[0]).slice(0,30),String(r[1]),String(r[2])])};}
+ let leave=null;if(input.leave&&typeof input.leave==='object'&&Array.isArray(input.leave.rows)){leave={at:Number(input.leave.at)||0,rows:input.leave.rows.slice(0,100).filter(r=>Array.isArray(r)&&r[0]&&/^\d{4}-\d{2}-\d{2}$/.test(String(r[1]))&&(r[3]==='j'?/^(\d{4}-\d{2}-\d{2})?$/.test(String(r[2]??'')):/^\d{4}-\d{2}-\d{2}$/.test(String(r[2])))).map(r=>[String(r[0]).slice(0,30),String(r[1]),String(r[2]??''),r[3]==='j'?'j':'m'])};}
  let roster=null;if(input.roster&&typeof input.roster==='object'&&Array.isArray(input.roster.rows)){roster={at:Number(input.roster.at)||0,rows:input.roster.rows.slice(0,300).filter(r=>Array.isArray(r)).map(r=>[0,1,2,3,4,5].map(i=>String(r[i]??'').slice(0,30)).concat([String(r[6]??'').slice(0,20)]))};}
  let devLog=null;if(input.devLog&&typeof input.devLog==='object'&&Array.isArray(input.devLog.rows)){devLog={clr:Number(input.devLog.clr)||0,rows:input.devLog.rows.slice(0,80).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,24),Number(r[1])||0,String(r[2]??'').slice(0,12),r[3]==='share'?'share':'error',String(r[4]??'').slice(0,12),String(r[5]??'').slice(0,40),String(r[6]??'').slice(0,160)])};}
  let rtRules=null;if(input.rtRules&&typeof input.rtRules==='object'&&Array.isArray(input.rtRules.rows)){rtRules={at:Number(input.rtRules.at)||0,rows:input.rtRules.rows.slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,6).map(x=>String(x??'').slice(0,60))),preg:(Array.isArray(input.rtRules.preg)?input.rtRules.preg:[]).slice(0,20).map(x=>String(x).slice(0,20)),list:(Array.isArray(input.rtRules.list)?input.rtRules.list:[]).slice(0,40).map(r=>(Array.isArray(r)?r:[]).slice(0,3).map(x=>String(x??'').slice(0,10)))};}
@@ -3918,7 +3918,7 @@ function sample(){
  bridge.stop();state.demo=true;state.daily=null;state.result=null;state.journal.clear();state.pending=false;state.dirty=false;$('run-btn').disabled=false;
  const data=E.makeSample();state.daily=E.normalizeDaily(data.daily);state.rawSample=true;$('raw').value=data.raw;setFields();$('training').value='';$('exceptions').value='';fillTime(data.at);capture(E.calculate(state.daily,data.raw,{at:data.at}),true);
 }
-function setView(view){if(view==='trainee'){view='people';setTimeout(()=>{const d=$('trainee-board');if(d){d.open=true;try{d.scrollIntoView({block:'center'});}catch{}}},60);}state.view=view;state.filter='전체';try{parent.__shellView&&parent.__shellView(APP_CONFIG.key,view);}catch(e){}document.querySelectorAll('#nav button,#nav2 button,#nav-close [data-view]').forEach(button=>button.classList.toggle('active',button.dataset.view===view));try{window.__navCloseSync&&window.__navCloseSync(view);}catch{}const other=['settings','daily','issues','forecast','edu','ot','trainee','rt','macro','ext','handover','roster','dev'].includes(view);$('ext-view').classList.toggle('hidden',view!=='ext');if(view==='ext')renderExt();$('dev-view').classList.toggle('hidden',view!=='dev');if(view==='dev')devRender();$('ho-view').classList.toggle('hidden',view!=='handover');if(view==='handover')hoRender();$('ro-view').classList.toggle('hidden',view!=='roster');if(view==='roster'){roRender();$('ro-paste-box').open=!roLoad().rows.length;setTimeout(()=>$('ro-q').focus(),0);}$('macro-view').classList.toggle('hidden',view!=='macro');if(view==='macro'){renderMacros();setTimeout(()=>$('macro-q').focus(),0);}$('rt-view').classList.toggle('hidden',view!=='rt');if(view==='rt')setTimeout(()=>{try{renderRT();}catch(e){console.error(e);}},0);if(view==='people'){try{renderOverview();renderTraineeSoon();}catch(error){}}$('ot-view').classList.toggle('hidden',view!=='ot');if(view==='ot')renderOT();$('dashboard').classList.toggle('hidden',other);$('settings').classList.toggle('show',view==='settings');$('daily-editor').classList.toggle('hidden',view!=='daily');$('issues-view').classList.toggle('hidden',view!=='issues');$('forecast-view').classList.toggle('hidden',view!=='forecast');$('edu-view').classList.toggle('hidden',view!=='edu');if(view==='daily')renderDailyEditor();else if(view==='issues')renderIssues();else if(view==='forecast')renderForecast();else if(view==='edu')renderEdu();else if(view!=='settings')renderTable();}
+function setView(view){if(view==='trainee'){view='people';setTimeout(()=>{const d=$('trainee-board');if(d){d.open=true;try{d.scrollIntoView({block:'center'});}catch{}}},60);}state.view=view;state.filter='전체';try{parent.__shellView&&parent.__shellView(APP_CONFIG.key,view);}catch(e){}document.querySelectorAll('#nav button,#nav2 button,#nav-close [data-view]').forEach(button=>button.classList.toggle('active',button.dataset.view===view));try{window.__navCloseSync&&window.__navCloseSync(view);}catch{}const other=['settings','daily','issues','forecast','edu','ot','trainee','rt','macro','ext','handover','roster','leave','dev'].includes(view);$('ext-view').classList.toggle('hidden',view!=='ext');if(view==='ext')renderExt();$('dev-view').classList.toggle('hidden',view!=='dev');if(view==='dev')devRender();$('ho-view').classList.toggle('hidden',view!=='handover');if(view==='handover')hoRender();$('leave-view').classList.toggle('hidden',view!=='leave');if(view==='leave')lvPageRender();$('ro-view').classList.toggle('hidden',view!=='roster');if(view==='roster'){roRender();$('ro-paste-box').open=!roLoad().rows.length;setTimeout(()=>$('ro-q').focus(),0);}$('macro-view').classList.toggle('hidden',view!=='macro');if(view==='macro'){renderMacros();setTimeout(()=>$('macro-q').focus(),0);}$('rt-view').classList.toggle('hidden',view!=='rt');if(view==='rt')setTimeout(()=>{try{renderRT();}catch(e){console.error(e);}},0);if(view==='people'){try{renderOverview();renderTraineeSoon();}catch(error){}}$('ot-view').classList.toggle('hidden',view!=='ot');if(view==='ot')renderOT();$('dashboard').classList.toggle('hidden',other);$('settings').classList.toggle('show',view==='settings');$('daily-editor').classList.toggle('hidden',view!=='daily');$('issues-view').classList.toggle('hidden',view!=='issues');$('forecast-view').classList.toggle('hidden',view!=='forecast');$('edu-view').classList.toggle('hidden',view!=='edu');if(view==='daily')renderDailyEditor();else if(view==='issues')renderIssues();else if(view==='forecast')renderForecast();else if(view==='edu')renderEdu();else if(view!=='settings')renderTable();}
 function statusClass(status){return status==='대화 가능'?'green':['회의','교육'].includes(status)?'purple':status==='오프라인'?'red':['식사','휴식','자리에 없음'].includes(status)?'amber':'';}
 function updateBadge(){
  try{devWatch();}catch{}
@@ -5309,7 +5309,7 @@ function extSharedPart(){const m=extMapLoad(),s=extSrcLoad(),o={};if(m.length)o.
 function mergeExt(input){let ch=false;
  if(Array.isArray(input.extMap)){const map=new Map(extMapLoad().map(x=>[extKey(x.k),x]));for(const r of input.extMap){if(!Array.isArray(r))continue;const it={k:String(r[0]??''),e:String(r[1]??''),at:Number(r[2])||0,del:Boolean(r[3])};const k=extKey(it.k);if(!k)continue;const mine=map.get(k);if(!mine||it.at>mine.at){map.set(k,it);ch=true;}}if(ch)extMapSave([...map.values()]);}
  if(input.extSrc&&Number(input.extSrc.at)>extSrcLoad().at){extSrcSave({text:String(input.extSrc.text||''),at:Number(input.extSrc.at)});ch=true;}
- if(ch&&state.view==='ext')renderExt(true);}
+ if(ch&&state.view==='ext')renderExt(true);try{extDailyClear();}catch{}}
 // 엑셀에서 복사한 한 열(여러 줄 셀은 "…" 로 감싸짐)을 줄 목록으로
 function extLines(text){const s=String(text||'').replace(/\r\n?/g,'\n');const out=[];let i=0;while(i<=s.length){if(s[i]==='"'){let j=i+1,cell='';while(j<s.length){if(s[j]==='"'){if(s[j+1]==='"'){cell+='"';j+=2;continue;}break;}cell+=s[j++];}out.push(...cell.split('\n'));i=j+1;while(i<s.length&&s[i]!=='\n')i++;i++;}else{const n=s.indexOf('\n',i);out.push(n<0?s.slice(i):s.slice(i,n));i=n<0?s.length+1:n+1;}}return out.map(x=>x.split('\t')[0]);}
 function extNowHour(){const d=new Date(Date.now()+9*3600000);return d.getUTCHours()+d.getUTCMinutes()/60;}
@@ -5911,10 +5911,11 @@ function roLeaderOf(p,map){
 function roNorm(v){return String(v||'').toLowerCase().replace(/\s+/g,'');}
 function roRender(){
  const db=roLoad(),map=roLeaderMap();
- const all=db.rows.map(p=>({p,lead:roLeaderOf(p,map)}));
+ const hiatus=db.rows.filter(p=>lvHiatusMatch(p)).length;
+ const all=db.rows.filter(p=>!lvHiatusMatch(p)).map(p=>({p,lead:roLeaderOf(p,map)}));
  const q=roNorm($('ro-q').value);
  const at=db.at?new Date(db.at):null;
- $('ro-count').textContent=all.length?all.length+'명 · 저장 '+(at.getMonth()+1)+'/'+at.getDate()+' '+String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):'저장된 명단이 없습니다';
+ $('ro-count').textContent=all.length?all.length+'명'+(hiatus?' (휴직 '+hiatus+'명 제외)':'')+' · 저장 '+(at.getMonth()+1)+'/'+at.getDate()+' '+String(at.getHours()).padStart(2,'0')+':'+String(at.getMinutes()).padStart(2,'0'):'저장된 명단이 없습니다';
  rosterSharedPart();
  const dropped=globalThis.__roDropped&&Date.now()-globalThis.__roDropped<600000;
  const warn=roShareOver?'명단이 커서 다른 팀장님 화면에는 공유되지 않습니다.':dropped?'공유 저장 용량이 부족해서 최근 저장에서 재직 리스트가 빠졌습니다.':'';
@@ -5926,7 +5927,7 @@ function roRender(){
   const hit=all.filter(x=>roNorm(x.p.n).includes(q)||roNorm(x.p.t).includes(q)||roNorm(x.p.c).includes(q));
   hit.sort((a,b)=>{const ea=[a.p.t,a.p.c].some(v=>roNorm(v)===q)?0:1,eb=[b.p.t,b.p.c].some(v=>roNorm(v)===q)?0:1;return ea-eb||String(a.p.n).localeCompare(String(b.p.n),'ko');});
   const shown=hit.slice(0,20);
-  box.innerHTML=(shown.length?shown.map(x=>{const p=x.p;return '<div class="ro-hit"><div class="ro-lead">'+esc(x.lead)+(x.lead==='미지정'?'':' 팀')+'</div><div class="ro-name"><small>이름</small><b>'+esc(p.n||'—')+'</b></div><div class="ro-sep"></div><div><small>T사번</small><b>'+esc(p.t||'—')+'</b></div><div><small>근무시간</small><b>'+esc(p.h||'—')+'</b></div><div><small>시프트</small><b>'+esc(p.s||'—')+'</b></div><div><small>번호</small><b>'+esc(p.p||'—')+'</b></div>'+(p.p?'<button type="button" class="report-btn ro-copy" data-copy="'+esc(p.p)+'">번호 복사</button>':'<span></span>')+'</div>';}).join(''):'<p class="tiny">일치하는 인원이 없습니다.</p>')
+  box.innerHTML=(shown.length?shown.map(x=>{const p=x.p;return '<div class="ro-hit"><div class="ro-lead">'+esc(x.lead)+(x.lead==='미지정'?'':' 팀')+'</div><div class="ro-name"><small>이름</small><b>'+esc(p.n||'—')+'</b>'+lvBadge(p)+'</div><div class="ro-sep"></div><div><small>T사번</small><b>'+esc(p.t||'—')+'</b></div><div><small>근무시간</small><b>'+esc(p.h||'—')+'</b></div><div><small>시프트</small><b>'+esc(p.s||'—')+'</b></div><div><small>번호</small><b>'+esc(p.p||'—')+'</b></div>'+(p.p?'<button type="button" class="report-btn ro-copy" data-copy="'+esc(p.p)+'">번호 복사</button>':'<span></span>')+'</div>';}).join(''):'<p class="tiny">일치하는 인원이 없습니다.</p>')
    +(hit.length>shown.length?'<p class="tiny">'+hit.length+'명이 일치합니다. 처음 '+shown.length+'명만 보여드립니다. 더 입력해서 좁혀 주세요.</p>':'');
   return;
  }
@@ -5942,7 +5943,7 @@ function roRender(){
  box.innerHTML='<div class="edu-teams ro-teams">'+names.map(n=>{
   const rows=groups.get(n).slice().sort((a,b)=>String(a.p.n).localeCompare(String(b.p.n),'ko'));
   return '<div class="edu-team"><div class="edu-team-head"><b>'+esc(n)+(n==='미지정'?' (데일리·엑셀 팀장 없음)':' 팀')+'</b><small>'+rows.length+'명</small></div><table class="ro-table"><thead><tr><th>T사번</th><th>이름</th><th>근무시간</th><th>시프트</th><th>번호</th></tr></thead><tbody>'
-   +rows.map(x=>'<tr><td>'+esc(x.p.t)+'</td><td><b>'+esc(x.p.n)+'</b></td><td>'+esc(x.p.h)+'</td><td>'+esc(x.p.s)+'</td><td>'+esc(x.p.p)+'</td></tr>').join('')
+   +rows.map(x=>'<tr><td>'+esc(x.p.t)+'</td><td><b>'+esc(x.p.n)+'</b>'+lvBadge(x.p)+'</td><td>'+esc(x.p.h)+'</td><td>'+esc(x.p.s)+'</td><td>'+esc(x.p.p)+'</td></tr>').join('')
    +'</tbody></table></div>';}).join('')+'</div>';
 }
 (function(){
@@ -5975,86 +5976,110 @@ function roRender(){
 })();
 
 
-/* ===== 장기 휴무 인원 (재직 리스트에 마우스를 올리면 오른쪽에 열림 · 긴조 전용) */
+/* ===== 장기 휴무 인원 · 휴직 (긴조 전용 · 재직 리스트에 마우스를 올리면 옆에 메뉴가 열림) */
 function lvLoad(k){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v&&Array.isArray(v.rows)?v:null;}catch{return null;}}
 function lvConf(){return lvLoad('ginjo-leave')||{at:0,rows:[]};}
-function lvDraft(){const d=lvLoad('ginjo-leave-draft');return d||{at:0,rows:lvConf().rows.map(r=>r.slice())};}
+function lvDraft(){return lvLoad('ginjo-leave-draft')||{at:0,rows:lvConf().rows.map(r=>r.slice())};}
 function lvPut(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 function lvDirty(){return JSON.stringify(lvDraft().rows)!==JSON.stringify(lvConf().rows);}
 function leaveSharedPart(){const c=lvConf();if(!c.at)return null;return {leave:{at:c.at,rows:c.rows.slice(0,100)}};}
 function mergeLeave(input){
  const r=input.leave;if(!r||!Array.isArray(r.rows))return;
  const cur=lvConf();if((Number(r.at)||0)<=(cur.at||0))return;
- const wasDirty=lvDirty();
- lvPut('ginjo-leave',{at:Number(r.at),rows:r.rows.map(a=>[a[0],a[1],a[2]])});
- if(!wasDirty)lvPut('ginjo-leave-draft',{at:0,rows:r.rows.map(a=>[a[0],a[1],a[2]])});
- try{window.__lvRender&&window.__lvRender();}catch{}
+ const wasDirty=lvDirty(),rows=r.rows.map(a=>[a[0],a[1],a[2],a[3]||'m']);
+ lvPut('ginjo-leave',{at:Number(r.at),rows});
+ if(!wasDirty)lvPut('ginjo-leave-draft',{at:0,rows:rows.map(a=>a.slice())});
+ try{if(state.view==='leave')lvPageRender();}catch{}try{if(state.view==='roster')roRender();}catch{}
+}
+function lvToday(){const d=(state.daily&&state.daily.date)||'';if(/^\d{4}-\d{2}-\d{2}$/.test(d))return d;return new Date(Date.now()+4*3600000).toISOString().slice(0,10);}
+/* 확정된 휴직(재직에서 제외) 중 오늘 해당하는 사람 */
+function lvHiatusMatch(p){
+ const today=lvToday(),keys=[p.n,p.t,p.c,p.k].map(roNorm).filter(Boolean);if(!keys.length)return null;
+ for(const r of lvConf().rows){if(r[3]!=='j')continue;if(r[1]>today)continue;if(r[2]&&r[2]<today)continue;if(keys.includes(roNorm(r[0])))return r;}
+ return null;
+}
+function lvBadge(p){
+ const today=lvToday(),keys=[p.n,p.t,p.c,p.k].map(roNorm).filter(Boolean);
+ for(const r of lvConf().rows){if(r[3]==='j')continue;if(r[1]>today||r[2]<today)continue;if(keys.includes(roNorm(r[0])))return '<span class="ro-badge">휴무 '+Number(r[1].slice(5,7))+'/'+Number(r[1].slice(8))+'~'+Number(r[2].slice(5,7))+'/'+Number(r[2].slice(8))+'</span>';}
+ return '';
+}
+let lvTab='m';
+function lvDaysBetween(a,b){return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/86400000)+1;}
+const lvMD=s=>Number(s.slice(5,7))+'/'+Number(s.slice(8,10));
+function lvSay(t,cls){const s=$('lv-state');if(!s)return;s.textContent=t||'';s.className='lv-state'+(cls?' '+cls:'');}
+function lvPageRender(){
+ if(!$('leave-view'))return;
+ document.querySelectorAll('.lv-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===lvTab));
+ const j=lvTab==='j';
+ $('lv-e-wrap-label').textContent=j?'종료일 (모르면 비워두기)':'종료일';
+ $('lv-hint').textContent=j?'휴직은 재직 리스트에서 완전히 빠집니다. 시작일부터 종료일(비우면 계속)까지 재직 리스트에 나오지 않고, 이름·사번 검색에도 나오지 않습니다.':'휴무는 7일 안팎의 짧은 휴가입니다. 기간 중에는 재직 리스트에 “휴무” 표시만 붙고 명단에는 그대로 남습니다.';
+ const s=$('lv-s').value,e=$('lv-e').value;let txt='';
+ if(s&&e){if(e<s)txt='종료일이 시작일보다 빠릅니다.';else{const n=lvDaysBetween(s,e);const list=[];for(let i=0;i<Math.min(n,10);i++){list.push(lvMD(new Date(Date.parse(s+'T00:00:00Z')+i*86400000).toISOString().slice(0,10)));}txt=n+'일 ('+list.join(', ')+(n>10?' …':'')+')'+(!j&&n>14?' · 14일이 넘으면 휴직 탭에 등록하는 게 맞는지 확인하세요':'');}}
+ else if(s&&j)txt='종료 미정 · 시작일부터 계속';
+ $('lv-days').textContent=txt;
+ const d=lvDraft(),today=lvToday();
+ const rows=d.rows.map((r,i)=>({r,i})).filter(x=>(x.r[3]||'m')===lvTab);
+ $('lv-list').innerHTML=rows.length?rows.map(({r,i})=>{const end=r[2];const st=end&&end<today?'종료':r[1]>today?'예정':'진행 중';return '<div class="lv-item'+(st==='종료'?' old':'')+'"><b>'+esc(r[0])+'</b><span>'+lvMD(r[1])+' ~ '+(end?lvMD(end):'미정')+(end?' <small>('+lvDaysBetween(r[1],end)+'일)</small>':'')+'</span><span class="lv-st">'+st+'</span><button type="button" class="quiet" data-del="'+i+'">삭제</button></div>';}).join(''):'<p class="tiny">등록된 '+(j?'휴직':'휴무')+' 인원이 없습니다.</p>';
+ const cnt={m:0,j:0};for(const r of d.rows)cnt[r[3]||'m']++;
+ document.querySelectorAll('.lv-tab').forEach(b=>{b.textContent=(b.dataset.tab==='j'?'휴직':'휴무')+' '+cnt[b.dataset.tab];});
+ const dirty=lvDirty();$('lv-final').disabled=!dirty;
+ if(dirty)lvSay('확정 전입니다. 최종 확정을 눌러야 다른 팀장님 화면에 공유됩니다.','warn');else if($('lv-state').className.includes('warn'))lvSay('');
 }
 (function(){
  if(typeof APP_CONFIG!=='undefined'&&APP_CONFIG.ns)return;
- const nav=$('nav'),btn=nav&&nav.querySelector('button[data-view="roster"]');if(!btn)return;
+ const nav=$('nav'),btn=nav&&nav.querySelector('button[data-view="roster"]');if(!btn||!$('leave-view'))return;
  const fly=document.createElement('div');fly.className='leave-fly';fly.id='leave-fly';
- fly.innerHTML='<h4>장기 휴무 인원</h4><div class="lv-row"><input id="lv-n" placeholder="이름 · 사번" maxlength="30" autocomplete="off"><input id="lv-s" type="number" min="1" max="31" placeholder="시작일" title="시작일(일)"><input id="lv-e" type="number" min="1" max="31" placeholder="종료일" title="종료일(일)"></div><div class="lv-days" id="lv-days"></div><button type="button" id="lv-add">등록 추가</button><div class="lv-list" id="lv-list" style="margin-top:8px"></div><button type="button" class="lv-final" id="lv-final">최종 확정 · 공유</button><div class="lv-state" id="lv-state"></div>';
- nav.appendChild(fly);
- const P=n=>String(n).padStart(2,'0'),ymd=d=>d.getUTCFullYear()+'-'+P(d.getUTCMonth()+1)+'-'+P(d.getUTCDate());
- const baseDate=()=>{const d=(state.daily&&state.daily.date)||'';if(/^\d{4}-\d{2}-\d{2}$/.test(d))return d;const k=new Date(Date.now()+9*3600000);return ymd(k);};
- const mk=(y,m,d)=>{const x=new Date(Date.UTC(y,m,d));return x.getUTCMonth()===((m%12)+12)%12&&x.getUTCDate()===d?x:null;};
- /* 시작일·종료일(일) → 실제 날짜. 종료일이 시작일보다 작으면 다음 달로 봅니다 */
- function span(){
-  const s=Number($('lv-s').value),e=Number($('lv-e').value);if(!s||!e||s<1||e<1||s>31||e>31)return null;
-  const b=baseDate(),y=Number(b.slice(0,4)),m=Number(b.slice(5,7))-1;
-  const a=mk(y,m,s);if(!a)return {err:'이번 달에 '+s+'일이 없습니다.'};
-  const z=e>=s?mk(y,m,e):mk(y,m+1,e);if(!z)return {err:'종료일을 확인하세요.'};
-  const days=Math.round((z-a)/86400000)+1;
-  return {a:ymd(a),z:ymd(z),days,list:Array.from({length:Math.min(days,31)},(_,i)=>{const d=new Date(a.getTime()+i*86400000);return d.getUTCDate();})};
- }
- const say=(t,cls)=>{const s=$('lv-state');s.textContent=t||'';s.className='lv-state'+(cls?' '+cls:'');};
- const md=s=>Number(s.slice(5,7))+'/'+Number(s.slice(8,10));
- function render(){
-  const sp=span();$('lv-days').textContent=sp?(sp.err||sp.days+'일 ('+sp.list.join(', ')+')'):'';
-  const d=lvDraft(),today=baseDate();
-  $('lv-list').innerHTML=d.rows.length?d.rows.map((r,i)=>'<div class="lv-item'+(r[2]<today?' old':'')+'"><span><b>'+esc(r[0])+'</b><small>'+md(r[1])+' ~ '+md(r[2])+' · '+(Math.round((Date.parse(r[2])-Date.parse(r[1]))/86400000)+1)+'일'+(r[2]<today?' · 종료':(r[1]<=today?' · 휴무 중':''))+'</small></span><button type="button" data-del="'+i+'" title="삭제">✕</button></div>').join(''):'<div class="lv-item"><small>등록된 장기 휴무 인원이 없습니다.</small></div>';
-  const dirty=lvDirty();$('lv-final').disabled=!dirty;
-  if(dirty&&!$('lv-state').textContent.startsWith('공유'))say('확정 전입니다. 최종 확정을 누르면 다른 팀장님 화면에도 공유됩니다.','warn');
-  else if(!dirty&&$('lv-state').className.includes('warn'))say('');
- }
- window.__lvRender=render;
- const open=()=>{clearTimeout(fly._t);fly.style.top=btn.offsetTop+'px';fly.classList.add('on');render();};
- const closeSoon=()=>{clearTimeout(fly._t);fly._t=setTimeout(()=>{if(fly.contains(document.activeElement)&&document.activeElement.tagName==='INPUT')return;fly.classList.remove('on');},350);};
- btn.addEventListener('mouseenter',open);btn.addEventListener('mouseleave',closeSoon);btn.addEventListener('focus',open);
+ fly.innerHTML='<button type="button" data-lv-go="1">장기 휴무 인원</button>';nav.appendChild(fly);
+ const open=()=>{clearTimeout(fly._t);fly.style.top=btn.offsetTop+'px';fly.firstChild.classList.toggle('active',state.view==='leave');fly.classList.add('on');};
+ const closeSoon=()=>{clearTimeout(fly._t);fly._t=setTimeout(()=>fly.classList.remove('on'),300);};
+ btn.addEventListener('mouseenter',open);btn.addEventListener('mouseleave',closeSoon);btn.addEventListener('focus',open);btn.addEventListener('blur',closeSoon);
  fly.addEventListener('mouseenter',()=>clearTimeout(fly._t));fly.addEventListener('mouseleave',closeSoon);
- fly.addEventListener('focusout',()=>setTimeout(()=>{if(!fly.matches(':hover')&&!btn.matches(':hover')&&!fly.contains(document.activeElement))closeSoon();},50));
+ fly.addEventListener('click',()=>{setView('leave');fly.classList.remove('on');});
  document.addEventListener('keydown',e=>{if(e.key==='Escape')fly.classList.remove('on');});
- for(const id of ['lv-s','lv-e'])$(id).addEventListener('input',render);
+ document.querySelectorAll('.lv-tab').forEach(b=>b.addEventListener('click',()=>{lvTab=b.dataset.tab;lvSay('');lvPageRender();}));
+ for(const id of ['lv-s','lv-e'])$(id).addEventListener('input',lvPageRender);
  $('lv-add').addEventListener('click',()=>{
-  const n=$('lv-n').value.trim(),sp=span();
-  if(!n)return say('이름이나 사번을 적어 주세요.','bad');
-  if(!sp)return say('시작일과 종료일(일)을 숫자로 적어 주세요.','bad');
-  if(sp.err)return say(sp.err,'bad');
-  const d=lvDraft();d.rows.push([n,sp.a,sp.z]);d.rows.sort((a,b)=>a[1].localeCompare(b[1])||a[0].localeCompare(b[0],'ko'));
-  lvPut('ginjo-leave-draft',d);$('lv-n').value='';$('lv-s').value='';$('lv-e').value='';say('');render();
+  const n=$('lv-n').value.trim(),s=$('lv-s').value,e=$('lv-e').value,j=lvTab==='j';
+  if(!n)return lvSay('이름이나 사번을 적어 주세요.','bad');
+  if(!s)return lvSay('시작일을 선택해 주세요.','bad');
+  if(!e&&!j)return lvSay('종료일을 선택해 주세요.','bad');
+  if(e&&e<s)return lvSay('종료일이 시작일보다 빠릅니다.','bad');
+  const d=lvDraft();d.rows.push([n,s,e||'',j?'j':'m']);d.rows.sort((a,b)=>a[1].localeCompare(b[1])||a[0].localeCompare(b[0],'ko'));
+  lvPut('ginjo-leave-draft',d);$('lv-n').value='';$('lv-s').value='';$('lv-e').value='';lvSay('');lvPageRender();
  });
- $('lv-list').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;const d=lvDraft();d.rows.splice(Number(b.dataset.del),1);lvPut('ginjo-leave-draft',d);say('');render();});
  $('lv-n').addEventListener('keydown',e=>{if(e.key==='Enter')$('lv-add').click();});
+ $('lv-list').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;const d=lvDraft();d.rows.splice(Number(b.dataset.del),1);lvPut('ginjo-leave-draft',d);lvSay('');lvPageRender();});
  $('lv-final').addEventListener('click',async()=>{
   const d=lvDraft();lvPut('ginjo-leave',{at:Date.now(),rows:d.rows.map(r=>r.slice())});lvPut('ginjo-leave-draft',{at:0,rows:d.rows.map(r=>r.slice())});
-  try{logChange('장기 휴무 인원 확정 · '+d.rows.length+'명');}catch{}
-  render();
-  const bad=t=>{say('공유되지 않았습니다: '+t+' (이 PC에는 저장됨)','bad');try{devLogAdd('share','장기 휴무 인원: '+t);}catch{}};
+  try{logChange('장기 휴무·휴직 확정 · 휴무 '+d.rows.filter(r=>r[3]!=='j').length+'명 · 휴직 '+d.rows.filter(r=>r[3]==='j').length+'명');}catch{}
+  lvPageRender();try{roRender();}catch{}
+  const bad=t=>{lvSay('공유되지 않았습니다: '+t+' (이 PC에는 저장됨)','bad');try{devLogAdd('share','장기 휴무: '+t);}catch{}};
   try{
    if(!APP_CONFIG.sharedEnabled)return bad('공유 저장 기능이 꺼져 있습니다.');
    if(state.demo)return bad('샘플 화면입니다.');
    if(!state.daily)return bad('데일리를 아직 불러오지 못했습니다.');
    if(state.dailyDraftDirty)return bad('데일리 수정 중입니다.');
    autoMarkUnsaved();await autoShareAfter();
-   setTimeout(()=>{try{const s=$('issue-save-state'),tx=(s&&s.textContent)||'';if(s&&s.className==='ok')say('공유 저장 완료 · '+tx);else bad(tx||'공유 저장 폴더 연결을 확인하세요.');}catch{}},1500);
+   setTimeout(()=>{try{const s=$('issue-save-state'),tx=(s&&s.textContent)||'';if(s&&s.className==='ok')lvSay('공유 저장 완료 · '+tx);else bad(tx||'공유 저장 폴더 연결을 확인하세요.');}catch{}},1500);
   }catch(err){bad(err&&err.message||err);}
  });
 })();
 
+/* ===== 외부 팀즈 원문: 운영일이 바뀌는 새벽 5시(KST)에 비움 (이름 매핑 사전은 그대로) */
+function extDailyClear(){
+ try{
+  const sh=new Date(Date.now()+4*3600000),cutoff=Date.UTC(sh.getUTCFullYear(),sh.getUTCMonth(),sh.getUTCDate())-4*3600000;
+  const s=extSrcLoad();if(!s.at||s.at>=cutoff)return;
+  extSrcSave({text:'',at:cutoff});
+  try{logChange('외부 팀즈 원문 새벽 5시 초기화');}catch{}
+  if(state.view==='ext')renderExt(true);
+ }catch{}
+}
+setInterval(extDailyClear,60000);setTimeout(extDailyClear,1500);
+
 /* ===== 개발 테스트 로그 · 백업/복원 (20261122) */
 const DEV_KEY='ginjo-devlog',DEV_LIMIT=300;
-const DEV_VIEWS={people:'현황',issues:'문제 예상 인원',ot:'OT 현황',macro:'매크로 검색',ext:'외부 팀즈',handover:'인수인계',roster:'재직 리스트',forecast:'10일 예상',rt:'실시간 배정',edu:'교육 인원',daily:'데일리 수정',settings:'연결·저장',dev:'개발 테스트 로그'};
+const DEV_VIEWS={people:'현황',issues:'문제 예상 인원',ot:'OT 현황',macro:'매크로 검색',ext:'외부 팀즈',handover:'인수인계',roster:'재직 리스트',leave:'장기 휴무 인원',forecast:'10일 예상',rt:'실시간 배정',edu:'교육 인원',daily:'데일리 수정',settings:'연결·저장',dev:'개발 테스트 로그'};
 const DEV_LAST={t:0,b:''};let devFilter='',devCount=0,devSeen=new Map(),devShareT=0;
 function devLoad(){try{const v=JSON.parse(localStorage.getItem(DEV_KEY)||'null');if(v&&Array.isArray(v.list))return {clr:Number(v.clr)||0,list:v.list.filter(x=>x&&x.i)};}catch{}return {clr:0,list:[]};}
 function devSave(v){try{localStorage.setItem(DEV_KEY,JSON.stringify(v));}catch{}}
