@@ -1,13 +1,13 @@
 <!doctype html>
-<!-- INAPP_GWIJAEK_TEMPLATE_SOURCE / 20261124.11
+<!-- INAPP_GWIJAEK_TEMPLATE_SOURCE / 20261125.1
 적용 대상: Power Automate의 Read_template가 읽는 인앱귀책웹_템플릿.txt 원본.
 이 파일 하나가 인앱 화면과 귀책 화면을 모두 담습니다. (안쪽에 각각의 전체 화면이 들어 있습니다)
 데이터 자리: 아래 SHELL_DATA 의 두 자리(인앱용, 귀책용)를 Power Automate가 각각 바꿔 넣습니다. 이 자리 문구는 파일 안에서 한 번씩만 써야 합니다.
 화면 코드는 <script type="text/plain" id="inner-src"> 안쪽에 있습니다. 거기서 </script> 글자는 <\/script> 로 적혀 있습니다. 고칠 때 그대로 지켜주세요.
-20261124.11: 긴조웹_템플릿.txt(20261118.75 + 개발 테스트 로그)에서 분리. 인앱/귀책 2개 화면, 사이드바 묶음, 매크로 검색 제거, 외부 팀즈 주석, 마감업무 묶음 제거,
+20261125.1: 긴조웹_템플릿.txt(20261118.75 + 개발 테스트 로그)에서 분리. 인앱/귀책 2개 화면, 사이드바 묶음, 매크로 검색 제거, 외부 팀즈 주석, 마감업무 묶음 제거,
         입력·저장값(브라우저 저장소·공유 저장 연결)을 인앱/귀책에 따로 보관.
 -->
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';img-src data:;connect-src 'self';frame-src about: data:;base-uri 'none';form-action 'none'"><meta name="ginjo-build" content="20261124.11"><title>투입률</title><style>:root{color-scheme:light;--side:#f7f4e4;--line:#e6dcc0;--ink:#5f4f36;--mut:#8f7d5f;--hover:#efe8cf;--act:#e3d6ae;--accent:#2f6fd6;--bg:#f3ede2}
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';img-src data:;connect-src 'self';frame-src about: data:;base-uri 'none';form-action 'none'"><meta name="ginjo-build" content="20261125.1"><title>투입률</title><style>:root{color-scheme:light;--side:#f7f4e4;--line:#e6dcc0;--ink:#5f4f36;--mut:#8f7d5f;--hover:#efe8cf;--act:#e3d6ae;--accent:#2f6fd6;--bg:#f3ede2}
 html.dark{color-scheme:dark;--side:#1b2430;--line:#2c3948;--ink:#cdd8e3;--mut:#8d9db0;--hover:#243142;--act:#2f4259;--bg:#10161e}
 *{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg)}
 body{display:grid;grid-template-columns:136px minmax(0,1fr);font-family:system-ui,-apple-system,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif;color:var(--ink)}
@@ -1083,7 +1083,7 @@ html.dark .dev-k.error{background:#4a2420;color:#f0a39b}html.dark .dev-k.share{b
 
 <section id="settings" class="settings"><div class="settings-grid"><article class="panel"><div class="panel-heading"><div><div class="step">CONNECTION</div><h2>연결·저장</h2></div></div><div class="panel-body"><p id="embedded-note">이 화면은 Power Automate가 HTML 안에 넣은 데일리로 계산하고, 1분마다 새 데일리를 다시 읽습니다.</p><p class="tiny hidden" id="folder-state"></p></div></article><article class="panel"><div class="panel-heading"><div><div class="step">SHARE · SCRIPT</div><h2>공유 저장 · 스크립트</h2></div></div><div class="panel-body"><p class="tiny">공유 저장은 ③ 자동 저장 폴더로 연결합니다. 화면 오른쪽 위 공유 저장 표시로 연결 상태를 확인하고, 연결이 안 되어 있으면 눌러서 연결하세요.</p><div class="code-button"><span>데일리 웹 내보내기 (Office Script)</span><button data-code="daily">코드 복사</button></div></div></article><article class="panel manual-card"><div class="panel-heading"><div><div class="step">MANUAL</div><h2>데일리 수동 불러오기</h2><p class="sub">플로우가 멈췄을 때만 쓰세요. 엑셀 웹에서 <b>수동용 스크립트</b>를 실행하고, 출력된 긴 글자를 전부 복사해 붙여넣으면 됩니다.</p></div></div><div class="panel-body"><textarea id="manual-json" spellcheck="false" placeholder='{"type":"ginjo-daily-blocks", ... } 로 시작하는 글자를 통째로 붙여넣으세요.'></textarea><div class="manual-actions"><span class="tiny" id="manual-state"></span><button type="button" class="quiet" id="manual-file">JSON 파일 선택</button><button type="button" class="quiet" id="manual-last">마지막 정상 데일리 열기</button><button type="button" class="quiet" id="manual-clear">수동 데일리 해제</button><button type="button" class="primary" id="manual-load">불러오기 (이 PC만)</button></div><div class="manual-share"><div><b>모든 팀장님 화면에 반영</b><span class="tiny">붙여넣은 데일리를 넣은 대시보드 HTML을 만들어, 동기화 폴더의 대시보드 파일에 덮어씁니다. 플로우가 하는 일과 같아서 1분 새로고침에도 유지되고 다른 팀장님 화면도 바뀝니다.</span></div><button type="button" class="primary" id="manual-publish">대시보드 HTML 덮어쓰기</button></div></div></article></div></section>
 <section id="shared-panel" class="shared-panel hidden"><div><strong>공유 입력</strong><p id="shared-status">공유 저장 내용을 확인하고 있습니다.</p><small>저장 후 기존 자동화의 다음 실행에 반영됩니다. 반영되면 화면이 자동으로 갱신됩니다.</small></div><div class="shared-actions"><button id="shared-prepare-btn" class="primary">① 저장할 내용 복사</button><a id="shared-open-link" class="button-link" target="_blank" rel="noopener noreferrer">② 공유 저장창 열기 ↗</a><button id="shared-folder-btn" title="한 번 연결하면 계산할 때 공유 저장 파일이 자동으로 저장됩니다">③ 자동 저장 폴더 연결</button></div></section>
-<div class="error" id="error-box"><span id="error-text"></span><button id="debug-btn">오류 상세</button></div><section class="bottom-connection" aria-label="연결 상태"><div class="connection-line"><span class="badge sample" id="connection-badge">연결 확인 중</span><span>③ 자동 저장 폴더를 연결해 두면 계산 버튼을 누를 때 공유 저장 파일이 자동으로 저장됩니다. 연결하지 않았다면 ① 저장할 내용 복사 → ② 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</span></div><div class="banner" id="mode-banner"><div><strong>샘플 데이터입니다.</strong> 실제 회사 자료가 아닙니다. 연결 · 사용 방법에서 업무 파일을 연결하세요.</div><button class="quiet" id="setup-btn">연결 설정 →</button></div></section><footer><span id="footer-source">샘플 · 회사 데이터 연결 전</span><span>인앱귀책 투입률 / html만 20261124.11</span></footer></main></div>
+<div class="error" id="error-box"><span id="error-text"></span><button id="debug-btn">오류 상세</button></div><section class="bottom-connection" aria-label="연결 상태"><div class="connection-line"><span class="badge sample" id="connection-badge">연결 확인 중</span><span>③ 자동 저장 폴더를 연결해 두면 계산 버튼을 누를 때 공유 저장 파일이 자동으로 저장됩니다. 연결하지 않았다면 ① 저장할 내용 복사 → ② 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</span></div><div class="banner" id="mode-banner"><div><strong>샘플 데이터입니다.</strong> 실제 회사 자료가 아닙니다. 연결 · 사용 방법에서 업무 파일을 연결하세요.</div><button class="quiet" id="setup-btn">연결 설정 →</button></div></section><footer><span id="footer-source">샘플 · 회사 데이터 연결 전</span><span>인앱귀책 투입률 / html만 20261125.1</span></footer></main></div>
 <dialog id="report-dialog" class="report-dialog"><h2>보고 복사</h2><p class="tiny">아래 내용을 확인하고 복사하세요. 직접 고쳐서 복사해도 됩니다.</p><textarea id="report-text" spellcheck="false" aria-label="보고 내용"></textarea><div class="actions"><button class="primary" id="report-copy">복사</button><button id="report-close">닫기</button></div></dialog>
 <dialog id="shared-save-dialog"><h2>공유 저장 준비</h2><p id="shared-copy-note">아직 저장되지 않았습니다. 아래 내용을 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</p><div class="shared-actions"><button id="shared-copy-again">다시 복사</button><a id="shared-dialog-link" class="button-link" target="_blank" rel="noopener noreferrer">공유 저장창 열기 ↗</a></div><textarea id="shared-copy-text" readonly aria-label="공유 저장할 내용" spellcheck="false"></textarea><p class="tiny">공유 저장창에서 저장을 눌러야 서버에 저장됩니다. 다음 자동화 실행 후 화면이 자동 갱신되며 복원됩니다. 최대 1~2분 걸릴 수 있습니다. 다른 팀장님과 동시에 저장하면 마지막 저장 내용이 공유됩니다.</p><details><summary>공유 저장창이 열리지 않을 때</summary><p>아래 주소를 복사해 회사 브라우저의 새 탭에서 여세요.</p><p id="shared-form-address" class="shared-form-address"></p></details><div class="actions"><button id="shared-save-close">닫기</button></div></dialog><input id="file-input" type="file" accept=".json,application/json" hidden><dialog id="dialog"><h2 id="dialog-title">오류 상세</h2><pre id="dialog-text"></pre><textarea id="dialog-input" class="hidden" aria-label="JSON 붙여넣기" style="width:100%;height:300px"></textarea><div class="actions"><button id="dialog-copy">복사</button><button id="dialog-apply" class="primary hidden">불러오기</button><button id="dialog-close">닫기</button></div></dialog><div id="toast" role="status"></div>
 <script>
@@ -4157,6 +4157,8 @@ function autoInputShape(raw,exclusions,training,exceptions,trainees=[],edu=[],ed
 }
 function autoLocalShape(){return autoInputShape($('raw').value,fields(),lines('training'),lines('exceptions'),traineesFromUI(),state.edu||[],state.eduReport||null);}
 function autoSavedShape(input){return autoInputShape(input.raw,input.exclusions,input.training,input.exceptions,input.trainees||[],input.edu||[],input.eduReport||null);}
+window.__autoCanReload=function(){return !(autoBusy()||Date.now()-AUTO.lastInput<20000);};
+window.__autoPersist=function(){autoPersistUI();};
 function autoBusy(){return Boolean(state.dailyDraftDirty)||Boolean(document.querySelector('dialog[open]'));}
 function autoMarkUnsaved(){AUTO.unsaved=true;AUTO.savedAt=0;AUTO.lastInput=Date.now();}
 document.addEventListener('input',event=>{
@@ -4168,11 +4170,11 @@ function autoPersistUI(){try{
  const ui={view:state.view,filter:state.filter,search:$('search').value,y:window.scrollY};
  try{if(state.daily)stampLocal(state.daily.date,snapDom());}catch{}
  ui.inp={raw:$('raw').value,ex:fields(),tr:$('training').value,ex2:$('exceptions').value,date:$('date').value,time:$('time').value,now:$('use-now').checked,sa:AUTO.savedAt||0,t2:traineesRaw(),e3:state.edu||[],er:state.eduReport||null,aj:state.adjust||[],day:bizDate()};
- sessionStorage.setItem('ginjo-ui',JSON.stringify(ui));
+ sessionStorage.setItem('ginjo-ui-'+APP_CONFIG.ns,JSON.stringify(ui));
 }catch{}}
 function autoRestoreUI(){
  try{
-  const saved=JSON.parse(sessionStorage.getItem('ginjo-ui')||'null');sessionStorage.removeItem('ginjo-ui');if(!saved)return;
+  const saved=JSON.parse(sessionStorage.getItem('ginjo-ui-'+APP_CONFIG.ns)||'null');sessionStorage.removeItem('ginjo-ui-'+APP_CONFIG.ns);if(!saved)return;
   if(saved.view&&saved.view!==state.view)setView(saved.view);
   if(saved.filter){state.filter=saved.filter;}
   if(saved.search){$('search').value=saved.search;state.search=saved.search.toLowerCase().trim();}
@@ -4258,7 +4260,7 @@ async function autoTick(){
  if(AUTO.mode==='fetch'){await autoCheck(false);return;}
  if(AUTO.mode==='reload'){
   if(autoBusy()||Date.now()-AUTO.lastInput<20000){autoChip('자동 갱신 보류 · '+(autoBusy()?'창 열림/수기 수정 중':'입력 후 20초 대기')+' · 다시 시도 예정',true);return;}
-  autoPersistUI();location.reload();
+  if(parent&&parent.__shellReload){parent.__shellReload();}else{autoPersistUI();location.reload();}
  }
 }
 function autoStart(){
@@ -4271,8 +4273,9 @@ function autoStart(){
   try{autoApplyShared(AUTO.pendingData);autoChip('자동 갱신 '+autoClockText(Date.now())+' · 공유 입력 적용',false);toast('공유 입력을 적용했습니다.');}catch(error){fail(error);}
  });
  autoRestoreUI();
- if(location.protocol==='https:'||location.protocol==='http:'){AUTO.mode='fetch';AUTO.checkedAt=Date.now();autoChip('자동 갱신 · 1분마다 확인',false);}
- else if(location.protocol==='file:'){AUTO.mode='reload';const dz=state.daily&&state.daily.capturedAt&&Number.isFinite(Date.parse(state.daily.capturedAt))?autoClockText(Date.parse(state.daily.capturedAt)):'없음';autoChip('자동 갱신 · 파일 읽음 '+autoClockText(Date.now())+' · 원본 생성 '+dz+' · 1분마다 다시 읽음',false);}
+ const PROTO=(()=>{try{return parent.location.protocol;}catch(e){return location.protocol;}})();
+ if(PROTO==='https:'||PROTO==='http:'){AUTO.mode='fetch';AUTO.checkedAt=Date.now();autoChip('자동 갱신 · 1분마다 확인',false);}
+ else if(PROTO==='file:'){AUTO.mode='reload';const dz=state.daily&&state.daily.capturedAt&&Number.isFinite(Date.parse(state.daily.capturedAt))?autoClockText(Date.parse(state.daily.capturedAt)):'없음';autoChip('자동 갱신 · 파일 읽음 '+autoClockText(Date.now())+' · 원본 생성 '+dz+' · 1분마다 다시 읽음',false);}
  else{AUTO.mode='';autoChip('자동 갱신 불가 · 파일을 다시 여세요',true);return;}
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&AUTO.mode==='fetch'&&Date.now()-AUTO.checkedAt>30000)autoCheck(false);});
  autoSchedule();
@@ -4651,7 +4654,7 @@ function resetDayInputs(message){
  $('use-now').checked=true;state.adjust=[];try{renderAdjustList();}catch{}
  $('raw').value='';state.rawSample=false;setFields([]);$('training').value='';$('exceptions').value='';$('use-now').checked=true;fillTime();
  state.result=null;state.dirty=false;state.statusFromShared=false;AUTO.unsaved=false;AUTO.savedAt=0;state.inputDay=bizDate();
- try{sessionStorage.removeItem('ginjo-ui');}catch{}
+ try{sessionStorage.removeItem('ginjo-ui-'+APP_CONFIG.ns);}catch{}
  render();if(APP_CONFIG.sharedEnabled)sharedStatus(message);toast(message);
 }
 function checkDayRollover(){try{if(state.inputDay&&state.inputDay!==bizDate())resetDayInputs('05:00 운영일이 바뀌어 상태 원문·수기 추가·예외 입력을 초기화했습니다. 신입 교육 기간과 교육 인원 기록은 유지됩니다.');}catch{}}
@@ -6053,6 +6056,7 @@ const INNER=document.getElementById('inner-src').textContent.split('<'+'\\/scrip
 const $=s=>document.querySelector(s);
 const side=$('#side'),frames=$('#frames');
 const state={cur:APPS[0].key,view:{},ready:{},frame:{},groups:{}};
+try{const s0=JSON.parse(sessionStorage.getItem('shell-ui')||'null');sessionStorage.removeItem('shell-ui');if(s0){if(APPS.some(x=>x.key===s0.cur))state.cur=s0.cur;Object.assign(state.view,s0.view||{});}}catch(e){}
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function appOf(key){return APPS.find(a=>a.key===key);}
@@ -6109,6 +6113,13 @@ side.addEventListener('click',e=>{
 });
 /* 안쪽 화면에서 화면이 바뀌면(버튼 등) 사이드바 표시를 맞춥니다 */
 window.__shellView=function(key,view){state.view[key]=view;paint();};
+/* 파일로 열었을 때 자동 새로고침: 두 화면 모두 입력 중이 아닐 때만 입력 내용을 보관하고 전체를 다시 읽습니다 */
+window.__shellReload=function(){
+ const ws=APPS.map(a=>state.frame[a.key]&&state.frame[a.key].contentWindow);
+ for(const w of ws){try{if(!w||(w.__autoCanReload&&!w.__autoCanReload()))return;}catch(e){return;}}
+ try{for(const w of ws){if(w.__autoPersist)w.__autoPersist();}sessionStorage.setItem('shell-ui',JSON.stringify({cur:state.cur,view:state.view}));}catch(e){}
+ location.reload();
+};
 
 /* ---- Power Automate 연동 ---- */
 /* 1분마다 같은 파일의 최신 내장 데일리를 가져옵니다 */
