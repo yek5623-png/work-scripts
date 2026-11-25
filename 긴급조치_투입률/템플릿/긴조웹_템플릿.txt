@@ -3,7 +3,7 @@
 적용 대상: Power Automate의 Read_template가 읽는 긴조웹_템플릿.txt 원본.
 이 코드 전체를 템플릿 원본에 반영해야 다음 데일리 갱신에도 화면이 유지됩니다.
 자동 생성되는 계산형 HTML만 직접 고치면 다음 자동화 실행 때 템플릿 내용으로 덮어써집니다.
-이 코드의 버전 표시: 화면 맨 아래 html만 20261125.8.
+이 코드의 버전 표시: 화면 맨 아래 html만 20261125.9.
 20261124.1: 자동 실행 중 폴더 권한 요청 오류 수정(User activation is required...). 버튼을 누른 직후가 아니면 권한을 요청하지 않고 '권한 없음'으로 처리합니다.
 20261118.75: 사이드바 상아색.
 20261118.74: 베이지에 노란끼 조금 더.
@@ -1054,9 +1054,9 @@ html.dark .nb-table thead th a{color:#8fbaff}html.dark .nb-table td input,html.d
 .nb-table .nb-edit{border:1px solid #9aa5b1;background:rgba(255,255,255,.7);color:#1c2733;border-radius:6px;padding:3px 5px;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.nb-table tr.lock td select,.nb-table tr.lock td input[type=date]{pointer-events:none}.nb-table tr.lock td textarea{cursor:default;background:transparent;border-color:transparent}
 html.dark .nb-table .nb-edit{background:rgba(0,0,0,.35);border-color:rgba(255,255,255,.28);color:#eef3f8}
 .el-new{display:flex;gap:8px;align-items:center;margin:0 0 12px}.el-new input{flex:0 1 360px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:transparent;color:inherit}
-.forecast-grid.el-grid{grid-auto-columns:calc((100% - 20px)/3)}.el-body{max-height:66vh;overflow:auto}.el-table{width:100%;border-collapse:collapse}.el-table thead th{position:sticky;top:0;background:#f8fafc;z-index:1}
-.el-table td,.el-table th{padding:5px 8px;text-align:left;border-bottom:1px solid var(--line)}.el-table td:last-child,.el-table th:last-child{text-align:center;width:70px}.el-table tr.el-first td{border-top:2px solid #b9c4d0}.el-table tr.el-ok td{background:rgba(28,138,76,.1)}.el-table input[type=checkbox]{width:18px;height:18px;cursor:pointer}
-html.dark .el-table thead th{background:#141c26}html.dark .el-table tr.el-first td{border-top-color:#3b4a5b}html.dark .el-new input{border-color:#3d5873}
+.forecast-grid.el-grid{grid-auto-columns:max-content;align-items:start}.el-card .fc-title b{font-size:20px;line-height:1.25}.el-card .fc-head{padding:12px 14px}.el-table{width:max-content;min-width:100%}.el-table td,.el-table th{white-space:nowrap}.el-table tr.el-grp td{background:#eef2f6;font-weight:800;font-size:12px;color:#3d5066;padding:5px 8px;border-top:2px solid #b9c4d0}html.dark .el-table tr.el-grp td{background:#1c2733;color:#cfe0f0;border-top-color:#3b4a5b}.el-body{max-height:66vh;overflow:auto}.el-table{width:100%;border-collapse:collapse}.el-table thead th{position:sticky;top:0;background:#f8fafc;z-index:1}
+.el-table td,.el-table th{padding:4px 6px;text-align:left;border-bottom:1px solid var(--line)}.el-table td:last-child,.el-table th:last-child{text-align:center;width:58px}.el-table tr.el-ok td{background:rgba(28,138,76,.1)}.el-table input[type=checkbox]{width:18px;height:18px;cursor:pointer}
+html.dark .el-table thead th{background:#141c26}html.dark .el-new input{border-color:#3d5873}
 .slim-side .nav-group{margin-top:auto}.slim-side .nav-edit-box{margin-top:0;padding-top:6px}
 .ho-tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.ho-tools input{font-size:12px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;width:150px;font-family:inherit;background:transparent;color:inherit}
 .ho-tools .quiet.on{background:#2f6fd6;color:#fff;border-color:#2f6fd6}
@@ -1170,7 +1170,7 @@ html.dark .dev-k.error{background:#3a1c19;color:#f4bdb7}html.dark .dev-k.share{b
 
 <section id="settings" class="settings"><div class="settings-grid"><article class="panel"><div class="panel-heading"><div><div class="step">CONNECTION</div><h2>연결·저장</h2></div></div><div class="panel-body"><p id="embedded-note">이 화면은 Power Automate가 HTML 안에 넣은 데일리로 계산하고, 1분마다 새 데일리를 다시 읽습니다.</p><p class="tiny hidden" id="folder-state"></p></div></article><article class="panel"><div class="panel-heading"><div><div class="step">SHARE · SCRIPT</div><h2>공유 저장 · 스크립트</h2></div></div><div class="panel-body"><p class="tiny">공유 저장은 ③ 자동 저장 폴더로 연결합니다. 화면 오른쪽 위 공유 저장 표시로 연결 상태를 확인하고, 연결이 안 되어 있으면 눌러서 연결하세요.</p><div class="code-button"><span>데일리 웹 내보내기 (Office Script)</span><button data-code="daily">코드 복사</button></div></div></article><article class="panel manual-card"><div class="panel-heading"><div><div class="step">MANUAL</div><h2>데일리 수동 불러오기</h2><p class="sub">플로우가 멈췄을 때만 쓰세요. 엑셀 웹에서 <b>수동용 스크립트</b>를 실행하고, 출력된 긴 글자를 전부 복사해 붙여넣으면 됩니다.</p></div></div><div class="panel-body"><textarea id="manual-json" spellcheck="false" placeholder='{"type":"ginjo-daily-blocks", ... } 로 시작하는 글자를 통째로 붙여넣으세요.'></textarea><div class="manual-actions"><span class="tiny" id="manual-state"></span><button type="button" class="quiet" id="manual-file">JSON 파일 선택</button><button type="button" class="quiet" id="manual-last">마지막 정상 데일리 열기</button><button type="button" class="quiet" id="manual-clear">수동 데일리 해제</button><button type="button" class="primary" id="manual-load">불러오기 (이 PC만)</button></div><div class="manual-share"><div><b>모든 팀장님 화면에 반영</b><span class="tiny">붙여넣은 데일리를 넣은 대시보드 HTML을 만들어, 동기화 폴더의 대시보드 파일에 덮어씁니다. 플로우가 하는 일과 같아서 1분 새로고침에도 유지되고 다른 팀장님 화면도 바뀝니다.</span></div><button type="button" class="primary" id="manual-publish">대시보드 HTML 덮어쓰기</button></div></div></article></div></section>
 <section id="shared-panel" class="shared-panel hidden"><div><strong>공유 입력</strong><p id="shared-status">공유 저장 내용을 확인하고 있습니다.</p><small>저장 후 기존 자동화의 다음 실행에 반영됩니다. 반영되면 화면이 자동으로 갱신됩니다.</small></div><div class="shared-actions"><button id="shared-prepare-btn" class="primary">① 저장할 내용 복사</button><a id="shared-open-link" class="button-link" target="_blank" rel="noopener noreferrer">② 공유 저장창 열기 ↗</a><button id="shared-folder-btn" title="한 번 연결하면 계산할 때 공유 저장 파일이 자동으로 저장됩니다">③ 자동 저장 폴더 연결</button></div></section>
-<div class="error" id="error-box"><span id="error-text"></span><button id="debug-btn">오류 상세</button></div><section class="bottom-connection" aria-label="연결 상태"><div class="connection-line"><span class="badge sample" id="connection-badge">연결 확인 중</span><span>③ 자동 저장 폴더를 연결해 두면 계산 버튼을 누를 때 공유 저장 파일이 자동으로 저장됩니다. 연결하지 않았다면 ① 저장할 내용 복사 → ② 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</span></div><div class="banner" id="mode-banner"><div><strong>샘플 데이터입니다.</strong> 실제 회사 자료가 아닙니다. 연결 · 사용 방법에서 업무 파일을 연결하세요.</div><button class="quiet" id="setup-btn">연결 설정 →</button></div></section><footer><span id="footer-source">샘플 · 회사 데이터 연결 전</span><span>GINJO DESK / html만 20261125.8</span></footer></main></div>
+<div class="error" id="error-box"><span id="error-text"></span><button id="debug-btn">오류 상세</button></div><section class="bottom-connection" aria-label="연결 상태"><div class="connection-line"><span class="badge sample" id="connection-badge">연결 확인 중</span><span>③ 자동 저장 폴더를 연결해 두면 계산 버튼을 누를 때 공유 저장 파일이 자동으로 저장됩니다. 연결하지 않았다면 ① 저장할 내용 복사 → ② 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</span></div><div class="banner" id="mode-banner"><div><strong>샘플 데이터입니다.</strong> 실제 회사 자료가 아닙니다. 연결 · 사용 방법에서 업무 파일을 연결하세요.</div><button class="quiet" id="setup-btn">연결 설정 →</button></div></section><footer><span id="footer-source">샘플 · 회사 데이터 연결 전</span><span>GINJO DESK / html만 20261125.9</span></footer></main></div>
 <dialog id="report-dialog" class="report-dialog"><h2>보고 복사</h2><p class="tiny">아래 내용을 확인하고 복사하세요. 직접 고쳐서 복사해도 됩니다.</p><textarea id="report-text" spellcheck="false" aria-label="보고 내용"></textarea><div class="actions"><button class="primary" id="report-copy">복사</button><button id="report-close">닫기</button></div></dialog>
 <dialog id="shared-save-dialog"><h2>공유 저장 준비</h2><p id="shared-copy-note">아직 저장되지 않았습니다. 아래 내용을 공유 저장창의 Payload 칸에 붙여넣고 저장하세요.</p><div class="shared-actions"><button id="shared-copy-again">다시 복사</button><a id="shared-dialog-link" class="button-link" target="_blank" rel="noopener noreferrer">공유 저장창 열기 ↗</a></div><textarea id="shared-copy-text" readonly aria-label="공유 저장할 내용" spellcheck="false"></textarea><p class="tiny">공유 저장창에서 저장을 눌러야 서버에 저장됩니다. 다음 자동화 실행 후 화면이 자동 갱신되며 복원됩니다. 최대 1~2분 걸릴 수 있습니다. 다른 팀장님과 동시에 저장하면 마지막 저장 내용이 공유됩니다.</p><details><summary>공유 저장창이 열리지 않을 때</summary><p>아래 주소를 복사해 회사 브라우저의 새 탭에서 여세요.</p><p id="shared-form-address" class="shared-form-address"></p></details><div class="actions"><button id="shared-save-close">닫기</button></div></dialog><input id="file-input" type="file" accept=".json,application/json" hidden><dialog id="dialog"><h2 id="dialog-title">오류 상세</h2><pre id="dialog-text"></pre><textarea id="dialog-input" class="hidden" aria-label="JSON 붙여넣기" style="width:100%;height:300px"></textarea><div class="actions"><button id="dialog-copy">복사</button><button id="dialog-apply" class="primary hidden">불러오기</button><button id="dialog-close">닫기</button></div></dialog><div id="toast" role="status"></div>
 <script>
@@ -3862,7 +3862,7 @@ function normalize(input){
  let extSrc=null;if(input.extSrc&&typeof input.extSrc==='object'&&typeof input.extSrc.text==='string')extSrc={text:input.extSrc.text.slice(0,8000),at:Number(input.extSrc.at)||0};
  let macros=null;if(Array.isArray(input.macros)){macros=input.macros.slice(0,1500).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,20),String(r[2]??'').slice(0,200),Number(r[3])||0,r[4]?1:0,String(r[5]??'').slice(0,20)]);if(!macros.length)macros=null;}
  let handover=null;if(Array.isArray(input.handover)){handover=input.handover.slice(0,200).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,30),String(r[1]??'').slice(0,10),String(r[2]??'').slice(0,40),String(r[3]??'').slice(0,10),String(r[4]??'').slice(0,500),String(r[5]??'').slice(0,30),String(r[6]??'').slice(0,200),r[7]?1:0,Number(r[8])||0,r[9]?1:0,Number(r[10])||0]);if(!handover.length)handover=null;} let hoLeaders=null;if(input.hoLeaders&&Array.isArray(input.hoLeaders.list)){hoLeaders={at:Number(input.hoLeaders.at)||0,list:input.hoLeaders.list.slice(0,30).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,20),String(r[1]??'').slice(0,20),r[2]?1:0])};if(!hoLeaders.list.length)hoLeaders=null;}
- let elist=null;if(input.elist&&typeof input.elist==='object'&&Array.isArray(input.elist.forms)){elist={forms:input.elist.forms.slice(0,4).filter(f=>f&&f.i&&Array.isArray(f.p)).map(f=>({i:String(f.i).slice(0,20),t:String(f.t??'').slice(0,40),c:Number(f.c)||0,del:f.del?1:0,dat:Number(f.dat)||0,p:f.p.slice(0,250).filter(x=>Array.isArray(x)&&x[0]).map(x=>[String(x[0]).slice(0,30),String(x[1]??'').slice(0,30),String(x[2]??'').slice(0,20),x[3]?1:0,Number(x[4])||0])}))};}
+ let elist=null;if(input.elist&&typeof input.elist==='object'&&Array.isArray(input.elist.forms)){elist={forms:input.elist.forms.slice(0,4).filter(f=>f&&f.i&&Array.isArray(f.p)).map(f=>({i:String(f.i).slice(0,20),t:String(f.t??'').slice(0,40),c:Number(f.c)||0,del:f.del?1:0,dat:Number(f.dat)||0,p:f.p.slice(0,250).filter(x=>Array.isArray(x)&&x[0]).map(x=>[String(x[0]).slice(0,30),String(x[1]??'').slice(0,30),String(x[2]??'').slice(0,20),x[3]?1:0,Number(x[4])||0,String(x[5]??'').slice(0,30)])}))};}
  let newbie=null;if(input.newbie&&typeof input.newbie==='object'&&Array.isArray(input.newbie.rows)){newbie={lat:Number(input.newbie.lat)||0,links:(Array.isArray(input.newbie.links)?input.newbie.links:[]).slice(0,12).map(x=>/^https?:\/\//i.test(String(x))?String(x).slice(0,500):''),rows:input.newbie.rows.slice(0,120).filter(r=>Array.isArray(r)&&r[0]).map(r=>[String(r[0]).slice(0,20),String(r[1]??'').slice(0,10),String(r[2]??'').slice(0,30),String(r[3]??'').slice(0,20),String(r[4]??'').slice(0,30),String(r[5]??'').slice(0,40),String(r[6]??'').slice(0,40),String(r[7]??'').slice(0,13).padEnd(13,'-').replace(/[^OX-]/g,'-'),String(r[8]??'').slice(0,300),Number(r[9])||0,r[10]?1:0])};}
  let leave=null;if(input.leave&&typeof input.leave==='object'&&Array.isArray(input.leave.rows)){leave={at:Number(input.leave.at)||0,rows:input.leave.rows.slice(0,100).filter(r=>Array.isArray(r)&&r[0]&&/^\d{4}-\d{2}-\d{2}$/.test(String(r[1]))&&(r[3]==='j'?/^(\d{4}-\d{2}-\d{2})?$/.test(String(r[2]??'')):/^\d{4}-\d{2}-\d{2}$/.test(String(r[2])))).map(r=>[String(r[0]).slice(0,30),String(r[1]),String(r[2]??''),r[3]==='j'?'j':'m'])};}
  let roster=null;if(input.roster&&typeof input.roster==='object'&&Array.isArray(input.roster.rows)){roster={at:Number(input.roster.at)||0,rows:input.roster.rows.slice(0,300).filter(r=>Array.isArray(r)).map(r=>[0,1,2,3,4,5].map(i=>String(r[i]??'').slice(0,30)).concat([String(r[6]??'').slice(0,20)]))};}
@@ -6222,17 +6222,17 @@ function elLoad(){try{const v=JSON.parse(localStorage.getItem('ginjo-elist')||'n
 function elSave(v){try{localStorage.setItem('ginjo-elist',JSON.stringify(v));}catch{}}
 function elistSharedPart(){
  const v=elLoad(),cut=Date.now()-14*86400000;
- const forms=v.forms.filter(f=>!f.del||(f.dat||0)>cut).sort((a,b)=>b.c-a.c).slice(0,4).map(f=>({i:f.i,t:f.t,c:f.c,del:f.del?1:0,dat:f.dat||0,p:f.del?[]:f.p.map(x=>[x[0],x[1],x[2],x[3]?1:0,x[4]||0])}));
+ const forms=v.forms.filter(f=>!f.del||(f.dat||0)>cut).sort((a,b)=>b.c-a.c).slice(0,4).map(f=>({i:f.i,t:f.t,c:f.c,del:f.del?1:0,dat:f.dat||0,p:f.del?[]:f.p.map(x=>[x[0],x[1],x[2],x[3]?1:0,x[4]||0,x[5]||''])}));
  return forms.length?{elist:{forms}}:null;
 }
 function mergeElist(input){
  const r=input.elist;if(!r||!Array.isArray(r.forms))return;const cur=elLoad();let ch=false;
  for(const f of r.forms){
   const mine=cur.forms.find(x=>x.i===f.i);
-  if(!mine){cur.forms.push({i:f.i,t:f.t,c:f.c,del:!!f.del,dat:f.dat||0,p:f.p.map(x=>[x[0],x[1],x[2],!!x[3],Number(x[4])||0])});ch=true;continue;}
+  if(!mine){cur.forms.push({i:f.i,t:f.t,c:f.c,del:!!f.del,dat:f.dat||0,p:f.p.map(x=>[x[0],x[1],x[2],!!x[3],Number(x[4])||0,x[5]||''])});ch=true;continue;}
   if(f.del&&!mine.del){mine.del=true;mine.dat=f.dat||Date.now();ch=true;}
   const pm=new Map(mine.p.map(x=>[x[0],x]));
-  for(const a of f.p){const m=pm.get(a[0]);if(!m){mine.p.push([a[0],a[1],a[2],!!a[3],Number(a[4])||0]);ch=true;}else if((Number(a[4])||0)>(m[4]||0)){m[3]=!!a[3];m[4]=Number(a[4]);ch=true;}}
+  for(const a of f.p){const m=pm.get(a[0]);if(!m){mine.p.push([a[0],a[1],a[2],!!a[3],Number(a[4])||0,a[5]||'']);ch=true;}else if((Number(a[4])||0)>(m[4]||0)){m[3]=!!a[3];m[4]=Number(a[4]);ch=true;}}
  }
  if(!ch)return;elSave(cur);try{if(state.view==='elist'&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#el-cards')))elRender();}catch{}
 }
@@ -6250,19 +6250,25 @@ function elCommit(){
 }
 function elPeople(){
  const seen=new Set(),out=[];
- for(const r of state.daily?.schedule||[]){const id=String(r.id||'').trim();if(!id||seen.has(id.toLowerCase()))continue;seen.add(id.toLowerCase());out.push([id,String(r.name||'').slice(0,30),leaderGroup(r.leader),false,0]);}
+ for(const r of state.daily?.schedule||[]){const id=String(r.id||'').trim();if(!id||seen.has(id.toLowerCase()))continue;seen.add(id.toLowerCase());out.push([id,String(r.name||'').slice(0,30),leaderGroup(r.leader),false,0,String(r.shift||'').slice(0,30)]);}
  const ord=[...EDU_LEADERS];const rank=n=>{const i=ord.indexOf(n);return n==='미지정'?999:i<0?500:i;};
  out.sort((a,b)=>rank(a[2])-rank(b[2])||String(a[2]).localeCompare(String(b[2]),'ko')||String(a[1]).localeCompare(String(b[1]),'ko'));
  return out;
 }
+function elShiftKey(s){const m=String(s||'').match(/(\d{1,2}):?(\d{2})/);if(!m)return 99999;let h=Number(m[1]);if(h<5)h+=24;return h*60+Number(m[2]);}
+function elRank(n){const i=EDU_LEADERS.indexOf(n);return n==='미지정'?999:i<0?500:i;}
 function elRender(){
  const box=$('el-cards');if(!box)return;const v=elLoad();
  const forms=v.forms.filter(f=>!f.del).sort((a,b)=>b.c-a.c);
  if(!forms.length){box.innerHTML='<p class="tiny">아직 폼이 없습니다. “＋ 폼 추가”를 눌러 대제목을 적으면 데일리의 모든 인원이 담당 팀장별로 나열됩니다.</p>';box.className='';return;}
  box.className='forecast-grid el-grid';
  box.innerHTML=forms.map(f=>{
-  const done=f.p.filter(x=>x[3]).length;let last='';
-  const rows=f.p.map(x=>{const first=x[2]!==last;last=x[2];return '<tr class="'+(first?'el-first':'')+(x[3]?' el-ok':'')+'"><td>'+esc(x[0])+'</td><td><b>'+esc(x[1])+'</b></td><td>'+esc(x[2])+(x[2]==='미지정'?'':' 팀')+'</td><td><input type="checkbox" data-id="'+esc(x[0])+'"'+(x[3]?' checked':'')+' aria-label="확인"></td></tr>';}).join('');
+  /* 팀장·이름은 폼을 만들 때 저장한 값 그대로 보여줍니다 (이후 데일리·팀장이 바뀌어도 이 폼은 바뀌지 않음) */
+  const groups=new Map();for(const x of f.p){if(!groups.has(x[2]))groups.set(x[2],[]);groups.get(x[2]).push(x);}
+  const names=[...groups.keys()].sort((a,b)=>elRank(a)-elRank(b)||String(a).localeCompare(String(b),'ko'));
+  const done=f.p.filter(x=>x[3]).length;
+  const rows=names.map(n=>{const g=groups.get(n).slice().sort((a,b)=>elShiftKey(a[5])-elShiftKey(b[5])||String(a[1]).localeCompare(String(b[1]),'ko'));const gd=g.filter(x=>x[3]).length;
+   return '<tr class="el-grp"><td colspan="4">'+esc(n)+(n==='미지정'?'':' 팀')+' · '+g.length+'명 · 확인 '+gd+'/'+g.length+'</td></tr>'+g.map(x=>'<tr class="'+(x[3]?'el-ok':'')+'"><td>'+esc(x[0])+'</td><td><b>'+esc(x[1])+'</b></td><td>'+esc(x[2])+(x[2]==='미지정'?'':' 팀')+'</td><td><input type="checkbox" data-id="'+esc(x[0])+'"'+(x[3]?' checked':'')+' aria-label="확인"></td></tr>').join('');}).join('');
   const d=new Date(f.c+9*3600000).toISOString().slice(5,10).replace('-','/');
   return '<div class="fc-card el-card" data-f="'+esc(f.i)+'"><div class="fc-head"><div class="fc-title"><b>'+esc(f.t||'(제목 없음)')+'</b><button type="button" class="report-btn el-del" data-del="'+esc(f.i)+'" title="이 폼 삭제">삭제</button></div><small>'+d+' 생성 · 확인 '+done+' / '+f.p.length+'</small></div><div class="el-body"><table class="fc-table el-table"><thead><tr><th>C사번</th><th>이름</th><th>담당 팀장</th><th>확인 여부</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
  }).join('');
@@ -6279,7 +6285,7 @@ function elRender(){
   $('el-title').value='';$('el-new').classList.add('hidden');elSay('');elRender();elCommit();
  };
  $('el-make').addEventListener('click',make);$('el-title').addEventListener('keydown',e=>{if(e.key==='Enter')make();});
- box.addEventListener('change',e=>{const c=e.target.closest('input[type=checkbox][data-id]');if(!c)return;const card=c.closest('.el-card'),v=elLoad(),f=v.forms.find(x=>x.i===card.dataset.f);if(!f)return;const p=f.p.find(x=>x[0]===c.dataset.id);if(!p)return;p[3]=c.checked;p[4]=Date.now();elSave(v);c.closest('tr').classList.toggle('el-ok',c.checked);const done=f.p.filter(x=>x[3]).length,s=card.querySelector('.fc-head small');if(s)s.textContent=s.textContent.replace(/확인 \d+ \/ \d+/,'확인 '+done+' / '+f.p.length);elCommit();});
+ box.addEventListener('change',e=>{const c=e.target.closest('input[type=checkbox][data-id]');if(!c)return;const card=c.closest('.el-card'),v=elLoad(),f=v.forms.find(x=>x.i===card.dataset.f);if(!f)return;const p=f.p.find(x=>x[0]===c.dataset.id);if(!p)return;p[3]=c.checked;p[4]=Date.now();elSave(v);c.closest('tr').classList.toggle('el-ok',c.checked);const done=f.p.filter(x=>x[3]).length,s=card.querySelector('.fc-head small');if(s)s.textContent=s.textContent.replace(/확인 \d+ \/ \d+/,'확인 '+done+' / '+f.p.length);let g=c.closest('tr').previousElementSibling;while(g&&!g.classList.contains('el-grp'))g=g.previousElementSibling;if(g){let n=0,k=0,r=g.nextElementSibling;while(r&&!r.classList.contains('el-grp')){n++;if(r.querySelector('input').checked)k++;r=r.nextElementSibling;}g.firstChild.textContent=g.firstChild.textContent.replace(/확인 \d+\/\d+/,'확인 '+k+'/'+n);}elCommit();});
  box.addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b||b.tagName!=='BUTTON')return;const v=elLoad(),f=v.forms.find(x=>x.i===b.dataset.del);if(!f)return;if(!confirm('“'+f.t+'” 폼을 삭제할까요? 다른 팀장님 화면에서도 지워집니다.'))return;f.del=true;f.dat=Date.now();elSave(v);try{logChange('교육 리스트 폼 삭제 · '+f.t);}catch{}elRender();elCommit();});
 })();
 
