@@ -1,0 +1,149 @@
+function main(workbook: ExcelScript.Workbook) {
+  const sheet: ExcelScript.Worksheet = workbook.getActiveWorksheet();
+  const app: ExcelScript.Application = workbook.getApplication();
+
+  const startRow: number = 6;
+  const endRow: number = 29;
+
+  // 목표인원 열
+  const peopleCol: string = "AO";
+
+  // 투입률 퍼센트 계산 열
+  const rateCol: string = "AR";
+
+  // 1을 넣을 범위
+  const outputStartCol: string = "BC";
+  const outputEndCol: string = "CB";
+
+  const eps: number = 0.000001;
+
+  const firstOutputRowRange: ExcelScript.Range = sheet.getRange(`${outputStartCol}${startRow}:${outputEndCol}${startRow}`);
+  const outputColCount: number = firstOutputRowRange.getColumnCount();
+
+  const originalCalculationMode: ExcelScript.CalculationMode = app.getCalculationMode();
+
+  try {
+    app.setCalculationMode(ExcelScript.CalculationMode.manual);
+
+    for (let row: number = startRow; row <= endRow; row++) {
+      const peopleCell: ExcelScript.Range = sheet.getRange(`${peopleCol}${row}`);
+      const rateCell: ExcelScript.Range = sheet.getRange(`${rateCol}${row}`);
+      const outputRange: ExcelScript.Range = sheet.getRange(`${outputStartCol}${row}:${outputEndCol}${row}`);
+
+      const people: number | null = toNumber(peopleCell.getValue());
+
+      // 목표인원이 0이거나 비어있으면 그 행은 완전히 스킵합니다.
+      // BC~CB도 건드리지 않습니다.
+      if (people === null || people <= 0) {
+        continue;
+      }
+
+      const maxPercent: number = getMaxPercent(people);
+
+      let low: number = 0;
+      let high: number = outputColCount;
+      let bestCount: number = 0;
+
+      while (low <= high) {
+        const mid: number = Math.floor((low + high) / 2);
+
+        setFirstOnes(outputRange, mid);
+        app.calculate(ExcelScript.CalculationType.recalculate);
+
+        const currentPercent: number | null = toPercentNumber(rateCell.getValue());
+
+        if (currentPercent !== null && currentPercent <= maxPercent + eps) {
+          bestCount = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+
+      setFirstOnes(outputRange, bestCount);
+      app.calculate(ExcelScript.CalculationType.recalculate);
+    }
+  } finally {
+    app.setCalculationMode(originalCalculationMode);
+    app.calculate(ExcelScript.CalculationType.recalculate);
+  }
+}
+
+function setFirstOnes(targetRange: ExcelScript.Range, count: number): void {
+  targetRange.clear(ExcelScript.ClearApplyTo.contents);
+
+  if (count <= 0) {
+    return;
+  }
+
+  const onesRange: ExcelScript.Range = targetRange.getCell(0, 0).getResizedRange(0, count - 1);
+  onesRange.setValue(1);
+}
+
+function getMaxPercent(people: number): number {
+  if (people <= 1) return 1000;
+  if (people <= 2) return 182;
+  if (people <= 3) return 143;
+  if (people <= 4) return 130;
+  if (people <= 5) return 122;
+  if (people <= 6) return 118;
+  if (people <= 7) return 115;
+  if (people <= 8) return 130;
+  if (people <= 9) return 125;
+  if (people <= 10) return 122;
+  if (people <= 11) return 120;
+  if (people <= 12) return 118;
+  if (people <= 13) return 117;
+  if (people <= 14) return 115;
+
+  // 14명 초과는 무조건 105%가 최대
+  return 105;
+}
+
+function toNumber(value: string | number | boolean): number | null {
+  if (typeof value === "number") {
+    if (Number.isFinite(value)) return value;
+    return null;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+
+  const text: string = value.trim();
+  if (text === "") return null;
+
+  const normalized: string = text.replace(/,/g, "").replace(/%/g, "");
+  const parsed: number = Number(normalized);
+
+  if (Number.isFinite(parsed)) return parsed;
+  return null;
+}
+
+function toPercentNumber(value: string | number | boolean): number | null {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+
+    // AR이 Excel 퍼센트값이면 182%가 실제값 1.82로 읽힙니다.
+    // AR 수식이 182를 그대로 반환하는 경우도 같이 대응합니다.
+    if (Math.abs(value) <= 20) return value * 100;
+    return value;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? 100 : 0;
+  }
+
+  const text: string = value.trim();
+  if (text === "") return null;
+
+  const hasPercentSign: boolean = text.indexOf("%") >= 0;
+  const normalized: string = text.replace(/,/g, "").replace(/%/g, "");
+  const parsed: number = Number(normalized);
+
+  if (!Number.isFinite(parsed)) return null;
+
+  if (hasPercentSign) return parsed;
+  if (Math.abs(parsed) <= 20) return parsed * 100;
+  return parsed;
+}

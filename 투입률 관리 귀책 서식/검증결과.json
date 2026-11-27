@@ -1,0 +1,72 @@
+{
+  "workbook": {
+    "file": "투입률 관리 귀책 서식.xlsx",
+    "bytes": 71363,
+    "sheets": [
+      "사용방법",
+      "데일리연결",
+      "수식설정",
+      "수식근무",
+      "수식OT",
+      "수식원문",
+      "수식판정",
+      "수식명단",
+      "수식검증",
+      "설치코드"
+    ],
+    "helper_formulas": 54,
+    "defined_names": 301,
+    "source_tabs_excluded": true,
+    "late_binding": true,
+    "external_workbook_links": 1,
+    "link_year": 2026,
+    "live_import_cells": 860,
+    "no_macros": true,
+    "setup_code_matches_embedded": true,
+    "native_excel_tested": false
+  },
+  "calculation": {
+    "variant": "귀책",
+    "unitAssertions": 141,
+    "scenarios": 10,
+    "compared": 163,
+    "sourceOriginalCompared": true,
+    "nativeExcelTested": false
+  },
+  "web": {
+    "calendarDays": 30,
+    "liveImportCells": 860,
+    "externalBooks": 1,
+    "nativeNames": 291,
+    "comparisons": 586,
+    "sourceChangeRecalculatesInModel": true,
+    "noExternalIndirect": true,
+    "rangeMode": "scalar INDEX; no external spill arrays",
+    "linkYear": 2026,
+    "nativeExcelTested": false,
+    "companyAccessTested": false
+  },
+  "refresh": {
+    "assertions": 12,
+    "firstButtonSkipsPatch": true,
+    "decemberSwitch": true,
+    "leapYearSwitch": true,
+    "invalidatedHandles": true,
+    "inputsPreserved": true,
+    "nativeExcelTested": false
+  },
+  "installer": {
+    "formulaWrites": 64,
+    "dailyLiveFormulas": 860,
+    "definedNames": 11,
+    "conditionalRules": 40,
+    "preserved": "A1/H5:I5:J5/Z9:Z2000/AD9:AD34",
+    "mergedNonAnchorSkipped": true,
+    "missingSheetFailsBeforeWrites": true,
+    "calculationModeRestored": true,
+    "linkRefreshApiNotRequired": true,
+    "linkRefreshPreferenceSetInExcelMenu": true,
+    "nativeExcelTested": false
+  },
+  "roundtrip": true
+}

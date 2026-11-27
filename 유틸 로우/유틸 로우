@@ -1,0 +1,194 @@
+function main(workbook: ExcelScript.Workbook) {
+  const sheet = workbook.getActiveWorksheet()
+  const sourceStartRowIndex = 3 // A4
+  const firstGroupColumnIndex = 1 // B
+  const groupColumnCount = 4
+  const gapColumnCount = 1
+  const titleRowIndex = 1 // 2행
+  const headerRowIndex = 2 // 3행
+  const headers = ["날짜", "처리시간(시)", "티켓번호", "유형"]
+
+  const usedRange = sheet.getUsedRange(true)
+  if (!usedRange) {
+    throw new Error("활성 시트에서 A4 아래 이름을 찾지 못했습니다.")
+  }
+
+  const usedLastRowIndex = usedRange.getRowIndex() + usedRange.getRowCount() - 1
+  if (usedLastRowIndex < sourceStartRowIndex) {
+    throw new Error("활성 시트에서 A4 아래 이름을 찾지 못했습니다.")
+  }
+
+  const sourceRowCount = usedLastRowIndex - sourceStartRowIndex + 1
+  const nameTexts = sheet
+    .getRangeByIndexes(sourceStartRowIndex, 0, sourceRowCount, 1)
+    .getTexts()
+  const names: string[] = []
+
+  for (const row of nameTexts) {
+    const name = normalizeText(row[0] || "")
+    if (name !== "") names.push(name)
+  }
+
+  if (names.length === 0) {
+    throw new Error("활성 시트에서 A4 아래 이름을 찾지 못했습니다.")
+  }
+
+  const templateTitleRange = sheet.getRangeByIndexes(
+    titleRowIndex,
+    firstGroupColumnIndex,
+    1,
+    groupColumnCount
+  )
+  const templateHeaderRange = sheet.getRangeByIndexes(
+    headerRowIndex,
+    firstGroupColumnIndex,
+    1,
+    groupColumnCount
+  )
+  const templateColumnsRange = templateHeaderRange.getEntireColumn()
+
+  // B2:E2의 기존 병합과 서식을 보존합니다.
+  // 병합 해제 후 재병합하면 B2 이외 셀의 원래 서식이 사라지므로 해제하지 않습니다.
+  templateTitleRange.merge(false)
+  templateTitleRange
+    .getFormat()
+    .setHorizontalAlignment(ExcelScript.HorizontalAlignment.center)
+  templateTitleRange
+    .getFormat()
+    .setVerticalAlignment(ExcelScript.VerticalAlignment.center)
+
+  const templateColumnWidths: number[] = []
+  for (let offset = 0; offset < groupColumnCount; offset++) {
+    const width = sheet
+      .getRangeByIndexes(0, firstGroupColumnIndex + offset, 1, 1)
+      .getFormat()
+      .getColumnWidth()
+    templateColumnWidths.push(width)
+  }
+
+  // 이름 수보다 많이 남아 있는 이전 실행 결과는 제목·헤더·서식까지 제거합니다.
+  clearStaleGroups(
+    sheet,
+    names.length,
+    usedRange.getColumnIndex() + usedRange.getColumnCount() - 1,
+    headers,
+    firstGroupColumnIndex,
+    groupColumnCount,
+    gapColumnCount,
+    titleRowIndex,
+    headerRowIndex
+  )
+
+  for (let index = 0; index < names.length; index++) {
+    const groupStartColumnIndex = getGroupStartColumnIndex(
+      index,
+      firstGroupColumnIndex,
+      groupColumnCount,
+      gapColumnCount
+    )
+    const titleRange = sheet.getRangeByIndexes(
+      titleRowIndex,
+      groupStartColumnIndex,
+      1,
+      groupColumnCount
+    )
+    const headerRange = sheet.getRangeByIndexes(
+      headerRowIndex,
+      groupStartColumnIndex,
+      1,
+      groupColumnCount
+    )
+
+    if (index > 0) {
+      titleRange.unmerge()
+      titleRange.merge(false)
+      headerRange
+        .getEntireColumn()
+        .copyFrom(templateColumnsRange, ExcelScript.RangeCopyType.formats)
+
+      for (let offset = 0; offset < groupColumnCount; offset++) {
+        sheet
+          .getRangeByIndexes(0, groupStartColumnIndex + offset, 1, 1)
+          .getFormat()
+          .setColumnWidth(templateColumnWidths[offset])
+      }
+    }
+
+    titleRange.setValue(names[index])
+    titleRange
+      .getFormat()
+      .setHorizontalAlignment(ExcelScript.HorizontalAlignment.center)
+    titleRange
+      .getFormat()
+      .setVerticalAlignment(ExcelScript.VerticalAlignment.center)
+    headerRange.setValues([headers])
+  }
+
+  console.log(`${names.length}명의 유틸 로우 묶음을 생성했습니다.`)
+}
+
+function clearStaleGroups(
+  sheet: ExcelScript.Worksheet,
+  activeGroupCount: number,
+  usedLastColumnIndex: number,
+  headers: string[],
+  firstGroupColumnIndex: number,
+  groupColumnCount: number,
+  gapColumnCount: number,
+  titleRowIndex: number,
+  headerRowIndex: number
+): void {
+  const step = groupColumnCount + gapColumnCount
+
+  for (
+    let groupStartColumnIndex = firstGroupColumnIndex + activeGroupCount * step;
+    groupStartColumnIndex <= usedLastColumnIndex;
+    groupStartColumnIndex += step
+  ) {
+    const headerRange = sheet.getRangeByIndexes(
+      headerRowIndex,
+      groupStartColumnIndex,
+      1,
+      groupColumnCount
+    )
+    const oldHeaders = headerRange.getTexts()[0]
+    const isGeneratedGroup = headers.every(
+      (header, offset) => normalizeText(oldHeaders[offset] || "") === header
+    )
+
+    if (!isGeneratedGroup) continue
+
+    const titleRange = sheet.getRangeByIndexes(
+      titleRowIndex,
+      groupStartColumnIndex,
+      1,
+      groupColumnCount
+    )
+    titleRange.unmerge()
+    sheet
+      .getRangeByIndexes(
+        titleRowIndex,
+        groupStartColumnIndex,
+        2,
+        groupColumnCount
+      )
+      .clear(ExcelScript.ClearApplyTo.all)
+  }
+}
+
+function getGroupStartColumnIndex(
+  groupIndex: number,
+  firstGroupColumnIndex: number,
+  groupColumnCount: number,
+  gapColumnCount: number
+): number {
+  return firstGroupColumnIndex + groupIndex * (groupColumnCount + gapColumnCount)
+}
+
+function normalizeText(value: string): string {
+  return String(value ?? "")
+    .replace(/\u00A0/g, " ")
+    .replace(/[\u200B\u200C\u200D]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}

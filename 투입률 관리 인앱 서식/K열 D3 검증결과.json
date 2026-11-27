@@ -1,0 +1,5 @@
+{
+  "checks": 105,
+  "result": "PASS",
+  "scope": "Node mock + formula semantic evaluator; live Excel not tested"
+}

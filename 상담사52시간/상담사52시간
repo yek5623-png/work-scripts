@@ -1,0 +1,2102 @@
+function main(workbook: ExcelScript.Workbook) {
+const nameIssueNames: string[] = [];
+const retiredNameMap = buildRetiredNameMapFromOtTimeV23V43(workbook);
+
+
+// 각방OT(팀장용) 원본 정리 후 최근 3일분을 청구OT!I:X에 출력
+runTeamLeadOtSheet(workbook, nameIssueNames);
+
+
+// OT시간 탭 집계
+// 집계 입력만 기존 OT시간!Q:T 대신 각방OT(팀장용)!B,C,E,F를 사용
+// D열 = 담당팀장
+// F열 = 이번주 잔여시간
+// G열 = 이번주 사용시간
+// J열 = 이름
+// K:O = 이전 주차 4칸 / 이번달 합계
+runOtTimeSheet(workbook, nameIssueNames, retiredNameMap);
+
+
+writeNameIssuesToOtTimeV4(workbook, nameIssueNames);
+}
+
+
+// ======================================================
+// 1) OT시간 탭 처리
+// ======================================================
+
+
+function runOtTimeSheet(
+workbook: ExcelScript.Workbook,
+nameIssueNames: string[],
+retiredNameMap: Map<string, boolean>
+) {
+const sheet = getWorksheetByName(workbook, "OT시간");
+
+
+const debugRows: (string | number)[][] = [];
+debugRows.push(["구분", "값"]);
+debugRows.push(["처리시각", new Date().toLocaleString("ko-KR")]);
+
+
+if (!sheet) {
+debugRows.push(["오류", "'OT시간' 탭을 찾지 못했습니다."]);
+writeOtDebugSheet(workbook, debugRows);
+console.log("'OT시간' 탭을 찾지 못했습니다.");
+return;
+}
+
+
+// Q:T의 기존 수식/내용/서식은 더 이상 사용하지 않는다.
+// 각방OT(팀장용)!B:F를 직접 읽으므로 Q:T를 완전히 비운다.
+const oldOtFormulaRange = sheet.getRange("Q:T").getUsedRange();
+
+
+if (oldOtFormulaRange) {
+oldOtFormulaRange.clear(ExcelScript.ClearApplyTo.all);
+}
+
+
+const teamLeadOtSheet = getWorksheetByName(workbook, "각방OT(팀장용)");
+
+
+if (!teamLeadOtSheet) {
+debugRows.push(["오류", "'각방OT(팀장용)' 탭을 찾지 못했습니다."]);
+writeOtDebugSheet(workbook, debugRows);
+console.log("'각방OT(팀장용)' 탭을 찾지 못했습니다.");
+return;
+}
+
+
+const HEADER_ROW = 8;
+const START_ROW = 9;
+const MAX_SCAN_ROWS = 10000;
+
+
+// OT시간 탭 최종 구조
+const COL_SORT_START = 1; // B
+const COL_SORT_END = 14; // O
+const SORT_COL_COUNT = COL_SORT_END - COL_SORT_START + 1;
+
+
+const COL_LEFT_ID = 1; // B - 사번/링아이디/계정
+const COL_LEFT_NAME = 2; // C - 이름
+const COL_LEFT_MANAGER = 3; // D - 담당팀장
+const COL_LEFT_SHIFT = 4; // E - 시프트 (팀장 그룹 안에서 2순위 정렬)
+const COL_LEFT_REMAINING = 5; // F - 이번주 잔여시간 = 12:00 - G
+const COL_LEFT_TIME = 6; // G - 이번주 사용시간
+
+
+const COL_BASE_ID = 8; // I - B값 복사
+const COL_BASE_NAME = 9; // J - C값 복사, 이름 기준표
+const COL_WEEK_START = 10; // K
+const COL_WEEK_END = 13; // N
+const COL_MONTH_TOTAL = 14; // O
+
+
+// OT 집계 원본: 각방OT(팀장용)!B:F
+const TEAM_START_ROW = 4;
+const TEAM_COL_START = 1; // B
+const TEAM_COL_END = 5; // F
+const TEAM_COL_COUNT = TEAM_COL_END - TEAM_COL_START + 1;
+const TEAM_OFFSET_DATE = 0; // B - 날짜
+const TEAM_OFFSET_NAME = 1; // C - 이름
+const TEAM_OFFSET_START = 3; // E - 시작
+const TEAM_OFFSET_END = 4; // F - 종료
+
+
+const koreaToday = getKoreaToday();
+const currentYear = koreaToday.getFullYear();
+const currentMonth = koreaToday.getMonth();
+const currentWeek = getWeekNumberBySundayJan1(koreaToday);
+const managerMap = buildManagerMapFromIndexSheet(workbook, MAX_SCAN_ROWS);
+
+
+debugRows.push(["담당팀장 매칭 기준", "인덱스!J=이름 / 인덱스!K=담당팀장"]);
+debugRows.push(["담당팀장 매칭 수", managerMap.size]);
+debugRows.push(["OT 원본 읽는 탭/열", "각방OT(팀장용)!B=날짜, C=이름, E=시작, F=종료"]);
+debugRows.push(["집계 출력 대상", "OT시간!F:G 및 K:O"]);
+debugRows.push(["왼쪽/기준표 구조", "B→I, C→J를 같은 행에 복사 후 담당팀장순 → 같은 팀장 안에서 E열 시프트순 정렬"]);
+
+
+// K:N = 현재 기준 이전 주차 3칸 + 이번주
+const weekCols: { week: number; colOffset: number }[] = [
+{ week: currentWeek - 3, colOffset: 0 }, // K
+{ week: currentWeek - 2, colOffset: 1 }, // L
+{ week: currentWeek - 1, colOffset: 2 }, // M
+{ week: currentWeek, colOffset: 3 } // N
+];
+
+
+// 헤더 정리: J는 이름, 주차는 K:O만 사용
+sheet.getRangeByIndexes(HEADER_ROW - 1, COL_LEFT_MANAGER, 1, 1).setValue("담당팀장");
+sheet.getRangeByIndexes(HEADER_ROW - 1, COL_LEFT_REMAINING, 1, 1).setValue("이번주 잔여시간");
+sheet.getRangeByIndexes(HEADER_ROW - 1, COL_LEFT_TIME, 1, 1).setValue("이번주 시간");
+sheet.getRangeByIndexes(HEADER_ROW - 1, COL_BASE_ID, 1, 1).setValue("사번/계정");
+sheet.getRangeByIndexes(HEADER_ROW - 1, COL_BASE_NAME, 1, 1).setValue("이름");
+
+
+sheet
+.getRangeByIndexes(HEADER_ROW - 1, COL_WEEK_START, 1, 5)
+.setValues([[
+String(currentWeek - 3) + "주",
+String(currentWeek - 2) + "주",
+String(currentWeek - 1) + "주",
+String(currentWeek) + "주",
+String(currentMonth + 1) + "월 합계"
+]]);
+
+
+// 1순위: 담당팀장 그룹 순서
+// 2순위: 같은 담당팀장 그룹 안에서 E열 시프트 순서
+const allLeftValues = sheet
+.getRangeByIndexes(START_ROW - 1, COL_SORT_START, MAX_SCAN_ROWS, SORT_COL_COUNT)
+.getValues();
+
+
+const allLeftTexts = sheet
+.getRangeByIndexes(START_ROW - 1, COL_SORT_START, MAX_SCAN_ROWS, SORT_COL_COUNT)
+.getTexts();
+
+
+let lastLeftOffset = -1;
+
+
+for (let r = 0; r < MAX_SCAN_ROWS; r++) {
+if (hasAnyText(allLeftTexts[r])) {
+lastLeftOffset = r;
+}
+}
+
+
+if (lastLeftOffset < 0) {
+debugRows.push(["B:O 기존 작성영역 마지막 행", 0]);
+debugRows.push(["처리결과", "B:O에 정렬할 명단이 없습니다."]);
+writeOtDebugSheet(workbook, debugRows);
+return;
+}
+
+
+const clearRowCount = lastLeftOffset + 1;
+const rowsToSort: {
+valueRow: (string | number | boolean)[];
+textRow: string[];
+originalIndex: number;
+manager: string;
+order: number;
+shiftStartMinutes: number;
+shiftDurationHours: number;
+shiftText: string;
+}[] = [];
+
+
+for (let r = 0; r < clearRowCount; r++) {
+const idText = cleanName(allLeftTexts[r][COL_LEFT_ID - COL_SORT_START]);
+const nameText = cleanName(allLeftTexts[r][COL_LEFT_NAME - COL_SORT_START]);
+
+
+// B:C가 둘 다 비어있는 행은 이전 출력 찌꺼기로 보고 정렬 대상에서 제외
+if (!idText && !nameText) {
+  continue;
+}
+
+
+const valueRow = allLeftValues[r].slice(0, SORT_COL_COUNT) as (string | number | boolean)[];
+const textRow = allLeftTexts[r].slice(0, SORT_COL_COUNT);
+const manager = resolveManagerName(nameText, managerMap);
+const order = getManagerOrder(manager);
+const shiftInfo = getShiftSortInfo(
+  allLeftTexts[r][COL_LEFT_SHIFT - COL_SORT_START],
+  allLeftValues[r][COL_LEFT_SHIFT - COL_SORT_START]
+);
+
+
+// D 담당팀장, I:J 기준표는 정렬 전에 행 데이터 안에 먼저 박아둠
+valueRow[COL_LEFT_MANAGER - COL_SORT_START] = manager;
+valueRow[COL_BASE_ID - COL_SORT_START] = getCellTextForWrite(
+  allLeftTexts[r][COL_LEFT_ID - COL_SORT_START],
+  allLeftValues[r][COL_LEFT_ID - COL_SORT_START]
+);
+valueRow[COL_BASE_NAME - COL_SORT_START] = nameText;
+
+
+// 계산 출력칸은 이후 새로 계산해서 넣을 것이라 초기화
+valueRow[COL_LEFT_REMAINING - COL_SORT_START] = "";
+valueRow[COL_LEFT_TIME - COL_SORT_START] = "";
+for (let c = COL_WEEK_START; c <= COL_MONTH_TOTAL; c++) {
+  valueRow[c - COL_SORT_START] = "";
+}
+
+
+rowsToSort.push({
+  valueRow,
+  textRow,
+  originalIndex: r,
+  manager,
+  order,
+  shiftStartMinutes: shiftInfo.startMinutes,
+  shiftDurationHours: shiftInfo.durationHours,
+  shiftText: shiftInfo.normalizedText
+});
+}
+
+
+rowsToSort.sort((a, b) => {
+// 1순위는 반드시 담당팀장 그룹이다.
+// 시프트 시간이 다른 팀장 그룹을 섞는 기준이 되면 안 된다.
+if (a.order !== b.order) {
+return a.order - b.order;
+}
+
+
+// 정렬표에 없는 담당팀장이 있더라도 서로 다른 팀장끼리 섞이지 않게 묶는다.
+const aManagerKey = normalizeNameKey(a.manager);
+const bManagerKey = normalizeNameKey(b.manager);
+
+
+if (aManagerKey < bManagerKey) return -1;
+if (aManagerKey > bManagerKey) return 1;
+
+
+// 2순위는 같은 담당팀장 그룹 안에서만 E열 시프트 시작시간 오름차순이다.
+if (a.shiftStartMinutes !== b.shiftStartMinutes) {
+  return a.shiftStartMinutes - b.shiftStartMinutes;
+}
+
+
+// 같은 시작시간이면 긴 시프트를 먼저 배치한다.
+// 예: 5시8H → 5시4H → 8시8H
+if (a.shiftDurationHours !== b.shiftDurationHours) {
+  return b.shiftDurationHours - a.shiftDurationHours;
+}
+
+
+// 파싱 결과가 같은 경우 E열 원문을 한 번 더 비교한다.
+if (a.shiftText < b.shiftText) return -1;
+if (a.shiftText > b.shiftText) return 1;
+
+
+const aName = normalizeNameKey(String(a.valueRow[COL_LEFT_NAME - COL_SORT_START] ?? ""));
+const bName = normalizeNameKey(String(b.valueRow[COL_LEFT_NAME - COL_SORT_START] ?? ""));
+
+
+if (aName < bName) return -1;
+if (aName > bName) return 1;
+
+
+return a.originalIndex - b.originalIndex;
+});
+
+
+const rowCount = rowsToSort.length;
+debugRows.push(["B:O 기존 작성영역 마지막 행수", clearRowCount]);
+debugRows.push(["B:C 실제 명단 행수", rowCount]);
+
+
+// 기존 B:O 작성영역을 먼저 비우고, 팀장순으로 정렬된 B:O를 다시 씀
+sheet
+.getRangeByIndexes(START_ROW - 1, COL_SORT_START, clearRowCount, SORT_COL_COUNT)
+.clear(ExcelScript.ClearApplyTo.contents);
+
+
+if (rowCount <= 0) {
+debugRows.push(["처리결과", "B:C에 실제 명단이 없습니다."]);
+writeOtDebugSheet(workbook, debugRows);
+return;
+}
+
+
+const sortedValues = rowsToSort.map(row => row.valueRow);
+
+
+sheet
+.getRangeByIndexes(START_ROW - 1, COL_SORT_START, rowCount, SORT_COL_COUNT)
+.setValues(sortedValues);
+
+
+sheet.getRangeByIndexes(START_ROW - 1, COL_LEFT_MANAGER, rowCount, 1).setNumberFormatLocal("@");
+sheet.getRangeByIndexes(START_ROW - 1, COL_BASE_ID, rowCount, 2).setNumberFormatLocal("@");
+
+
+// 정렬된 J열 이름 기준으로 이름 매칭표 생성
+const sortedBaseNameTexts: string[][] = [];
+const sortedNameList: string[] = [];
+
+
+for (let r = 0; r < rowCount; r++) {
+const name = cleanName(String(rowsToSort[r].valueRow[COL_BASE_NAME - COL_SORT_START] ?? ""));
+sortedBaseNameTexts.push([name]);
+sortedNameList.push(name);
+}
+
+
+const nameMaps = buildNameMaps(sortedBaseNameTexts);
+
+
+const weekHourOutput: number[][] = Array.from({ length: rowCount }, () => {
+return [0, 0, 0, 0];
+});
+
+
+const monthHourOutput: number[] = Array.from({ length: rowCount }, () => 0);
+
+
+// 각방OT(팀장용)!B:F를 직접 읽기
+const otValues = teamLeadOtSheet
+.getRangeByIndexes(TEAM_START_ROW - 1, TEAM_COL_START, MAX_SCAN_ROWS, TEAM_COL_COUNT)
+.getValues();
+
+
+const otTexts = teamLeadOtSheet
+.getRangeByIndexes(TEAM_START_ROW - 1, TEAM_COL_START, MAX_SCAN_ROWS, TEAM_COL_COUNT)
+.getTexts();
+
+
+let lastOtOffset = -1;
+
+
+for (let r = 0; r < MAX_SCAN_ROWS; r++) {
+if (hasAnyText(otTexts[r].slice(0, 5))) {
+lastOtOffset = r;
+}
+}
+
+
+const otScanRows = lastOtOffset + 1;
+let otRawRows = 0;
+let otValidRows = 0;
+let otMatchedRows = 0;
+let otNameMissingRows = 0;
+let otRetiredExcludedRows = 0;
+let otIncompleteRows = 0;
+let otDateFailRows = 0;
+let otTimeFailRows = 0;
+let otDurationFailRows = 0;
+let otWeekMatchedRows = 0;
+let otMonthMatchedRows = 0;
+let otDuplicateRows = 0;
+const seenOtRows = new Set<string>();
+const otDateFailSamples: string[] = [];
+
+
+for (let r = 0; r < otScanRows; r++) {
+const dateValue = otValues[r][TEAM_OFFSET_DATE]; // B
+const dateText = otTexts[r][TEAM_OFFSET_DATE]; // B
+
+
+const nameText = otTexts[r][TEAM_OFFSET_NAME]; // C
+
+
+const startValue = otValues[r][TEAM_OFFSET_START]; // E
+const startText = otTexts[r][TEAM_OFFSET_START]; // E
+
+
+const endValue = otValues[r][TEAM_OFFSET_END]; // F
+const endText = otTexts[r][TEAM_OFFSET_END]; // F
+
+
+const otName = cleanName(nameText);
+
+
+if (!dateText && !otName && !startText && !endText) {
+  continue;
+}
+
+
+otRawRows++;
+
+
+if (!dateText || !otName || !startText || !endText) {
+  otIncompleteRows++;
+  continue;
+}
+
+
+const date = parseExcelDate(dateValue, dateText, currentYear);
+
+
+if (!date) {
+  otDateFailRows++;
+
+
+  if (otDateFailSamples.length < 5) {
+    otDateFailSamples.push(
+      "행 " + String(TEAM_START_ROW + r) +
+      ": 표시값=[" + String(dateText ?? "") +
+      "], 실제값=[" + String(dateValue ?? "") + "]"
+    );
+  }
+
+
+  continue;
+}
+
+
+const targetRowOffset = resolveNameRowOffset(otName, nameMaps);
+
+
+if (targetRowOffset === undefined) {
+  otNameMissingRows++;
+
+
+  // OT시간!V23:V43에 적힌 퇴사자는 확인필요 목록에서 제외
+  const otNameKey = normalizeNameKey(otName);
+
+
+  if (retiredNameMap.has(otNameKey)) {
+    otRetiredExcludedRows++;
+  } else {
+    addUniqueNameIssue(nameIssueNames, otName);
+  }
+
+
+  continue;
+}
+
+
+const startHour = parseTimeToHour(startValue, startText);
+const endHour = parseTimeToHour(endValue, endText);
+
+
+if (startHour === null || endHour === null) {
+  otTimeFailRows++;
+  continue;
+}
+
+
+let duration = endHour - startHour;
+
+
+if (duration < 0) {
+  duration += 24;
+}
+
+
+if (duration <= 0 || duration > 48) {
+  otDurationFailRows++;
+  continue;
+}
+
+
+const duplicateKey = [
+  String(date.getFullYear()),
+  String(date.getMonth() + 1),
+  String(date.getDate()),
+  normalizeNameKey(otName),
+  String(round4(startHour)),
+  String(round4(endHour))
+].join("|");
+
+
+if (seenOtRows.has(duplicateKey)) {
+  otDuplicateRows++;
+  continue;
+}
+
+
+seenOtRows.add(duplicateKey);
+
+
+duration = round2(duration);
+otValidRows++;
+otMatchedRows++;
+
+
+const week = getWeekNumberBySundayJan1(date);
+const targetWeekCol = date.getFullYear() === currentYear
+? weekCols.find(w => w.week === week)
+: undefined;
+
+
+if (targetWeekCol) {
+  const colOffset = targetWeekCol.colOffset;
+  weekHourOutput[targetRowOffset][colOffset] = round2(
+    weekHourOutput[targetRowOffset][colOffset] + duration
+  );
+  otWeekMatchedRows++;
+}
+
+
+if (
+  date.getFullYear() === currentYear &&
+  date.getMonth() === currentMonth
+) {
+  monthHourOutput[targetRowOffset] = round2(
+    monthHourOutput[targetRowOffset] + duration
+  );
+  otMonthMatchedRows++;
+}
+}
+
+
+debugRows.push(["OT 원본 스캔 행수(각방OT B:F)", otScanRows]);
+debugRows.push(["OT 원본 데이터 행수", otRawRows]);
+debugRows.push(["OT 정상 계산 행수", otValidRows]);
+debugRows.push(["OT 이름 매칭 성공 행수", otMatchedRows]);
+debugRows.push(["OT 주차 반영 행수", otWeekMatchedRows]);
+debugRows.push(["OT 월합계 반영 행수", otMonthMatchedRows]);
+debugRows.push(["스킵 - 필수값 누락", otIncompleteRows]);
+debugRows.push(["스킵 - 날짜 파싱 실패", otDateFailRows]);
+debugRows.push(["스킵 - 시간 파싱 실패", otTimeFailRows]);
+debugRows.push(["스킵 - 시간길이 이상", otDurationFailRows]);
+debugRows.push(["스킵 - 완전 중복", otDuplicateRows]);
+debugRows.push(["스킵 - 이름값 없음", otNameMissingRows]);
+debugRows.push(["확인필요 제외 - V23:V43 퇴사자", otRetiredExcludedRows]);
+
+
+if (otDateFailSamples.length > 0) {
+debugRows.push(["날짜 파싱 실패 예시", otDateFailSamples.join(" / ")]);
+}
+
+
+debugRows.push(["", ""]);
+debugRows.push(["정렬 후 상위 명단", "행", "B→I", "C→J", "D담당팀장"]);
+const sampleNameRows = Math.min(rowCount, 20);
+
+
+for (let r = 0; r < sampleNameRows; r++) {
+debugRows.push([
+"명단",
+START_ROW + r,
+String(rowsToSort[r].valueRow[COL_BASE_ID - COL_SORT_START] ?? ""),
+String(rowsToSort[r].valueRow[COL_BASE_NAME - COL_SORT_START] ?? ""),
+String(rowsToSort[r].valueRow[COL_LEFT_MANAGER - COL_SORT_START] ?? "")
+]);
+}
+
+
+const outputWeekMonth: (number | string)[][] = [];
+
+
+for (let r = 0; r < rowCount; r++) {
+const row: (number | string)[] = [];
+
+
+for (let c = 0; c < 4; c++) {
+  const v = weekHourOutput[r][c];
+  row.push(v > 0 ? round6(v / 24) : "");
+}
+
+
+const monthTotal = monthHourOutput[r];
+row.push(monthTotal > 0 ? round6(monthTotal / 24) : "");
+
+
+outputWeekMonth.push(row);
+}
+
+
+const outputRangeKO = sheet.getRangeByIndexes(
+START_ROW - 1,
+COL_WEEK_START,
+rowCount,
+COL_MONTH_TOTAL - COL_WEEK_START + 1
+);
+
+
+outputRangeKO.setValues(outputWeekMonth);
+outputRangeKO.setNumberFormatLocal("[h]:mm");
+
+
+const leftTimeOutput: (number | string)[][] = [];
+const currentWeekColOffset = 3; // N열
+const WEEK_LIMIT_HOURS = 12;
+
+
+for (let r = 0; r < rowCount; r++) {
+const name = sortedNameList[r];
+
+
+if (!name) {
+  leftTimeOutput.push(["", ""]);
+  continue;
+}
+
+
+const thisWeekHour = weekHourOutput[r][currentWeekColOffset];
+const remainingHour = Math.max(0, round2(WEEK_LIMIT_HOURS - thisWeekHour));
+
+
+// F열 = 12:00 - G열, G열 = N열 이번주 사용시간
+leftTimeOutput.push([
+  round6(remainingHour / 24),
+  thisWeekHour > 0 ? round6(thisWeekHour / 24) : ""
+]);
+}
+
+
+const leftTimeRange = sheet.getRangeByIndexes(
+START_ROW - 1,
+COL_LEFT_REMAINING,
+rowCount,
+2
+);
+
+
+leftTimeRange.setValues(leftTimeOutput);
+leftTimeRange.setNumberFormatLocal("[h]:mm");
+
+
+sheet.getRangeByIndexes(START_ROW - 1, COL_LEFT_MANAGER, rowCount, 1).setNumberFormatLocal("@");
+sheet.getRangeByIndexes(START_ROW - 1, COL_LEFT_REMAINING, rowCount, 2).setNumberFormatLocal("[h]:mm");
+sheet.getRangeByIndexes(START_ROW - 1, COL_BASE_ID, rowCount, 2).setNumberFormatLocal("@");
+sheet.getRangeByIndexes(START_ROW - 1, COL_WEEK_START, rowCount, 5).setNumberFormatLocal("[h]:mm");
+
+
+if (nameIssueNames.length > 0) {
+debugRows.push(["이름값 없음 목록", nameIssueNames.join(", ")]);
+}
+
+
+debugRows.push(["처리결과", "완료"]);
+writeOtDebugSheet(workbook, debugRows);
+}
+
+
+function getManagerOrder(managerName: string): number {
+const managerOrder = [
+"김유진",
+"홍예은",
+"남문옥",
+"김보형",
+"배효진",
+"추예나",
+"이경윤",
+"김성민",
+"류가람"
+];
+
+
+const targetKey = normalizeNameKey(managerName);
+
+
+for (let i = 0; i < managerOrder.length; i++) {
+if (normalizeNameKey(managerOrder[i]) === targetKey) {
+return i;
+}
+}
+
+
+return 9999;
+}
+
+
+type ShiftSortInfo = {
+startMinutes: number;
+durationHours: number;
+normalizedText: string;
+};
+
+
+function getShiftSortInfo(
+text: string,
+value: string | number | boolean
+): ShiftSortInfo {
+const sourceText = String(text ?? "").trim() !== ""
+? String(text ?? "")
+: String(value ?? "");
+
+
+const normalizedText = sourceText
+.replace(/\s+/g, "")
+.toUpperCase();
+
+
+// 파싱되지 않는 값은 같은 팀장 그룹의 정상 시프트 뒤로 보낸다.
+let startMinutes = 999999;
+let durationHours = -1;
+
+
+let match = normalizedText.match(/^(\d{1,2})시(?:(\d{1,2})분)?/);
+
+
+if (match) {
+const hour = Number(match[1]);
+const minute = match[2] ? Number(match[2]) : 0;
+
+
+if (hour >= 0 && hour <= 48 && minute >= 0 && minute < 60) {
+  startMinutes = hour * 60 + minute;
+}
+} else {
+match = normalizedText.match(/^(\d{1,2}):(\d{2})/);
+
+
+if (match) {
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+
+  if (hour >= 0 && hour <= 48 && minute >= 0 && minute < 60) {
+    startMinutes = hour * 60 + minute;
+  }
+} else {
+  // 0500-1400, 500-1300 같은 시프트 표기 대응
+  match = normalizedText.match(/^(\d{1,2})(\d{2})-/);
+
+
+  if (match) {
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+
+
+    if (hour >= 0 && hour <= 48 && minute >= 0 && minute < 60) {
+      startMinutes = hour * 60 + minute;
+    }
+  } else {
+    // 마지막 보조 처리: 5-13, 8H 등의 형식 중 맨 앞 숫자를 시작시간으로 사용
+    match = normalizedText.match(/^(\d{1,2})(?:-|시)/);
+
+
+    if (match) {
+      const hour = Number(match[1]);
+
+
+      if (hour >= 0 && hour <= 48) {
+        startMinutes = hour * 60;
+      }
+    }
+  }
+}
+}
+
+
+match = normalizedText.match(/(\d+(?:.\d+)?)H/);
+
+
+if (!match) {
+match = normalizedText.match(/(\d+(?:.\d+)?)시간/);
+}
+
+
+if (match) {
+const parsedDuration = Number(match[1]);
+
+
+if (!isNaN(parsedDuration) && parsedDuration >= 0 && parsedDuration <= 48) {
+  durationHours = parsedDuration;
+}
+}
+
+
+return {
+startMinutes,
+durationHours,
+normalizedText
+};
+}
+
+
+function writeOtDebugSheet(
+workbook: ExcelScript.Workbook,
+debugRows: (string | number)[][]
+) {
+let debugSheet = getWorksheetByName(workbook, "OT시간_디버그");
+
+
+if (!debugSheet) {
+debugSheet = workbook.addWorksheet("OT시간_디버그");
+}
+
+
+const usedRange = debugSheet.getUsedRange();
+
+
+if (usedRange) {
+usedRange.clear(ExcelScript.ClearApplyTo.contents);
+}
+
+
+if (debugRows.length <= 0) {
+return;
+}
+
+
+let maxColCount = 0;
+
+
+for (const row of debugRows) {
+if (row.length > maxColCount) {
+maxColCount = row.length;
+}
+}
+
+
+if (maxColCount <= 0) {
+return;
+}
+
+
+const normalizedRows: (string | number)[][] = [];
+
+
+for (const row of debugRows) {
+const normalizedRow: (string | number)[] = [];
+
+
+for (let c = 0; c < maxColCount; c++) {
+  normalizedRow.push(row[c] === undefined ? "" : row[c]);
+}
+
+
+normalizedRows.push(normalizedRow);
+}
+
+
+const targetRange = debugSheet.getRangeByIndexes(0, 0, normalizedRows.length, maxColCount);
+targetRange.setNumberFormatLocal("@");
+targetRange.setValues(normalizedRows);
+debugSheet.getRangeByIndexes(0, 0, normalizedRows.length, maxColCount).getFormat().autofitColumns();
+}
+
+
+// ======================================================
+// 2) 각방OT(팀장용) → 청구OT 출력
+// ======================================================
+
+
+function runTeamLeadOtSheet(workbook: ExcelScript.Workbook, nameIssueNames: string[]) {
+const sheet = getWorksheetByName(workbook, "각방OT(팀장용)");
+
+
+if (!sheet) {
+return;
+}
+
+
+let claimSheet = getWorksheetByName(workbook, "청구OT");
+
+
+if (!claimSheet) {
+claimSheet = workbook.addWorksheet("청구OT");
+}
+
+
+const START_ROW = 4;
+const MAX_SCAN_ROWS = 10000;
+const MAX_OUTPUT_CLEAR_SCAN_ROWS = 30000;
+const MAX_SEGMENTS_PER_ROW = 48;
+
+
+const COL_SRC_DATE = 1; // B
+const COL_SRC_MANAGER = 7; // H
+const SRC_COL_COUNT = COL_SRC_MANAGER - COL_SRC_DATE + 1; // B:H
+
+
+const CLAIM_START_ROW = 9;
+const CLAIM_COL_START = 8; // I
+const CLAIM_COL_COUNT = 16; // I:X
+
+
+const managerMap = buildManagerMapFromIndexSheet(workbook, MAX_SCAN_ROWS);
+
+
+// 원본 B:H 정리: 담당팀장은 H열에 자동 반영하고 완전 중복만 제거
+normalizeTeamLeadOtSourceRows(
+sheet,
+START_ROW,
+MAX_SCAN_ROWS,
+COL_SRC_DATE,
+COL_SRC_MANAGER,
+managerMap
+);
+
+
+// 기존 I열 대상 체크는 더 이상 사용하지 않으므로 제거
+sheet
+.getRangeByIndexes(START_ROW - 1, 8, MAX_SCAN_ROWS, 1)
+.clear(ExcelScript.ClearApplyTo.all);
+
+
+// 과거 각방OT 탭 J:Y 출력값은 제거하고 이후에는 청구OT에만 출력
+const oldSameSheetOutputRows = getExistingOutputRowCount(
+sheet,
+START_ROW,
+9,
+16,
+MAX_OUTPUT_CLEAR_SCAN_ROWS
+);
+
+
+if (oldSameSheetOutputRows > 0) {
+sheet
+.getRangeByIndexes(START_ROW - 1, 9, oldSameSheetOutputRows, 16)
+.clear(ExcelScript.ClearApplyTo.contents);
+}
+
+
+const srcValuesFull = sheet
+.getRangeByIndexes(
+START_ROW - 1,
+COL_SRC_DATE,
+MAX_SCAN_ROWS,
+SRC_COL_COUNT
+)
+.getValues();
+
+
+const srcTextsFull = sheet
+.getRangeByIndexes(
+START_ROW - 1,
+COL_SRC_DATE,
+MAX_SCAN_ROWS,
+SRC_COL_COUNT
+)
+.getTexts();
+
+
+let lastSrcOffset = -1;
+
+
+for (let r = 0; r < MAX_SCAN_ROWS; r++) {
+// B:G 기준으로 원본 마지막 행 판단
+if (hasAnyText(srcTextsFull[r].slice(0, 6))) {
+lastSrcOffset = r;
+}
+}
+
+
+const output: (string | number | boolean)[][] = [];
+const koreaToday = getKoreaToday();
+const recentStart = new Date(
+koreaToday.getFullYear(),
+koreaToday.getMonth(),
+koreaToday.getDate() - 2
+);
+const recentStartTime = recentStart.getTime();
+const todayTime = koreaToday.getTime();
+
+
+if (lastSrcOffset >= 0) {
+const rowCount = lastSrcOffset + 1;
+
+
+for (let r = 0; r < rowCount; r++) {
+  const rowTexts = srcTextsFull[r];
+  const rowValues = srcValuesFull[r];
+
+
+  if (!hasAnyText(rowTexts.slice(0, 6))) {
+    continue;
+  }
+
+
+  const dateText = rowTexts[0];
+  const dateValue = rowValues[0];
+  const nameText = cleanName(rowTexts[1]);
+
+
+  const startText = rowTexts[3];
+  const startValue = rowValues[3];
+
+
+  const endText = rowTexts[4];
+  const endValue = rowValues[4];
+
+
+  const reasonText = rowTexts[5];
+  const managerText = cleanName(rowTexts[6]);
+  const claimCategory = classifyClaimOtReason(reasonText);
+
+
+  if (!dateText || !nameText || !startText || !endText) {
+    continue;
+  }
+
+
+  const workDate = parseExcelDate(
+    dateValue,
+    dateText,
+    koreaToday.getFullYear()
+  );
+
+
+  if (!workDate) {
+    continue;
+  }
+
+
+  const workDateOnly = new Date(
+    workDate.getFullYear(),
+    workDate.getMonth(),
+    workDate.getDate()
+  );
+  const workDateTime = workDateOnly.getTime();
+
+
+  // 한국시간 오늘 포함 최근 3일만 출력: 오늘-2일, 오늘-1일, 오늘
+  if (workDateTime < recentStartTime || workDateTime > todayTime) {
+    continue;
+  }
+
+
+  const startHour = parseTimeToHour(startValue, startText);
+  const endHourRaw = parseTimeToHour(endValue, endText);
+
+
+  if (startHour === null || endHourRaw === null) {
+    continue;
+  }
+
+
+  let endHour = endHourRaw;
+
+
+  if (endHour < startHour) {
+    endHour += 24;
+  }
+
+
+  const duration = round4(endHour - startHour);
+
+
+  if (duration <= 0 || duration > MAX_SEGMENTS_PER_ROW) {
+    continue;
+  }
+
+
+  const segments = splitTimeByHour(startHour, endHour, MAX_SEGMENTS_PER_ROW);
+
+
+  if (segments === null) {
+    continue;
+  }
+
+
+  for (const seg of segments) {
+    output.push([
+      managerText,                    // I - 담당팀장
+      formatDateToYYYYMMDD(workDate), // J - 날짜
+      "",                             // K
+      nameText,                       // L - 이름
+      "", "", "", "", "",           // M:Q
+      formatHourToHHMM(seg.start),    // R - 시작
+      formatHourToHHMM(seg.end),      // S - 종료
+      "", "", "",                     // T:V
+      claimCategory,                  // W - OT 분류
+      reasonText                      // X - OT 사유
+    ]);
+  }
+}
+}
+
+
+const previousOutputRows = getExistingOutputRowCount(
+claimSheet,
+CLAIM_START_ROW,
+CLAIM_COL_START,
+CLAIM_COL_COUNT,
+MAX_OUTPUT_CLEAR_SCAN_ROWS
+);
+
+
+const clearRows = Math.max(previousOutputRows, output.length);
+
+
+if (clearRows > 0) {
+claimSheet
+.getRangeByIndexes(
+CLAIM_START_ROW - 1,
+CLAIM_COL_START,
+clearRows,
+CLAIM_COL_COUNT
+)
+.clear(ExcelScript.ClearApplyTo.contents);
+}
+
+
+if (output.length > 0) {
+const outRange = claimSheet.getRangeByIndexes(
+CLAIM_START_ROW - 1,
+CLAIM_COL_START,
+output.length,
+CLAIM_COL_COUNT
+);
+
+
+outRange.setNumberFormatLocal("@");
+outRange.setValues(output);
+}
+
+
+}
+
+
+// ======================================================
+// 각방OT 원본 B:H 정리
+// - 이름이나 날짜가 다르면 원본 행 유지
+// - H열 담당팀장 자동 출력
+// - I열 대상 체크는 사용하지 않음
+// - 날짜 + 이름 + 시작 + 종료가 모두 같은 완전 중복만 제거
+// ======================================================
+
+
+function normalizeTeamLeadOtSourceRows(
+sheet: ExcelScript.Worksheet,
+startRow: number,
+maxScanRows: number,
+sourceStartCol: number,
+sourceEndCol: number,
+managerMap: Map<string, string>
+) {
+const colCount = sourceEndCol - sourceStartCol + 1;
+
+
+const values = sheet
+.getRangeByIndexes(startRow - 1, sourceStartCol, maxScanRows, colCount)
+.getValues();
+
+
+const texts = sheet
+.getRangeByIndexes(startRow - 1, sourceStartCol, maxScanRows, colCount)
+.getTexts();
+
+
+let lastOffset = -1;
+
+
+for (let r = 0; r < maxScanRows; r++) {
+// B:G 기준으로 실제 원본 데이터 있는 행만 마지막 행으로 인정
+if (hasAnyText(texts[r].slice(0, 6))) {
+lastOffset = r;
+}
+}
+
+
+if (lastOffset < 0) {
+return;
+}
+
+
+const rowCount = lastOffset + 1;
+const koreaToday = getKoreaToday();
+const fallbackYear = koreaToday.getFullYear();
+
+
+const seenExactRows = new Set<string>();
+const normalizedRows: (string | number | boolean)[][] = [];
+
+
+for (let r = 0; r < rowCount; r++) {
+const rowTexts = texts[r];
+const rowValues = values[r];
+
+
+if (!hasAnyText(rowTexts.slice(0, 6))) {
+  continue;
+}
+
+
+const dateText = rowTexts[0];
+const dateValue = rowValues[0];
+
+
+const idText = getCellTextForWrite(rowTexts[2], rowValues[2]);
+const nameText = cleanName(rowTexts[1]);
+
+
+const startText = rowTexts[3];
+const startValue = rowValues[3];
+
+
+const endText = rowTexts[4];
+const endValue = rowValues[4];
+
+
+const reasonText = getCellTextForWrite(rowTexts[5], rowValues[5]);
+const managerText = resolveManagerTextForTeamLeadOt(nameText, rowTexts, rowValues, managerMap);
+
+
+if (!dateText || !nameText || !startText || !endText) {
+  normalizedRows.push([
+    getCellTextForWrite(rowTexts[0], rowValues[0]),
+    nameText,
+    idText,
+    getCellTextForWrite(rowTexts[3], rowValues[3]),
+    getCellTextForWrite(rowTexts[4], rowValues[4]),
+    reasonText,
+    managerText
+  ]);
+  continue;
+}
+
+
+const startHour = parseTimeToHour(startValue, startText);
+const endHourRaw = parseTimeToHour(endValue, endText);
+
+
+if (startHour === null || endHourRaw === null) {
+  normalizedRows.push([
+    getCellTextForWrite(rowTexts[0], rowValues[0]),
+    nameText,
+    idText,
+    getCellTextForWrite(rowTexts[3], rowValues[3]),
+    getCellTextForWrite(rowTexts[4], rowValues[4]),
+    reasonText,
+    managerText
+  ]);
+  continue;
+}
+
+
+let endHour = endHourRaw;
+
+
+if (endHour < startHour) {
+  endHour += 24;
+}
+
+
+const duration = round4(endHour - startHour);
+
+
+if (duration <= 0 || duration > 48) {
+  normalizedRows.push([
+    getCellTextForWrite(rowTexts[0], rowValues[0]),
+    nameText,
+    idText,
+    getCellTextForWrite(rowTexts[3], rowValues[3]),
+    getCellTextForWrite(rowTexts[4], rowValues[4]),
+    reasonText,
+    managerText
+  ]);
+  continue;
+}
+
+
+const dateKey = buildDateKey(dateValue, dateText, fallbackYear);
+const nameKey = normalizeNameKey(nameText);
+const normalizedStart = formatHourToHHMM(startHour);
+const normalizedEnd = formatHourToHHMM(endHour);
+const exactDuplicateKey = [
+  dateKey,
+  nameKey,
+  normalizedStart,
+  normalizedEnd
+].join("|");
+
+
+// 날짜, 이름, 시작 시간, 종료 시간이 전부 같을 때만 중복으로 제거한다.
+// 날짜가 다르거나 시간이 일부만 겹치는 행은 그대로 유지한다.
+if (seenExactRows.has(exactDuplicateKey)) {
+  continue;
+}
+
+
+seenExactRows.add(exactDuplicateKey);
+
+
+normalizedRows.push([
+  dateText,
+  nameText,
+  idText,
+  normalizedStart,
+  normalizedEnd,
+  reasonText,
+  managerText
+]);
+}
+
+
+const clearRange = sheet.getRangeByIndexes(
+startRow - 1,
+sourceStartCol,
+rowCount,
+colCount
+);
+
+
+clearRange.clear(ExcelScript.ClearApplyTo.contents);
+
+
+if (normalizedRows.length > 0) {
+const writeRange = sheet.getRangeByIndexes(
+startRow - 1,
+sourceStartCol,
+normalizedRows.length,
+colCount
+);
+
+
+writeRange.setNumberFormatLocal("@");
+writeRange.setValues(normalizedRows);
+}
+}
+
+
+function buildManagerMapFromIndexSheet(
+workbook: ExcelScript.Workbook,
+maxScanRows: number
+): Map<string, string> {
+const managerMap = new Map<string, string>();
+const indexSheet = getWorksheetByName(workbook, "인덱스");
+
+
+if (!indexSheet) {
+return managerMap;
+}
+
+
+const COL_INDEX_NAME = 9; // J
+const COL_INDEX_MANAGER = 10; // K
+
+
+const texts = indexSheet
+.getRangeByIndexes(0, COL_INDEX_NAME, maxScanRows, 2)
+.getTexts();
+
+
+for (let r = 0; r < texts.length; r++) {
+const name = cleanName(texts[r][0]);
+const manager = cleanName(texts[r][1]);
+
+
+if (!name || !manager) {
+  continue;
+}
+
+
+const key = normalizeNameKey(name);
+
+
+if (key && !managerMap.has(key)) {
+  managerMap.set(key, manager);
+}
+}
+
+
+return managerMap;
+}
+
+
+function resolveManagerName(name: string, managerMap: Map<string, string>): string {
+const key = normalizeNameKey(name);
+const manager = managerMap.get(key);
+
+
+return manager ? manager : "";
+}
+
+
+function resolveManagerTextForTeamLeadOt(
+name: string,
+rowTexts: string[],
+rowValues: (string | number | boolean)[],
+managerMap: Map<string, string>
+): string | number | boolean {
+const nameKey = normalizeNameKey(name);
+const managerFromIndexSheet = managerMap.get(nameKey);
+
+
+if (managerFromIndexSheet) {
+return managerFromIndexSheet;
+}
+
+
+// H열이 예전 대상체크(Y 등)로 쓰이던 값이면 담당팀장으로 보존하지 않음
+if (isTargetFlag(rowValues[6], rowTexts[6])) {
+return "";
+}
+
+
+return getCellTextForWrite(rowTexts[6], rowValues[6]);
+}
+
+
+function buildDateKey(
+value: string | number | boolean,
+text: string,
+fallbackYear: number
+): string {
+const date = parseExcelDate(value, text, fallbackYear);
+
+
+if (!date) {
+return String(text ?? "").replace(/\s+/g, "").trim();
+}
+
+
+return (
+String(date.getFullYear()) +
+"-" +
+padLeft(date.getMonth() + 1, 2) +
+"-" +
+padLeft(date.getDate(), 2)
+);
+}
+
+
+function getCellTextForWrite(
+text: string,
+value: string | number | boolean
+): string | number | boolean {
+const cleanedText = String(text ?? "").trim();
+
+
+if (cleanedText !== "") {
+return cleanedText;
+}
+
+
+if (typeof value === "boolean") {
+return value;
+}
+
+
+if (typeof value === "number") {
+return value;
+}
+
+
+return String(value ?? "");
+}
+
+
+function rowToTextValues(
+rowTexts: string[],
+rowValues: (string | number | boolean)[],
+colCount: number
+): (string | number | boolean)[] {
+const row: (string | number | boolean)[] = [];
+
+
+for (let c = 0; c < colCount; c++) {
+row.push(getCellTextForWrite(rowTexts[c], rowValues[c]));
+}
+
+
+return row;
+}
+
+
+// ======================================================
+// OT시간 V23:V43 퇴사자 이름 목록 읽기
+// - 이 명단에 있는 이름은 V4 확인필요 목록에 표시하지 않음
+// ======================================================
+
+
+function buildRetiredNameMapFromOtTimeV23V43(
+workbook: ExcelScript.Workbook
+): Map<string, boolean> {
+const retiredNameMap = new Map<string, boolean>();
+const sheet = getWorksheetByName(workbook, "OT시간");
+
+
+if (!sheet) {
+return retiredNameMap;
+}
+
+
+const texts = sheet.getRange("V23:V43").getTexts();
+
+
+for (let r = 0; r < texts.length; r++) {
+const name = cleanName(texts[r][0]);
+const key = normalizeNameKey(name);
+
+
+if (key) {
+  retiredNameMap.set(key, true);
+}
+}
+
+
+return retiredNameMap;
+}
+
+
+// ======================================================
+// OT시간 V4에 이름값 문제만 출력
+// ======================================================
+
+
+function writeNameIssuesToOtTimeV4(workbook: ExcelScript.Workbook, nameIssueNames: string[]) {
+const sheet = getWorksheetByName(workbook, "OT시간");
+
+
+if (!sheet) {
+console.log("'OT시간' 탭이 없어서 V4에 결과를 출력하지 못했습니다.");
+return;
+}
+
+
+const messageText =
+nameIssueNames.length > 0
+? "이름값 없음\n" + nameIssueNames.join("\n")
+: "이름값 문제 없음";
+
+
+const targetRange = sheet.getRange("V4");
+
+
+targetRange.setNumberFormatLocal("@");
+targetRange.setValue(messageText);
+targetRange.getFormat().setWrapText(true);
+}
+
+
+function addUniqueNameIssue(nameIssueNames: string[], name: string) {
+const cleaned = cleanName(name);
+if (!cleaned) return;
+
+
+for (const existing of nameIssueNames) {
+if (normalizeNameKey(existing) === normalizeNameKey(cleaned)) {
+return;
+}
+}
+
+
+nameIssueNames.push(cleaned);
+}
+
+
+// ======================================================
+// 이름 매칭 보조
+// ======================================================
+
+
+type NameMaps = {
+exactNameToRowOffset: Map<string, number>;
+compactNameToRowOffset: Map<string, number>;
+};
+
+
+function buildNameMaps(baseNameTexts: string[][]): NameMaps {
+const exactNameToRowOffset = new Map<string, number>();
+const compactNameToRowOffset = new Map<string, number>();
+
+
+for (let r = 0; r < baseNameTexts.length; r++) {
+const name = cleanName(baseNameTexts[r][0]);
+if (!name) continue;
+
+
+if (!exactNameToRowOffset.has(name)) {
+  exactNameToRowOffset.set(name, r);
+}
+
+
+const compactKey = normalizeNameKey(name);
+
+
+if (compactKey && !compactNameToRowOffset.has(compactKey)) {
+  compactNameToRowOffset.set(compactKey, r);
+}
+}
+
+
+return {
+exactNameToRowOffset,
+compactNameToRowOffset
+};
+}
+
+
+function resolveNameRowOffset(name: string, nameMaps: NameMaps): number | undefined {
+const cleaned = cleanName(name);
+if (!cleaned) return undefined;
+
+
+const exactMatch = nameMaps.exactNameToRowOffset.get(cleaned);
+
+
+if (exactMatch !== undefined) {
+return exactMatch;
+}
+
+
+const compactKey = normalizeNameKey(cleaned);
+return nameMaps.compactNameToRowOffset.get(compactKey);
+}
+
+
+function normalizeNameKey(value: string): string {
+return String(value ?? "")
+.replace(/\s+/g, "")
+.trim()
+.toUpperCase();
+}
+
+
+// ======================================================
+// 공통 보조 함수
+// ======================================================
+
+
+function getWorksheetByName(
+workbook: ExcelScript.Workbook,
+sheetName: string
+): ExcelScript.Worksheet | undefined {
+const sheets = workbook.getWorksheets();
+
+
+for (const sheet of sheets) {
+if (sheet.getName() === sheetName) {
+return sheet;
+}
+}
+
+
+return undefined;
+}
+
+
+function hasAnyText(row: string[]): boolean {
+for (const v of row) {
+if (String(v ?? "").trim() !== "") {
+return true;
+}
+}
+
+
+return false;
+}
+
+
+function getExistingOutputRowCount(
+sheet: ExcelScript.Worksheet,
+startRow: number,
+startCol: number,
+colCount: number,
+maxRows: number
+): number {
+const texts = sheet
+.getRangeByIndexes(startRow - 1, startCol, maxRows, colCount)
+.getTexts();
+
+
+let lastOffset = -1;
+
+
+for (let r = 0; r < texts.length; r++) {
+if (hasAnyText(texts[r])) {
+lastOffset = r;
+}
+}
+
+
+return lastOffset + 1;
+}
+
+
+function isTargetFlag(value: string | number | boolean, text: string): boolean {
+if (typeof value === "boolean") {
+return value === true;
+}
+
+
+const raw = String(text || value || "")
+.replace(/\s+/g, "")
+.trim()
+.toUpperCase();
+
+
+if (!raw) return false;
+
+
+return (
+raw === "Y" ||
+raw === "YES" ||
+raw === "1" ||
+raw === "TRUE" ||
+raw === "O" ||
+raw === "OK" ||
+raw === "V" ||
+raw === "대상" ||
+raw === "체크"
+);
+}
+
+
+function cleanName(value: string): string {
+return String(value ?? "")
+.replace(/\s+/g, " ")
+.trim();
+}
+
+
+function extractWeekNumber(text: string): number | null {
+const cleaned = String(text ?? "").trim();
+
+
+const match = cleaned.match(/(\d{1,2})\s*주/);
+if (match) {
+return Number(match[1]);
+}
+
+
+const numOnly = cleaned.match(/^(\d{1,2})$/);
+if (numOnly) {
+return Number(numOnly[1]);
+}
+
+
+return null;
+}
+
+
+function parseExcelDate(
+value: string | number | boolean,
+text: string,
+fallbackYear: number
+): Date | null {
+const raw = String(text ?? "")
+.replace(/^'/, "")
+.trim();
+
+
+if (typeof value === "number" && value > 1000) {
+const excelEpoch = new Date(1899, 11, 30);
+const date = new Date(excelEpoch.getTime() + value * 24 * 60 * 60 * 1000);
+
+
+return new Date(
+  date.getFullYear(),
+  date.getMonth(),
+  date.getDate()
+);
+}
+
+
+if (!raw) return null;
+
+
+// 20260719처럼 구분자 없는 YYYYMMDD
+let compactMatch = raw.match(/^(\d{4})(\d{2})(\d{2})$/);
+
+
+if (compactMatch) {
+const year = Number(compactMatch[1]);
+const month = Number(compactMatch[2]);
+const day = Number(compactMatch[3]);
+
+
+if (year >= 1900 && year <= 2200 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+  return new Date(year, month - 1, day);
+}
+}
+
+
+// 셀이 텍스트로 변환된 Excel 날짜 일련번호(예: 46222)도 처리
+const serialText = raw.replace(/,/g, "");
+
+
+if (/^\d{5}(?:\.\d+)?$/.test(serialText)) {
+const serial = Number(serialText);
+
+
+if (serial > 1000 && serial < 100000) {
+  const excelEpoch = new Date(1899, 11, 30);
+  const date = new Date(excelEpoch.getTime() + serial * 24 * 60 * 60 * 1000);
+
+
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  );
+}
+}
+
+
+let m = raw.match(/(\d{4})[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})/);
+
+
+if (m) {
+return new Date(
+Number(m[1]),
+Number(m[2]) - 1,
+Number(m[3])
+);
+}
+
+
+m = raw.match(/(\d{1,2})[-./월\s]+(\d{1,2})/);
+
+
+if (m) {
+return new Date(
+fallbackYear,
+Number(m[1]) - 1,
+Number(m[2])
+);
+}
+
+
+// B열이 16, 16일, 16일(목)처럼 일자만 표시된 경우 현재 월로 인식
+m = raw.match(/^(\d{1,2})\s*일?(?:\s*\([^)]*\))?$/);
+
+
+if (m) {
+const day = Number(m[1]);
+
+
+if (day >= 1 && day <= 31) {
+  const koreaToday = getKoreaToday();
+  return new Date(fallbackYear, koreaToday.getMonth(), day);
+}
+}
+
+
+return null;
+}
+
+
+function getKoreaToday(): Date {
+const now = new Date();
+
+
+const koreaText = now.toLocaleString("en-US", {
+timeZone: "Asia/Seoul"
+});
+
+
+const koreaNow = new Date(koreaText);
+
+
+return new Date(
+koreaNow.getFullYear(),
+koreaNow.getMonth(),
+koreaNow.getDate()
+);
+}
+
+
+function getWeekNumberBySundayJan1(date: Date): number {
+const y = date.getFullYear();
+
+
+const jan1 = new Date(y, 0, 1);
+const jan1Day = jan1.getDay(); // 일요일=0, 토요일=6
+
+
+// 1월 1일이 포함된 일~토를 1주차로 계산합니다.
+const firstSunday = new Date(y, 0, 1 - jan1Day);
+const target = new Date(y, date.getMonth(), date.getDate());
+
+
+const diffDays = Math.floor(
+(target.getTime() - firstSunday.getTime()) / (1000 * 60 * 60 * 24)
+);
+
+
+return Math.floor(diffDays / 7) + 1;
+}
+
+
+function parseTimeToHour(
+value: string | number | boolean,
+text: string
+): number | null {
+let raw = String(text ?? "")
+.replace(/^'/, "")
+.trim();
+
+
+const compact = raw.replace(/\s+/g, "");
+
+
+let m = compact.match(/^(\d{1,2})(\d{2})$/);
+
+
+if (m && compact.length >= 3) {
+const hour = Number(m[1]);
+const minute = Number(m[2]);
+
+
+if (hour >= 0 && hour <= 48 && minute >= 0 && minute < 60) {
+  return round4(hour + minute / 60);
+}
+}
+
+
+m = raw.match(/^(\d{1,3})\s*:\s*(\d{1,2})$/);
+
+
+if (m) {
+const hour = Number(m[1]);
+const minute = Number(m[2]);
+
+
+if (hour >= 0 && hour <= 48 && minute >= 0 && minute < 60) {
+  return round4(hour + minute / 60);
+}
+
+
+return null;
+}
+
+
+m = raw.match(/^(\d{1,3})\s시\s(\d{1,2})?\s*분?$/);
+
+
+if (m) {
+const hour = Number(m[1]);
+const minute = m[2] ? Number(m[2]) : 0;
+
+
+if (hour >= 0 && hour <= 48 && minute >= 0 && minute < 60) {
+  return round4(hour + minute / 60);
+}
+
+
+return null;
+}
+
+
+if (typeof value === "number") {
+if (value > 1000) {
+const fraction = value - Math.floor(value);
+return round4(fraction * 24);
+}
+
+
+if (value >= 0 && value < 1) {
+  return round4(value * 24);
+}
+
+
+if (value >= 0 && value <= 48) {
+  return round4(value);
+}
+}
+
+
+m = compact.match(/^(\d{1,2})(?:.(\d+))?$/);
+
+
+if (m) {
+const n = Number(compact);
+
+
+if (n >= 0 && n <= 48) {
+  return round4(n);
+}
+}
+
+
+return null;
+}
+
+
+function splitTimeByHour(
+startHour: number,
+endHour: number,
+maxSegments: number
+): { start: number; end: number }[] | null {
+const segments: { start: number; end: number }[] = [];
+
+
+let current = round4(startHour);
+let guard = 0;
+
+
+while (current < endHour) {
+guard++;
+
+
+if (guard > maxSegments) {
+  return null;
+}
+
+
+const nextHour = Math.floor(current) + 1;
+const next = Math.min(nextHour, endHour);
+const roundedNext = round4(next);
+
+
+if (roundedNext <= current) {
+  return null;
+}
+
+
+segments.push({
+  start: round4(current),
+  end: roundedNext
+});
+
+
+current = roundedNext;
+}
+
+
+return segments;
+}
+
+
+function formatHourToHHMM(hourValue: number): string {
+const totalMinutes = Math.round(hourValue * 60);
+const hour = Math.floor(totalMinutes / 60);
+const minute = totalMinutes % 60;
+
+
+return padLeft(hour, 2) + ":" + padLeft(minute, 2);
+}
+
+
+function formatDateToYYYYMMDD(date: Date): string {
+return (
+String(date.getFullYear()) +
+"-" +
+padLeft(date.getMonth() + 1, 2) +
+"-" +
+padLeft(date.getDate(), 2)
+);
+}
+
+
+function classifyClaimOtReason(reason: string): string {
+const raw = String(reason ?? "");
+const compact = raw
+.replace(/\s+/g, "")
+.toUpperCase();
+
+
+// 결점OT, 결점 OT, 팀장님요청, 팀장님 요청
+if (
+compact.includes("결점OT") ||
+compact.includes("팀장님요청") ||
+/OT(?:X|\d+(?:\.\d+)?)시간/.test(compact) ||
+/(?:X|\d+(?:\.\d+)?)시간OT/.test(compact)
+) {
+return "투입률관리";
+}
+
+
+// $12345678 또는 12345678, 87654321처럼 독립된 8자리 숫자
+if (/(^|\D)\d{8}(?!\d)/.test(raw)) {
+return "응대미종결";
+}
+
+
+return "";
+}
+
+
+function padLeft(num: number, length: number): string {
+let s = String(num);
+
+
+while (s.length < length) {
+s = "0" + s;
+}
+
+
+return s;
+}
+
+
+function round2(num: number): number {
+return Math.round(num * 100) / 100;
+}
+
+
+function round4(num: number): number {
+return Math.round(num * 10000) / 10000;
+}
+
+
+function round6(num: number): number {
+return Math.round(num * 1000000) / 1000000;
+}

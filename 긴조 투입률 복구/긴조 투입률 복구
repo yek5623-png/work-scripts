@@ -1,0 +1,121 @@
+// 긴조 투입률 복구 · 20261118.2 · 명단 수식 재연결 + 계산 의존성 전체 재구축
+// Excel 웹 > 자동화 > 새 스크립트에 전체 붙여넣고 한 번 실행하세요.
+// 정렬 이름과 수식명단 A2·상태출력 D10 수식을 백업 후 재등록합니다. 입력·서식은 보존합니다.
+// 기존 함수와 복구 근거/결과를 새 '긴조복구...' 탭에 저장합니다. 실패하면 기존 함수를 재적용합니다.
+// 이후 A1 변경도 수식으로 반영됩니다. 예전 설치 스크립트를 다시 실행하면 이 복구를 재실행하세요.
+type RepairValue = string | number | boolean;
+const originalSorter: string = "=LAMBDA(rows,sortShift,includeOther,LET(blank,MAKEARRAY(1,6,LAMBDA(rownum,colnum,\"\")), status,CHOOSECOLS(rows,4), ranks,MAP(status,LAMBDA(item,SWITCH(수식_비교글자(item),\"대화가능\",1,\"식사\",3,\"식사중\",3,\"휴식\",4,\"휴식중\",4,\"교육\",5,\"교육중\",5,\"자리에없음\",6,\"출근\",7,\"정상출근\",7,99))), groups,VSTACK(1,3,4,5,6,7,99), combined,REDUCE(blank,groups,LAMBDA(acc,rank,LET(mask,(ranks=rank)*(CHOOSECOLS(rows,1)<>\"\")*IF(rank=99,includeOther,TRUE), IF(SUM(--mask)=0,acc,LET(block,FILTER(rows,mask), sorted,IF(sortShift,LET(starts,MAP(CHOOSECOLS(block,3),LAMBDA(item,LET(pair,수식_근무시간(item,\"교육\"),start,INDEX(pair,1,1),IF(start<0,1440,start)))),SORTBY(block,starts,1,SEQUENCE(ROWS(block)),1)),block), IF(OR(rank=3,rank=5),VSTACK(acc,sorted,blank),VSTACK(acc,sorted))))))), IF(ROWS(combined)=1,blank,DROP(combined,1))))";
+const repairedSorter: string = "=LAMBDA(rows,sortShift,includeOther,LET(blank,MAKEARRAY(1,6,LAMBDA(rownum,colnum,\"\")), status,CHOOSECOLS(rows,4), ranks,MAP(status,LAMBDA(item,SWITCH(수식_비교글자(item),\"대화가능\",1,\"온라인\",2,\"인터랙션\",2,\"인터랙션중\",2,\"커뮤니케이션\",2,\"커뮤니케이션중\",2,\"식사\",3,\"식사중\",3,\"휴식\",4,\"휴식중\",4,\"교육\",5,\"교육중\",5,\"자리에없음\",6,\"출근\",7,\"정상출근\",7,99))), groups,VSTACK(1,2,3,4,5,6,7,99), combined,REDUCE(blank,groups,LAMBDA(acc,rank,LET(mask,(ranks=rank)*(CHOOSECOLS(rows,1)<>\"\")*IF(rank=99,includeOther,TRUE), IF(SUM(--mask)=0,acc,LET(block,FILTER(rows,mask), sorted,IF(sortShift,LET(starts,MAP(CHOOSECOLS(block,3),LAMBDA(item,LET(pair,수식_근무시간(item,\"교육\"),start,INDEX(pair,1,1),IF(start<0,1440,start)))),SORTBY(block,starts,1,SEQUENCE(ROWS(block)),1)),block), IF(OR(rank=3,rank=5),VSTACK(acc,sorted,blank),VSTACK(acc,sorted))))))), IF(ROWS(combined)=1,blank,DROP(combined,1))))";
+function main(workbook: ExcelScript.Workbook) {
+  const status = workbook.getWorksheet("상태출력");
+  const parsed = workbook.getWorksheet("수식판정");
+  const list = workbook.getWorksheet("수식명단");
+  const named = workbook.getNamedItem("수식_명단정렬");
+  if (!status || !parsed || !list || !named) throw new Error("기존 긴조 수식 파일의 상태출력·수식판정·수식명단·수식_명단정렬이 필요합니다. 변경하지 않았습니다.");
+  const previous = named.getFormula();
+  const listCell = list.getRange("A2");
+  const displayCell = status.getRange("D10");
+  const previousList = listCell.getFormula();
+  const previousDisplay = displayCell.getFormula();
+  const expectedList = '=LET(source,수식판정!P2#,rows,HSTACK(CHOOSECOLS(source,1,3,4,5),IF((1-CHOOSECOLS(source,8))*CHOOSECOLS(source,9),"OT 출근중",""),CHOOSECOLS(source,6)),수식_명단정렬(rows,TRUE,FALSE))';
+  const normalize = (formula: string): string => formula.replace(/\s+/g, "").replace(/_xlfn\./gi, "").toLowerCase();
+  const already = normalize(previous) === normalize(repairedSorter);
+  if (!already && normalize(previous) !== normalize(originalSorter)) {
+    throw new Error("명단 정렬 함수가 댓글의 기존 버전과 다릅니다. 사용자 수식을 덮어쓰지 않았습니다. 디버깅 결과를 확인하세요.");
+  }
+  if (normalize(previousDisplay).replace(/['$]/g, "") !== "=수식명단!a2#" || normalize(previousList).replace(/['$]/g, "") !== normalize(expectedList)) {
+    throw new Error("D10 또는 명단 수식이 댓글의 구조와 다릅니다. 변경하지 않았습니다.");
+  }
+  // 오류/실제 값은 사전 확인합니다. 업무 명단은 진단 탭에 복제하지 않습니다.
+  const liveBefore = repairRead(parsed.getRange("P2"), 14);
+  const shownBefore = repairRead(status.getRange("D10"), 6);
+  const beforeCount = repairKeys(shownBefore).length;
+  const stats: string[] = [];
+  for (const label of ["대화가능", "온라인", "인터랙션", "커뮤니케이션", "식사", "휴식", "교육", "자리에없음", "출근", "정상출근"]) {
+    const count = liveBefore.filter(row => row[1] !== "" && repairStatus(row[4]).replace(/중$/, "") === label).length;
+    if (count) stats.push(label + "=" + count);
+  }
+  const supported = ["대화가능", "온라인", "인터랙션", "인터랙션중", "커뮤니케이션", "커뮤니케이션중", "식사", "식사중", "휴식", "휴식중", "교육", "교육중", "자리에없음", "출근", "정상출근"];
+  let reportName = "긴조복구";
+  for (let i = 1; workbook.getWorksheet(reportName); i++) reportName = "긴조복구" + i;
+  const report = workbook.addWorksheet(reportName);
+  const write = (row: number, values: string[]) => report.getRangeByIndexes(row - 1, 0, 1, values.length).setValues([values.map(value => "'" + value)]);
+  write(1, ["긴조 투입률 복구", "20261118.2", new Date(Date.now() + 32400000).toISOString().slice(0, 19) + " KST"]);
+  write(3, ["기존 함수 백업", "수식_명단정렬", previous]);
+  write(4, ["정렬 함수 상태", already ? "상태 누락 수정은 이미 적용됨" : "상태 누락 수정 필요", "이미 수정된 함수여도 명단 수식 재등록과 전체 재구축을 실행합니다. 원인은 실행 결과로 구분합니다."]);
+  write(5, ["수정 범위", "정렬 이름 + 수식명단 A2 + 상태출력 D10", "기존 수식을 백업하고 같은 출력 수식을 다시 등록한 뒤 fullRebuild로 계산 의존성을 재구축"]);
+  write(6, ["수정 전 로그인 상태별 건수", stats.join(" / ") || "지원 상태 건수 없음", "명단 " + beforeCount + "명"]);
+  write(7, ["진행 상태", "검사 중", "복구 완료 문구를 확인하세요."]);
+  write(12, ["명단 수식 백업", "수식명단!A2", previousList]);
+  write(13, ["출력 수식 백업", "상태출력!D10", previousDisplay]);
+  write(14, ["수정 전 명단", repairDescribe(listCell), repairDescribe(displayCell)]);
+  let changed = false;
+  try {
+    changed = true;
+    named.setFormula(repairedSorter);
+    listCell.setFormula(previousList);
+    displayCell.setFormula(previousDisplay);
+    const app = workbook.getApplication();
+    app.calculate(ExcelScript.CalculationType.fullRebuild);
+    write(15, ["재구축 후 명단", repairDescribe(listCell), repairDescribe(displayCell)]);
+    const liveAfter = repairRead(parsed.getRange("P2"), 14);
+    const expected = liveAfter.filter(row => row[1] !== "" && supported.includes(repairStatus(row[4]))).map(row => String(row[0]).toLowerCase()).sort();
+    // 첫 칸이 정상이어도 배열의 다른 셀 오류를 모두 검사합니다.
+    const generated = repairKeys(repairRead(list.getRange("A2"), 6)).sort();
+    const visible = repairKeys(repairRead(status.getRange("D10"), 6)).sort();
+    write(16, ["재구축 후 인원", "판정 " + expected.length + "명 / 명단 " + generated.length + "명 / 화면 " + visible.length + "명", "숫자 0은 사번으로 세지 않습니다. 명단이 0명이면 정렬/명단 계산 단계, 화면만 0명이면 D10 출력 단계를 추가 점검합니다."]);
+    if (JSON.stringify(expected) !== JSON.stringify(generated) || JSON.stringify(generated) !== JSON.stringify(visible)) {
+      throw new Error("로그인 필터의 지원 상태 명단과 D10 출력이 일치하지 않습니다. 출력 범위·계산 상태 등 추가 점검이 필요합니다.");
+    }
+    if (expected.length === 0) throw new Error("현재 지원 상태의 사번이 0명이라 실제 명단 복구를 검증할 수 없습니다.");
+    write(7, ["진행 상태", "복구 완료", "지원 상태 " + expected.length + "명 = 생성 명단 " + generated.length + "명 = D10 출력 " + visible.length + "명"]);
+    write(8, ["수정 후 함수", "수식_명단정렬", named.getFormula()]);
+    const affected = liveAfter.filter(row => row[1] !== "" && ["온라인", "인터랙션", "커뮤니케이션"].includes(repairStatus(row[4]).replace(/중$/, ""))).length;
+    write(9, ["이번 증상과의 관계", "기존 누락 대상 상태 " + affected + "명", already ? "기존 정렬은 수정본이었습니다. 이번에는 수식 재등록·전체 재구축 후 출력 일치를 검증했습니다." : "상태 누락 수정과 수식 재등록·전체 재구축 후 출력 일치를 검증했습니다."]);
+    console.log((already ? "이미 복구 적용됨" : "복구 완료") + ": " + reportName + " 탭에서 건수와 원인을 확인하세요.");
+  } catch (error) {
+    let restored = !changed;
+    if (changed) {
+      const restoreErrors: string[] = [];
+      try { named.setFormula(previous); } catch (restoreError) { restoreErrors.push("이름: " + String(restoreError)); }
+      try { listCell.setFormula(previousList); } catch (restoreError) { restoreErrors.push("A2: " + String(restoreError)); }
+      try { displayCell.setFormula(previousDisplay); } catch (restoreError) { restoreErrors.push("D10: " + String(restoreError)); }
+      try { workbook.getApplication().calculate(ExcelScript.CalculationType.fullRebuild); } catch (restoreError) { restoreErrors.push("계산: " + String(restoreError)); }
+      restored = restoreErrors.length === 0;
+      if (!restored) write(10, ["복원 실패", restoreErrors.join(" / "), "3행 C열은 이름 백업, 12·13행 C열은 A2·D10 수식 백업입니다."]);
+    }
+    write(7, ["진행 상태", "복구 검증 실패", String(error)]);
+    write(8, ["기존 함수", restored ? "유지/재적용됨" : "수동 복원 필요", "3행 C열에 수정 전 수식 백업"]);
+    throw new Error("복구를 완료하지 못했습니다. " + reportName + " 탭 확인. " + String(error));
+  } finally {
+    try {
+      report.getRange("A1:C16").getFormat().setColumnWidth(300);
+      report.getRange("A1:C16").getFormat().setWrapText(true);
+      report.activate();
+    } catch (formatError) { console.log("복구 결과는 " + reportName + " 탭에 저장했습니다. 화면 서식 적용만 실패했습니다."); }
+  }
+}
+function repairStatus(value: RepairValue): string {
+  return String(value).replace(/\u00a0/g, " ").replace(/[\u200b-\u200d\s]/g, "");
+}
+function repairKeys(rows: RepairValue[][]): string[] {
+  return rows.filter(row => typeof row[0] === "string" && String(row[0]).trim() !== "").map(row => String(row[0]).toLowerCase());
+}
+function repairDescribe(anchor: ExcelScript.Range): string {
+  try {
+    const spill = anchor.getSpillingToRange();
+    const first = anchor.getValue();
+    return anchor.getAddress() + " · " + (spill ? spill.getRowCount() + "행×" + spill.getColumnCount() + "열" : "배열 없음") + " · 첫 칸=" + (first === 0 ? "숫자 0" : first === "" ? "빈 값" : anchor.getValueType() === ExcelScript.RangeValueType.error ? String(first) : "값 있음");
+  } catch (error) { return anchor.getAddress() + " · 조회 실패: " + String(error); }
+}
+function repairRead(anchor: ExcelScript.Range, width: number): RepairValue[][] {
+  const spill = anchor.getSpillingToRange();
+  const area = spill || anchor.getResizedRange(0, width - 1);
+  const types = area.getValueTypes();
+  const values = area.getValues();
+  for (let r = 0; r < types.length; r++) for (let c = 0; c < types[r].length; c++) {
+    if (types[r][c] === ExcelScript.RangeValueType.error) throw new Error(area.getAddress() + " 배열에 계산 오류: " + String(values[r][c]));
+  }
+  if (area.getColumnCount() !== width) throw new Error(area.getAddress() + " 배열 열수가 예상 " + width + "열과 다릅니다.");
+  return values;
+}

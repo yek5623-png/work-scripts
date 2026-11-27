@@ -1,0 +1,797 @@
+function main(workbook: ExcelScript.Workbook) {
+const sheet: ExcelScript.Worksheet = workbook.getActiveWorksheet();
+const startRow: number = 3;
+const usedRange: ExcelScript.Range | undefined = sheet.getUsedRange();
+if (!usedRange) return;
+
+const lastRow: number = usedRange.getRowIndex() + usedRange.getRowCount();
+const bValues: string[][] = sheet.getRange(`B1:B${lastRow}`).getTexts();
+const mnValues: string[][] = sheet.getRange(`M1:N${lastRow}`).getTexts();
+
+const nameMap: Record<string, string> = {};
+for (let i: number = 0; i < mnValues.length; i++) {
+    const kor: string = normalizeNameKey(mnValues[i][0]);
+    const eng: string = clean(mnValues[i][1]);
+    if (kor !== "" && eng !== "") nameMap[kor] = ensureMention(eng);
+}
+
+const sourceLines: string[] = collectSourceLines(bValues, startRow, lastRow);
+const fOutput: string[][] = buildHoldOutput(sourceLines, nameMap);
+
+const clearEndRow: number = Math.max(lastRow + 300, startRow + fOutput.length + 50);
+sheet.getRange(`F${startRow}:F${clearEndRow}`).clear(ExcelScript.ClearApplyTo.contents);
+
+if (fOutput.length > 0) {
+    const fRange: ExcelScript.Range = sheet.getRange(`F${startRow}:F${startRow + fOutput.length - 1}`);
+    fRange.setNumberFormatLocal("@");
+    fRange.setValues(fOutput);
+}
+
+const dayHeaderRow: number = 3;
+const dayStartRow: number = 4;
+const dayEndRow: number = 40;
+const nightHeaderRow: number = 41;
+const nightStartRow: number = 42;
+const outputEndRow: number = 120;
+
+sheet.getRange(`H${dayHeaderRow}:J${outputEndRow}`).clear(ExcelScript.ClearApplyTo.contents);
+
+const hOutput: SplitOutput = buildSplitFullOutput(fOutput);
+const nowHour: number = getKoreaNowHour();
+const iOutput: SplitOutput = buildSplitMentionOnlyOutput(fOutput, nowHour);
+const jOutput: string[][] = buildCurrentMentionOutput(fOutput, nowHour);
+
+writeSectionHeader(sheet, "H", dayHeaderRow, "──────── 주간 ────────");
+writeColumnBlock(sheet, "H", dayStartRow, dayEndRow, hOutput.day);
+writeSectionHeader(sheet, "H", nightHeaderRow, "──────── 야간 ────────");
+writeColumnBlock(sheet, "H", nightStartRow, outputEndRow, hOutput.night);
+
+writeSectionHeader(sheet, "I", dayHeaderRow, "──────── 주간 ────────");
+writeColumnBlock(sheet, "I", dayStartRow, dayEndRow, iOutput.day);
+writeSectionHeader(sheet, "I", nightHeaderRow, "──────── 야간 ────────");
+writeColumnBlock(sheet, "I", nightStartRow, outputEndRow, iOutput.night);
+
+writeSectionHeader(sheet, "J", dayHeaderRow, "현 시간 출근인원");
+writeColumnBlock(sheet, "J", dayStartRow, outputEndRow, jOutput);
+}
+
+interface PersonItem {
+prefix: string;
+name: string;
+time: string;
+}
+
+interface PersonGroup {
+label: string;
+people: PersonItem[];
+}
+
+interface TimeRange {
+start: number;
+end: number;
+}
+
+interface MentionLineGroup {
+label: string;
+mentions: string[];
+}
+
+interface SplitOutput {
+day: string[][];
+night: string[][];
+}
+
+function collectSourceLines(
+bValues: string[][],
+startRow: number,
+lastRow: number
+): string[] {
+const lines: string[] = [];
+
+for (let row: number = startRow; row <= lastRow; row++) {
+    const cellText: string = String(bValues[row - 1][0] ?? "");
+    const normalized: string = cellText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const parts: string[] = normalized.split("\n");
+
+    for (let i: number = 0; i < parts.length; i++) {
+        lines.push(clean(parts[i]));
+    }
+}
+
+return lines;
+}
+
+function buildHoldOutput(
+sourceLines: string[],
+nameMap: Record<string, string>
+): string[][] {
+const output: string[][] = [];
+let header: string = "";
+let bodyLines: string[] = [];
+
+for (let i: number = 0; i < sourceLines.length; i++) {
+    const line: string = clean(sourceLines[i]);
+
+    if (line === "") {
+        flushHoldSection(header, bodyLines, output, nameMap);
+        header = "";
+        bodyLines = [];
+        continue;
+    }
+
+    if (isInputPeopleLine(line)) {
+        bodyLines.push(line);
+        continue;
+    }
+
+    flushHoldSection(header, bodyLines, output, nameMap);
+    header = line;
+    bodyLines = [];
+}
+
+flushHoldSection(header, bodyLines, output, nameMap);
+
+while (output.length > 0 && clean(output[output.length - 1][0]) === "") {
+    output.pop();
+}
+
+return output;
+}
+
+function flushHoldSection(
+header: string,
+bodyLines: string[],
+output: string[][],
+nameMap: Record<string, string>
+): void {
+const dept: string = clean(header);
+if (dept === "") return;
+
+const mergedGroups: MentionLineGroup[] = [];
+
+for (let i: number = 0; i < bodyLines.length; i++) {
+    const convertedGroups: MentionLineGroup[] = convertPeopleInputLine(bodyLines[i], nameMap);
+    for (let j: number = 0; j < convertedGroups.length; j++) {
+        appendMentionGroup(mergedGroups, convertedGroups[j].label, convertedGroups[j].mentions);
+    }
+}
+
+output.push([dept]);
+
+for (let i: number = 0; i < mergedGroups.length; i++) {
+    const label: string = clean(mergedGroups[i].label);
+    const mentions: string[] = mergedGroups[i].mentions;
+    if (label !== "" && mentions.length > 0) {
+        output.push([`${label} : ${mentions.join(" ")}`]);
+    }
+}
+
+output.push([""]);
+}
+
+function isInputPeopleLine(text: string): boolean {
+const t: string = clean(text);
+if (t === "") return false;
+if (/^(주간|야간)\s*[:：]/i.test(t)) return true;
+if (/^(오전|오후|새벽|기타)\s*[:：]/i.test(t)) return true;
+if (/^\d{1,2}(?::\d{1,2})?\s*[-~～〜‐-‒–—―−]\s*\d{1,2}(?::\d{1,2})?\s*[:：]/.test(t)) return true;
+return false;
+}
+
+function convertPeopleInputLine(
+text: string,
+nameMap: Record<string, string>
+): MentionLineGroup[] {
+const parts: { label: string; body: string } = splitInputLine(text);
+const people: PersonItem[] = parsePeople(parts.body);
+const groups: PersonGroup[] = makePersonGroups(people, parts.label);
+const result: MentionLineGroup[] = [];
+let carryPrefixFromMissingName: string = "";
+
+for (let i: number = 0; i < groups.length; i++) {
+    const mentions: string[] = [];
+
+    for (let j: number = 0; j < groups[i].people.length; j++) {
+        const person: PersonItem = groups[i].people[j];
+        const key: string = normalizeNameKey(person.name);
+        const mappedMention: string = nameMap[key] ?? "";
+        let effectivePrefix: string = person.prefix;
+
+        if (effectivePrefix === "" && carryPrefixFromMissingName !== "") {
+            effectivePrefix = carryPrefixFromMissingName;
+            carryPrefixFromMissingName = "";
+        }
+
+        if (mappedMention !== "") {
+            mentions.push(`${effectivePrefix}${mappedMention}`);
+            if (person.prefix !== "") carryPrefixFromMissingName = "";
+            continue;
+        }
+
+        if (person.prefix !== "") carryPrefixFromMissingName = person.prefix;
+    }
+
+    if (mentions.length > 0) {
+        appendMentionGroup(result, groups[i].label, mentions);
+    }
+}
+
+return result;
+}
+
+function splitInputLine(text: string): { label: string; body: string } {
+const raw: string = clean(text);
+const shiftMatch: RegExpMatchArray | null = raw.match(/^(주간|야간)\s*[:：]\s*(.*)$/i);
+if (shiftMatch) return { label: clean(shiftMatch[1]), body: clean(shiftMatch[2]) };
+
+const labelMatch: RegExpMatchArray | null = raw.match(/^([^:：]+)\s*[:：]\s*(.*)$/);
+if (labelMatch) {
+    return {
+        label: normalizeGroupLabel(labelMatch[1]),
+        body: clean(labelMatch[2])
+    };
+}
+
+return { label: "기타", body: raw };
+}
+
+function parsePeople(bodyText: string): PersonItem[] {
+const people: PersonItem[] = [];
+const prepared: string = preparePeopleBody(bodyText);
+const tokens: string[] = prepared.split(/\s+/).map((x: string) => clean(x)).filter((x: string) => x !== "");
+
+for (let i: number = 0; i < tokens.length; i++) {
+    const token: string = stripOuterPunctuation(tokens[i]);
+    if (token === "") continue;
+
+    const standaloneTime: string = normalizeTime(token);
+    if (standaloneTime !== "" && people.length > 0) {
+        people[people.length - 1].time = standaloneTime;
+        continue;
+    }
+
+    const parsed: PersonItem | null = parsePersonToken(token);
+    if (parsed) people.push(parsed);
+}
+
+return people;
+}
+
+function preparePeopleBody(bodyText: string): string {
+return clean(bodyText)
+.replace(/[，,]/g, " ")
+.replace(/\u00A0/g, " ")
+.replace(/([)）\]］])(?=\S)/g, "$1 ");
+}
+
+function parsePersonToken(token: string): PersonItem | null {
+let source: string = stripOuterPunctuation(token)
+.replace(/（/g, "(")
+.replace(/）/g, ")")
+.replace(/［/g, "[")
+.replace(/］/g, "]");
+let foundTime: string = "";
+
+const timeMatch: RegExpMatchArray | null = source.match(/^(.*?)(?:\(([^()]*)\)|\[([^\[\]]*)\])$/);
+if (timeMatch) {
+    const timeText: string = clean(timeMatch[2] ?? timeMatch[3] ?? "");
+    const normalizedTime: string = normalizeTime(timeText);
+    if (normalizedTime !== "") {
+        source = clean(timeMatch[1]);
+        foundTime = normalizedTime;
+    }
+}
+
+if (source === "") return null;
+
+const roleSplit: { prefix: string; name: string } = splitRolePrefix(source);
+const nameKey: string = normalizeNameKey(roleSplit.name);
+if (nameKey === "") return null;
+
+return {
+    prefix: roleSplit.prefix,
+    name: roleSplit.name,
+    time: foundTime
+};
+}
+
+function makePersonGroups(
+people: PersonItem[],
+fallbackLabel: string
+): PersonGroup[] {
+const groups: PersonGroup[] = [];
+let pendingPeople: PersonItem[] = [];
+let previousTime: string = "";
+
+for (let i: number = 0; i < people.length; i++) {
+    const person: PersonItem = people[i];
+
+    if (person.time !== "") {
+        const groupedPeople: PersonItem[] = [];
+        for (let p: number = 0; p < pendingPeople.length; p++) {
+            groupedPeople.push(pendingPeople[p]);
+        }
+
+        groupedPeople.push(person);
+        appendPersonGroup(groups, person.time, groupedPeople);
+        pendingPeople = [];
+        previousTime = person.time;
+        continue;
+    }
+
+    pendingPeople.push(person);
+}
+
+if (pendingPeople.length > 0) {
+    const label: string = previousTime !== "" ? previousTime : clean(fallbackLabel);
+    appendPersonGroup(groups, label, pendingPeople);
+}
+
+return groups;
+}
+
+function appendPersonGroup(
+groups: PersonGroup[],
+label: string,
+people: PersonItem[]
+): void {
+const normalizedLabel: string = normalizeGroupLabel(label);
+if (normalizedLabel === "" || people.length === 0) return;
+
+const key: string = labelCompareKey(normalizedLabel);
+
+for (let i: number = 0; i < groups.length; i++) {
+    if (labelCompareKey(groups[i].label) === key) {
+        for (let j: number = 0; j < people.length; j++) {
+            groups[i].people.push(people[j]);
+        }
+        return;
+    }
+}
+
+const copiedPeople: PersonItem[] = [];
+for (let i: number = 0; i < people.length; i++) copiedPeople.push(people[i]);
+groups.push({ label: normalizedLabel, people: copiedPeople });
+}
+
+function appendMentionGroup(
+groups: MentionLineGroup[],
+label: string,
+mentions: string[]
+): void {
+const normalizedLabel: string = normalizeGroupLabel(label);
+if (normalizedLabel === "" || mentions.length === 0) return;
+
+const key: string = labelCompareKey(normalizedLabel);
+
+for (let i: number = 0; i < groups.length; i++) {
+    if (labelCompareKey(groups[i].label) === key) {
+        for (let j: number = 0; j < mentions.length; j++) {
+            groups[i].mentions.push(mentions[j]);
+        }
+        return;
+    }
+}
+
+const copiedMentions: string[] = [];
+for (let i: number = 0; i < mentions.length; i++) copiedMentions.push(mentions[i]);
+groups.push({ label: normalizedLabel, mentions: copiedMentions });
+}
+
+function buildSplitFullOutput(fOutput: string[][]): SplitOutput {
+const dayOutput: string[][] = [];
+const nightOutput: string[][] = [];
+let currentDept: string = "";
+let dayLines: string[] = [];
+let nightLines: string[] = [];
+
+for (let i: number = 0; i < fOutput.length; i++) {
+    const line: string = clean(fOutput[i][0]);
+
+    if (line === "") {
+        flushDeptGroup(currentDept, dayLines, nightLines, dayOutput, nightOutput);
+        currentDept = "";
+        dayLines = [];
+        nightLines = [];
+        continue;
+    }
+
+    if (!isOutputLine(line)) {
+        flushDeptGroup(currentDept, dayLines, nightLines, dayOutput, nightOutput);
+        currentDept = line;
+        dayLines = [];
+        nightLines = [];
+        continue;
+    }
+
+    addLineToGroups(line, dayLines, nightLines);
+}
+
+flushDeptGroup(currentDept, dayLines, nightLines, dayOutput, nightOutput);
+
+return {
+    day: dayOutput,
+    night: nightOutput
+};
+}
+
+function buildSplitMentionOnlyOutput(
+fOutput: string[][],
+nowHour: number
+): SplitOutput {
+const dayOutput: string[][] = [];
+const nightOutput: string[][] = [];
+let currentDept: string = "";
+let dayLines: string[] = [];
+let nightLines: string[] = [];
+
+for (let i: number = 0; i < fOutput.length; i++) {
+    const line: string = clean(fOutput[i][0]);
+
+    if (line === "") {
+        flushDeptGroup(currentDept, dayLines, nightLines, dayOutput, nightOutput);
+        currentDept = "";
+        dayLines = [];
+        nightLines = [];
+        continue;
+    }
+
+    if (!isOutputLine(line)) {
+        flushDeptGroup(currentDept, dayLines, nightLines, dayOutput, nightOutput);
+        currentDept = line;
+        dayLines = [];
+        nightLines = [];
+        continue;
+    }
+
+    const mentionOnly: string = filterLineToMentionOnly(line, nowHour, "notEnded");
+    if (mentionOnly === "") continue;
+
+    const target: string = getShiftTarget(line);
+    if (target === "day" || target === "both") dayLines.push(mentionOnly);
+    if (target === "night" || target === "both") nightLines.push(mentionOnly);
+}
+
+flushDeptGroup(currentDept, dayLines, nightLines, dayOutput, nightOutput);
+
+return {
+    day: dayOutput,
+    night: nightOutput
+};
+}
+
+function buildCurrentMentionOutput(
+fOutput: string[][],
+nowHour: number
+): string[][] {
+const output: string[][] = [];
+let currentDept: string = "";
+let currentLines: string[] = [];
+
+for (let i: number = 0; i < fOutput.length; i++) {
+    const line: string = clean(fOutput[i][0]);
+
+    if (line === "") {
+        flushCurrentDeptGroup(currentDept, currentLines, output);
+        currentDept = "";
+        currentLines = [];
+        continue;
+    }
+
+    if (!isOutputLine(line)) {
+        flushCurrentDeptGroup(currentDept, currentLines, output);
+        currentDept = line;
+        currentLines = [];
+        continue;
+    }
+
+    const mentionOnly: string = filterLineToMentionOnly(line, nowHour, "currentOnly");
+    if (mentionOnly !== "") currentLines.push(mentionOnly);
+}
+
+flushCurrentDeptGroup(currentDept, currentLines, output);
+
+return output;
+}
+
+function filterLineToMentionOnly(
+line: string,
+nowHour: number,
+mode: string
+): string {
+const label: string = extractOutputLabel(line);
+const mentions: string = extractOutputMentions(line);
+if (label === "" || mentions === "") return "";
+
+let range: TimeRange | null = parseTimeRange(label);
+if (!range) range = extractFirstTimeRange(line);
+
+if (mode === "notEnded") {
+    if (range && isShiftEnded(range, nowHour)) return "";
+    return mentions;
+}
+
+if (mode === "currentOnly") {
+    if (!range) return "";
+    if (!isNowInShift(range, nowHour)) return "";
+    return mentions;
+}
+
+return "";
+}
+
+function flushDeptGroup(
+dept: string,
+dayLines: string[],
+nightLines: string[],
+dayOutput: string[][],
+nightOutput: string[][]
+): void {
+if (clean(dept) === "") return;
+
+if (dayLines.length > 0) {
+    dayOutput.push([dept]);
+    for (let i: number = 0; i < dayLines.length; i++) {
+        dayOutput.push([dayLines[i]]);
+    }
+}
+
+if (nightLines.length > 0) {
+    nightOutput.push([dept]);
+    for (let i: number = 0; i < nightLines.length; i++) {
+        nightOutput.push([nightLines[i]]);
+    }
+}
+}
+
+function flushCurrentDeptGroup(
+dept: string,
+currentLines: string[],
+output: string[][]
+): void {
+if (clean(dept) === "" || currentLines.length === 0) return;
+
+output.push([dept]);
+for (let i: number = 0; i < currentLines.length; i++) {
+    output.push([currentLines[i]]);
+}
+}
+
+function addLineToGroups(
+line: string,
+dayLines: string[],
+nightLines: string[]
+): void {
+const target: string = getShiftTarget(line);
+if (target === "") return;
+
+if (target === "day" || target === "both") dayLines.push(line);
+if (target === "night" || target === "both") nightLines.push(line);
+}
+
+function getShiftTarget(text: string): string {
+const label: string = extractOutputLabel(text);
+if (label === "") return "";
+
+let range: TimeRange | null = parseTimeRange(label);
+if (!range) range = extractFirstTimeRange(text);
+
+if (range) {
+    if (range.start >= 17) return "night";
+    if (range.end > 18) return "both";
+    return "day";
+}
+
+if (/^주간$/i.test(label)) return "day";
+if (/^야간$/i.test(label)) return "night";
+return "both";
+}
+
+function isShiftEnded(
+range: TimeRange,
+nowHour: number
+): boolean {
+const endHour: number = getComparableEndHour(range);
+let comparableNow: number = nowHour;
+
+if (endHour > 24 && comparableNow < range.start) {
+    comparableNow += 24;
+}
+
+return comparableNow >= endHour;
+}
+
+function isNowInShift(
+range: TimeRange,
+nowHour: number
+): boolean {
+const startHour: number = range.start;
+const endHour: number = getComparableEndHour(range);
+let comparableNow: number = nowHour;
+
+if (endHour > 24 && comparableNow < startHour) {
+    comparableNow += 24;
+}
+
+return comparableNow >= startHour && comparableNow < endHour;
+}
+
+function getComparableEndHour(range: TimeRange): number {
+if (range.end <= range.start) return range.end + 24;
+return range.end;
+}
+
+function getKoreaNowHour(): number {
+const now: Date = new Date();
+const koreaDate: Date = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+const hour: number = koreaDate.getUTCHours();
+const minute: number = koreaDate.getUTCMinutes();
+const second: number = koreaDate.getUTCSeconds();
+return hour + minute / 60 + second / 3600;
+}
+
+function normalizeGroupLabel(label: string): string {
+const raw: string = clean(label);
+const range: TimeRange | null = parseTimeRange(raw);
+if (range) return formatTimeRange(range);
+return raw;
+}
+
+function labelCompareKey(label: string): string {
+return normalizeGroupLabel(label).replace(/\s+/g, "").toLowerCase();
+}
+
+function splitRolePrefix(text: string): { prefix: string; name: string } {
+const raw: string = clean(text);
+const match: RegExpMatchArray | null = raw.match(/^([A-Za-z0-9]+_)(.+)$/);
+if (!match) return { prefix: "", name: raw };
+return { prefix: match[1], name: clean(match[2]) };
+}
+
+function normalizeTime(value: string): string {
+const range: TimeRange | null = parseTimeRange(value);
+if (!range) return "";
+return formatTimeRange(range);
+}
+
+function formatTimeRange(range: TimeRange): string {
+return `${padHour(String(range.start))}-${padHour(String(range.end))}`;
+}
+
+function parseTimeRange(value: string): TimeRange | null {
+let t: string = clean(value);
+if (t === "") return null;
+
+t = t.replace(/[（［]/g, "(").replace(/[）］]/g, ")");
+t = t.replace(/^[\(\[]+/, "").replace(/[\)\]]+$/, "");
+t = t.replace(/\s/g, "");
+t = t.replace(/[~～〜‐-‒–—―−]/g, "-");
+
+const colonMatch: RegExpMatchArray | null = t.match(/^(\d{1,2})(?::\d{1,2})?-(\d{1,2})(?::\d{1,2})?$/);
+if (colonMatch) {
+    const start: number = Number(colonMatch[1]);
+    const end: number = Number(colonMatch[2]);
+    if (Number.isNaN(start) || Number.isNaN(end)) return null;
+    return { start, end };
+}
+
+const compactMatch: RegExpMatchArray | null = t.match(/^(\d{3,4})-(\d{3,4})$/);
+if (compactMatch) {
+    const start: number = Number(compactHour(compactMatch[1]));
+    const end: number = Number(compactHour(compactMatch[2]));
+    if (Number.isNaN(start) || Number.isNaN(end)) return null;
+    return { start, end };
+}
+
+return null;
+}
+
+function extractFirstTimeRange(text: string): TimeRange | null {
+let t: string = clean(text);
+if (t === "") return null;
+
+t = t.replace(/[（［]/g, "(").replace(/[）］]/g, ")");
+t = t.replace(/[~～〜‐-‒–—―−]/g, "-");
+
+const match: RegExpMatchArray | null = t.match(/(\d{1,2})(?::\d{1,2})?\s*-\s*(\d{1,2})(?::\d{1,2})?/);
+if (!match) return null;
+
+const start: number = Number(match[1]);
+const end: number = Number(match[2]);
+if (Number.isNaN(start) || Number.isNaN(end)) return null;
+
+return { start, end };
+}
+
+function compactHour(value: string): string {
+const v: string = clean(value);
+if (v.length <= 2) return v;
+return v.slice(0, v.length - 2);
+}
+
+function padHour(value: string): string {
+const num: number = Number(value);
+if (Number.isNaN(num)) return value;
+if (num >= 0 && num < 10) return `0${num}`;
+return String(num);
+}
+
+function ensureMention(value: string): string {
+const mention: string = clean(value);
+if (mention === "") return "";
+if (mention.startsWith("@")) return mention;
+return `@${mention}`;
+}
+
+function normalizeNameKey(value: string): string {
+return clean(value)
+.replace(/^@+/, "")
+.replace(/[\u200B-\u200D\uFEFF\u2060]/g, "")
+.replace(/\s+/g, "")
+.trim();
+}
+
+function stripOuterPunctuation(value: string): string {
+return clean(value)
+.replace(/^[,，]+/, "")
+.replace(/[,，]+$/, "")
+.trim();
+}
+
+function isOutputLine(text: string): boolean {
+return extractOutputLabel(text) !== "";
+}
+
+function extractOutputLabel(text: string): string {
+const t: string = clean(text);
+if (t === "") return "";
+
+const spacedSep: number = t.indexOf(" : ");
+if (spacedSep >= 0) return clean(t.slice(0, spacedSep));
+
+const match: RegExpMatchArray | null = t.match(/^([^:：]+)\s*[:：]/);
+return match ? clean(match[1]) : "";
+}
+
+function extractOutputMentions(text: string): string {
+const t: string = clean(text);
+if (t === "") return "";
+
+const spacedSep: number = t.indexOf(" : ");
+if (spacedSep >= 0) return clean(t.slice(spacedSep + 3));
+
+const match: RegExpMatchArray | null = t.match(/^[^:：]+\s*[:：]\s*(.*)$/);
+return match ? clean(match[1]) : "";
+}
+
+function writeSectionHeader(
+sheet: ExcelScript.Worksheet,
+col: string,
+row: number,
+text: string
+): void {
+const range: ExcelScript.Range = sheet.getRange(`${col}${row}`);
+range.setNumberFormatLocal("@");
+range.setValue(text);
+range.getFormat().getFont().setBold(true);
+}
+
+function writeColumnBlock(
+sheet: ExcelScript.Worksheet,
+col: string,
+startRow: number,
+endRow: number,
+values: string[][]
+): void {
+const maxRows: number = endRow - startRow + 1;
+const trimmed: string[][] = values.slice(0, maxRows);
+if (trimmed.length === 0) return;
+
+const range: ExcelScript.Range = sheet.getRange(`${col}${startRow}:${col}${startRow + trimmed.length - 1}`);
+range.setNumberFormatLocal("@");
+range.setValues(trimmed);
+}
+
+function clean(value: unknown): string {
+return String(value ?? "").trim();
+}

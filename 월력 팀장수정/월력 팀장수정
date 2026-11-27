@@ -1,0 +1,181 @@
+interface ManagerAssignment {
+  managerName: string
+  sourceColumnIndex: number
+}
+
+interface ManagerUpdate {
+  rowIndex: number
+  managerName: string
+}
+
+function main(workbook: ExcelScript.Workbook) {
+  const assignmentSheetName = "담당"
+  const calendarSheetName = "월력"
+  const managerRowIndex = 1 // 담당 탭 2행
+  const memberStartRowIndex = 2 // 담당 탭 3행
+  const calendarNameColumnIndex = 5 // 월력 탭 F열
+  const calendarManagerColumnIndex = 8 // 월력 탭 I열
+
+  const assignmentSheet = workbook.getWorksheet(assignmentSheetName)
+  const calendarSheet = workbook.getWorksheet(calendarSheetName)
+
+  if (!assignmentSheet) {
+    throw new Error(`"${assignmentSheetName}" 탭을 찾지 못했습니다.`)
+  }
+  if (!calendarSheet) {
+    throw new Error(`"${calendarSheetName}" 탭을 찾지 못했습니다.`)
+  }
+
+  const assignments = buildManagerAssignments(
+    assignmentSheet,
+    managerRowIndex,
+    memberStartRowIndex
+  )
+  const assignmentCount = Object.keys(assignments).length
+
+  if (assignmentCount === 0) {
+    throw new Error("담당 탭의 2행 팀장명과 3행 아래 담당자 목록을 찾지 못했습니다.")
+  }
+
+  const calendarUsedRange = calendarSheet.getUsedRange(true)
+  if (!calendarUsedRange) {
+    throw new Error("월력 탭에서 F열 이름을 찾지 못했습니다.")
+  }
+
+  const calendarLastRowIndex =
+    calendarUsedRange.getRowIndex() + calendarUsedRange.getRowCount() - 1
+  const calendarRowCount = calendarLastRowIndex + 1
+  const calendarNameTexts = calendarSheet
+    .getRangeByIndexes(0, calendarNameColumnIndex, calendarRowCount, 1)
+    .getTexts()
+  const updates: ManagerUpdate[] = []
+
+  for (let rowIndex = 0; rowIndex < calendarNameTexts.length; rowIndex++) {
+    const calendarName = normalizeText(calendarNameTexts[rowIndex][0] || "")
+    if (calendarName === "") continue
+
+    const assignment = assignments[normalizeNameKey(calendarName)]
+    if (!assignment) continue
+
+    updates.push({
+      rowIndex,
+      managerName: assignment.managerName
+    })
+  }
+
+  if (updates.length === 0) {
+    throw new Error("월력 탭 F열에서 담당 탭과 일치하는 이름을 찾지 못했습니다.")
+  }
+
+  writeManagerUpdatesInRuns(
+    calendarSheet,
+    updates,
+    calendarManagerColumnIndex
+  )
+
+  console.log(
+    `담당자 ${assignmentCount}명 기준으로 월력 I열 ${updates.length}행의 팀장명을 갱신했습니다.`
+  )
+}
+
+function buildManagerAssignments(
+  sheet: ExcelScript.Worksheet,
+  managerRowIndex: number,
+  memberStartRowIndex: number
+): Record<string, ManagerAssignment> {
+  const usedRange = sheet.getUsedRange(true)
+  const result: Record<string, ManagerAssignment> = {}
+
+  if (!usedRange) return result
+
+  const lastRowIndex = usedRange.getRowIndex() + usedRange.getRowCount() - 1
+  const lastColumnIndex =
+    usedRange.getColumnIndex() + usedRange.getColumnCount() - 1
+
+  if (lastRowIndex < memberStartRowIndex || lastColumnIndex < 0) return result
+
+  const rowCount = lastRowIndex - managerRowIndex + 1
+  const columnCount = lastColumnIndex + 1
+  const texts = sheet
+    .getRangeByIndexes(managerRowIndex, 0, rowCount, columnCount)
+    .getTexts()
+  const duplicateMessages: string[] = []
+
+  for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+    const managerName = normalizeText(texts[0][columnIndex] || "")
+    if (managerName === "") continue
+
+    for (let rowOffset = memberStartRowIndex - managerRowIndex; rowOffset < texts.length; rowOffset++) {
+      const memberName = normalizeText(texts[rowOffset][columnIndex] || "")
+      if (memberName === "") continue
+
+      const memberKey = normalizeNameKey(memberName)
+      const existing = result[memberKey]
+
+      if (
+        existing &&
+        normalizeNameKey(existing.managerName) !== normalizeNameKey(managerName)
+      ) {
+        duplicateMessages.push(
+          `${memberName}: ${existing.managerName}, ${managerName}`
+        )
+        continue
+      }
+
+      result[memberKey] = {
+        managerName,
+        sourceColumnIndex: columnIndex
+      }
+    }
+  }
+
+  if (duplicateMessages.length > 0) {
+    throw new Error(
+      `서로 다른 팀장 열에 중복된 담당자가 있습니다: ${duplicateMessages.join(" / ")}`
+    )
+  }
+
+  return result
+}
+
+function writeManagerUpdatesInRuns(
+  sheet: ExcelScript.Worksheet,
+  updates: ManagerUpdate[],
+  managerColumnIndex: number
+): void {
+  let runStart = 0
+
+  for (let index = 1; index <= updates.length; index++) {
+    const continuesRun =
+      index < updates.length &&
+      updates[index].rowIndex === updates[index - 1].rowIndex + 1
+
+    if (continuesRun) continue
+
+    const run = updates.slice(runStart, index)
+    const values = run.map(item => [item.managerName])
+
+    sheet
+      .getRangeByIndexes(
+        run[0].rowIndex,
+        managerColumnIndex,
+        run.length,
+        1
+      )
+      .setValues(values)
+
+    runStart = index
+  }
+}
+
+function normalizeNameKey(value: string): string {
+  return normalizeText(value).replace(/\s+/g, "").toUpperCase()
+}
+
+function normalizeText(value: string): string {
+  return String(value ?? "")
+    .replace(/\u00A0/g, " ")
+    .replace(/[\u200B\u200C\u200D]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}

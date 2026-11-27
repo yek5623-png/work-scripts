@@ -1,0 +1,1515 @@
+type CellValue = string | number | boolean;
+
+interface DateInfo {
+key: string;
+text: string;
+year: number;
+month: number;
+day: number;
+}
+
+interface EmployeeInfo {
+idText: string;
+name: string;
+nameKey: string;
+workStatus: string;
+}
+
+interface ARecord {
+workDate: DateInfo;
+idText: string;
+name: string;
+nameKey: string;
+startMin: number;
+endMin: number;
+rawReason: string;
+mappedReason: string;
+evidence: string;
+isPost: boolean;
+hasPostText: boolean;
+}
+
+interface BaseRecord {
+workDate: DateInfo;
+outputDate: DateInfo;
+idText: string;
+name: string;
+nameKey: string;
+startMin: number;
+endMin: number;
+workStatus: string;
+}
+
+interface OutputRecord {
+workDate: DateInfo;
+outputDate: DateInfo;
+idText: string;
+name: string;
+startMin: number;
+endMin: number;
+promo: string;
+reason: string;
+evidence: string;
+postFlag: string;
+check: string;
+workStatus: string;
+forcePost?: boolean;
+}
+
+interface EmployeeMaps {
+byId: Map<string, EmployeeInfo>;
+byName: Map<string, EmployeeInfo>;
+}
+
+interface ReasonInfo {
+mappedReason: string;
+evidence: string;
+isPost: boolean;
+hasPostText: boolean;
+}
+
+function main(workbook: ExcelScript.Workbook) {
+const SHEET_A = "OT 취합방 확인";
+const SHEET_B = "인앱+귀책 OT 시트";
+const SHEET_C = "CS 인앱 근무 여부";
+const SHEET_D = "CS 인앱 OT";
+const SHEET_BILL = "OT청구 List";
+const SHEET_PROMO = "프로모션 OT List";
+const SHEET_CHECK = "OT 검수 결과";
+const SHEET_NOTE = "비고";
+const SHEET_POST = "인앱 후처리 OT";
+
+const sheetA = getRequiredWorksheet(workbook, SHEET_A);
+const sheetB = getRequiredWorksheet(workbook, SHEET_B);
+const sheetC = getRequiredWorksheet(workbook, SHEET_C);
+const sheetD = getRequiredWorksheet(workbook, SHEET_D);
+const sheetBill = getRequiredWorksheet(workbook, SHEET_BILL);
+const sheetNote = getRequiredWorksheet(workbook, SHEET_NOTE);
+const sheetPost = getOrCreateWorksheet(workbook, SHEET_POST);
+const sheetPromo = getOrCreateWorksheet(workbook, SHEET_PROMO);
+const sheetCheck = getOrCreateWorksheet(workbook, SHEET_CHECK);
+
+const baseDate = readBaseDateFromDTab(sheetD);
+const managerName = readManagerNameFromDTab(sheetD);
+const employeeMaps = buildEmployeeMaps(sheetC);
+
+const baseRecords = processDTabAndMakeBase(sheetD, employeeMaps, baseDate);
+const aRecords = readARecords(sheetA, baseDate);
+
+let finalRecords = buildFinalRecords(baseRecords, aRecords, employeeMaps);
+
+const noteDefenseKeys = buildNoteDefenseKeys(sheetNote, baseDate);
+applyNoteDefenseReason(finalRecords, noteDefenseKeys);
+
+finalRecords = sortOutputRecordsByTime(dedupeOutputRecords(finalRecords));
+
+writeBTab(sheetB, finalRecords, managerName);
+writePromotionTab(sheetPromo, finalRecords);
+writePostProcessTab(sheetPost, finalRecords, managerName);
+writeCheckTab(sheetCheck, finalRecords);
+writeBillTab(sheetBill, finalRecords, baseDate);
+}
+
+function getRequiredWorksheet(workbook: ExcelScript.Workbook, name: string): ExcelScript.Worksheet {
+const sheet = getWorksheetByNameSafe(workbook, name);
+
+if (!sheet) {
+    const sheetNames = workbook.getWorksheets().map(s => s.getName()).join(", ");
+    throw new Error(`시트 없음: ${name} / 현재 통합문서 탭: ${sheetNames}`);
+}
+
+return sheet;
+}
+
+function getOrCreateWorksheet(workbook: ExcelScript.Workbook, name: string): ExcelScript.Worksheet {
+let sheet = getWorksheetByNameSafe(workbook, name);
+if (!sheet) sheet = workbook.addWorksheet(name);
+return sheet;
+}
+
+function getWorksheetByNameSafe(workbook: ExcelScript.Workbook, name: string): ExcelScript.Worksheet | undefined {
+const targetName = normalizeSheetName(name);
+const sheets = workbook.getWorksheets();
+
+for (const sheet of sheets) {
+    if (normalizeSheetName(sheet.getName()) === targetName) {
+        return sheet;
+    }
+}
+
+return undefined;
+}
+
+function normalizeSheetName(name: string): string {
+return String(name ?? "").replace(/\u00A0/g, " ").trim();
+}
+
+function readBaseDateFromDTab(sheetD: ExcelScript.Worksheet): DateInfo {
+const cell = sheetD.getRange("C2");
+const value = cell.getValue() as CellValue;
+const text = cell.getText();
+
+const today = getTodayKstInfo();
+return parseDateToInfo(value, text, today);
+}
+
+function readManagerNameFromDTab(sheetD: ExcelScript.Worksheet): string {
+const cell = sheetD.getRange("D2");
+const value = cell.getValue() as CellValue;
+const text = cell.getText();
+
+return formatPersonName(text || value);
+}
+
+function buildEmployeeMaps(sheetC: ExcelScript.Worksheet): EmployeeMaps {
+const MAX_ROWS = 10000;
+const values = sheetC.getRangeByIndexes(5, 2, MAX_ROWS, 6).getValues();
+
+const byId = new Map<string, EmployeeInfo>();
+const byName = new Map<string, EmployeeInfo>();
+
+for (const row of values) {
+    const idText = normalize(row[0]);
+    const name = formatPersonName(row[1]);
+    const nameKey = normalizeNameKey(row[1]);
+    const workStatus = classifyWorkStatus(row[5]);
+
+    if (!idText && !nameKey) continue;
+
+    const info: EmployeeInfo = {
+        idText,
+        name,
+        nameKey,
+        workStatus
+    };
+
+    if (idText) byId.set(idText, info);
+    if (nameKey) byName.set(nameKey, info);
+}
+
+return { byId, byName };
+}
+
+function processDTabAndMakeBase(
+sheetD: ExcelScript.Worksheet,
+employeeMaps: EmployeeMaps,
+baseDate: DateInfo
+): BaseRecord[] {
+const INPUT_ROW_COUNT = 24;
+const INPUT_NAME_COL_COUNT = 15;
+const OUTPUT_CLEAR_ROWS = 10000;
+
+const timeRange = sheetD.getRangeByIndexes(4, 1, INPUT_ROW_COUNT, 2);
+const timeValues = timeRange.getValues();
+const timeTexts = timeRange.getTexts();
+
+const nameValues = sheetD.getRangeByIndexes(4, 4, INPUT_ROW_COUNT, INPUT_NAME_COL_COUNT).getValues();
+
+const summaryOutput: (string | number | boolean)[][] = [];
+const baseRecords: BaseRecord[] = [];
+const baseSeen = new Set<string>();
+
+for (let r = 0; r < INPUT_ROW_COUNT; r++) {
+    const startMin = parseDTableTimeToMinutes(timeTexts[r][0], timeValues[r][0]);
+    let endMin = parseDTableTimeToMinutes(timeTexts[r][1], timeValues[r][1]);
+
+    if (startMin === null) continue;
+
+    if (endMin === null) endMin = startMin + 60;
+    if (endMin <= startMin) endMin += 24 * 60;
+
+    for (let c = 0; c < INPUT_NAME_COL_COUNT; c++) {
+        const cellValue = nameValues[r][c];
+        if (isBlank(cellValue)) continue;
+
+        const names = splitNamesInCell(cellValue);
+
+        for (const rawName of names) {
+            const name = formatPersonName(rawName);
+            const nameKey = normalizeNameKey(name);
+
+            if (!name) continue;
+
+            const emp = lookupEmployee("", name, employeeMaps);
+            const outputDate = getOutputDateByStart(baseDate, startMin);
+
+            const baseKey = [
+                baseDate.key,
+                normalize(emp.idText) || nameKey,
+                startMin,
+                endMin
+            ].join("|");
+
+            if (baseSeen.has(baseKey)) continue;
+            baseSeen.add(baseKey);
+
+            summaryOutput.push([
+                formatMinutesToTimeNoLeadingZero(startMin),
+                formatMinutesToTimeNoLeadingZero(endMin),
+                name
+            ]);
+
+            baseRecords.push({
+                workDate: baseDate,
+                outputDate,
+                idText: emp.idText,
+                name,
+                nameKey,
+                startMin,
+                endMin,
+                workStatus: emp.workStatus
+            });
+        }
+    }
+}
+
+sheetD.getRangeByIndexes(4, 20, OUTPUT_CLEAR_ROWS, 3).clear(ExcelScript.ClearApplyTo.contents);
+
+if (summaryOutput.length > 0) {
+    sheetD.getRangeByIndexes(4, 20, summaryOutput.length, 3).setValues(summaryOutput);
+}
+
+return baseRecords;
+}
+
+function readARecords(sheetA: ExcelScript.Worksheet, baseDate: DateInfo): ARecord[] {
+const MAX_ROWS = 10000;
+
+// B:H = 날짜 / 사번 / 이름 / 시작 / 종료 / OT사유 / 증빙자료
+// H열 증빙자료는 G열 OT사유 안에 붙어있는 정확한 8자리 숫자만 추출해서 새로 씁니다.
+const range = sheetA.getRangeByIndexes(4, 1, MAX_ROWS, 7);
+const values = range.getValues();
+const texts = range.getTexts();
+
+const records: ARecord[] = [];
+const seen = new Set<string>();
+const evidenceOutput: string[][] = [];
+
+for (let i = 0; i < values.length; i++) {
+    const row = values[i];
+    const textRow = texts[i];
+
+    const dateValue = row[0];
+    const dateTextRaw = textRow[0];
+    const idText = normalize(row[1]);
+    const name = formatPersonName(row[2]);
+    const nameKey = normalizeNameKey(row[2]);
+
+    const startText = textRow[3];
+    const endText = textRow[4];
+    const startValue = row[3];
+    const endValue = row[4];
+
+    const rawReason = String(row[5] ?? "").trim();
+    const evidenceFromReason = extractTicketNumbers(rawReason).join(", ");
+    evidenceOutput.push([evidenceFromReason]);
+
+    const empty =
+        isBlank(dateValue) &&
+        isBlank(idText) &&
+        isBlank(name) &&
+        isBlank(startValue) &&
+        isBlank(endValue) &&
+        isBlank(rawReason);
+
+    if (empty) continue;
+    if (!nameKey && !idText) continue;
+
+    const workDate = parseDateToInfo(dateValue, dateTextRaw, baseDate);
+
+    const startMin = parseATimeToMinutes(startText, startValue);
+    let endMin = parseATimeToMinutes(endText, endValue);
+
+    if (startMin === null || endMin === null) continue;
+    if (endMin <= startMin) endMin += 24 * 60;
+
+    const reasonInfo = analyzeReason(rawReason);
+
+    const recordKey = [
+        workDate.key,
+        idText || nameKey,
+        startMin,
+        endMin,
+        normalize(reasonInfo.mappedReason),
+        normalize(reasonInfo.evidence),
+        reasonInfo.isPost ? "후처리" : "",
+        reasonInfo.hasPostText ? "후처리직접기재" : ""
+    ].join("|");
+
+    if (seen.has(recordKey)) continue;
+    seen.add(recordKey);
+
+    records.push({
+        workDate,
+        idText,
+        name,
+        nameKey,
+        startMin,
+        endMin,
+        rawReason,
+        mappedReason: reasonInfo.mappedReason,
+        evidence: reasonInfo.evidence,
+        isPost: reasonInfo.isPost,
+        hasPostText: reasonInfo.hasPostText
+    });
+}
+
+sheetA.getRangeByIndexes(4, 7, MAX_ROWS, 1).clear(ExcelScript.ClearApplyTo.contents);
+
+if (evidenceOutput.length > 0) {
+    sheetA.getRangeByIndexes(4, 7, evidenceOutput.length, 1).setValues(evidenceOutput);
+}
+
+return records;
+}
+
+function buildFinalRecords(
+baseRecords: BaseRecord[],
+aRecords: ARecord[],
+employeeMaps: EmployeeMaps
+): OutputRecord[] {
+const finalRecords: OutputRecord[] = [];
+
+for (const a of aRecords) {
+    const emp = lookupEmployee(a.idText, a.name, employeeMaps);
+    const compareId = a.idText || emp.idText;
+    const compareNameKey = a.nameKey || emp.nameKey;
+
+    // OT 취합방 확인에는 있는데 CS 인앱 OT 탭에 아예 없는 인원은
+    // 해당 인원의 OT 취합방 확인 행 전체를 인앱 후처리 OT 탭으로 보냅니다.
+    // 증빙자료가 없으면 OT사유도 공란으로 둡니다.
+    const existsInCsInappOt = personExistsInBase(
+        a.workDate.key,
+        compareId,
+        compareNameKey,
+        baseRecords
+    );
+
+    if (!existsInCsInappOt) {
+        const forcedPostOutputs = makeForcedPostOutputRecords(a, emp);
+        finalRecords.push(...forcedPostOutputs);
+        continue;
+    }
+
+    if (a.isPost) {
+        const postOutputs = makePostOutputRecords(a, emp);
+        finalRecords.push(...postOutputs);
+        continue;
+    }
+
+    const segments = splitRangeByHour(a.startMin, a.endMin);
+
+    for (const seg of segments) {
+        const outputDate = getOutputDateByStart(a.workDate, seg.startMin);
+
+        const isCsInapp = segmentOverlapsBase(
+            a.workDate.key,
+            a.idText || emp.idText,
+            a.nameKey,
+            seg.startMin,
+            seg.endMin,
+            baseRecords
+        );
+
+        finalRecords.push({
+            workDate: a.workDate,
+            outputDate,
+            idText: a.idText || emp.idText,
+            name: a.name || emp.name,
+            startMin: seg.startMin,
+            endMin: seg.endMin,
+            promo: "",
+            reason: isCsInapp ? "투입률관리" : a.mappedReason,
+            evidence: "",
+            postFlag: "",
+            check: "확인",
+            workStatus: emp.workStatus
+        });
+    }
+}
+
+for (const base of baseRecords) {
+    const hasAOverlap = aRecords.some(a =>
+        sameDate(base.workDate.key, a.workDate.key) &&
+        samePerson(base.idText, base.nameKey, a.idText, a.nameKey) &&
+        rangesOverlap(base.startMin, base.endMin, a.startMin, a.endMin)
+    );
+
+    if (hasAOverlap) continue;
+
+    finalRecords.push({
+        workDate: base.workDate,
+        outputDate: base.outputDate,
+        idText: base.idText,
+        name: base.name,
+        startMin: base.startMin,
+        endMin: base.endMin,
+        promo: "",
+        reason: "투입률관리",
+        evidence: "",
+        postFlag: "",
+        check: "누락",
+        workStatus: base.workStatus
+    });
+}
+
+return dedupeOutputRecords(finalRecords);
+}
+
+function makePostOutputRecords(a: ARecord, emp: EmployeeInfo): OutputRecord[] {
+const segments = splitRangeByHour(a.startMin, a.endMin);
+const result: OutputRecord[] = [];
+const hasEvidence = normalize(a.evidence) !== "";
+
+// 후처리는 전체 구간이 아니라 끝부분 자투리만 응대 미종결로 처리합니다.
+// 예: 08:07~09:04 후처리 -> 08:07~09:00 투입률 관리 / 09:00~09:04 응대 미종결
+const postTailStartMin =
+    a.endMin % 60 === 0
+        ? Math.max(a.startMin, a.endMin - 60)
+        : Math.floor(a.endMin / 60) * 60;
+
+for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const outputDate = getOutputDateByStart(a.workDate, seg.startMin);
+    const isPostTailSegment = seg.startMin >= postTailStartMin;
+
+    result.push({
+        workDate: a.workDate,
+        outputDate,
+        idText: a.idText || emp.idText,
+        name: a.name || emp.name,
+        startMin: seg.startMin,
+        endMin: seg.endMin,
+        promo: "",
+        reason: isPostTailSegment ? "응대미종결" : "투입률관리",
+        evidence: isPostTailSegment && hasEvidence ? a.evidence : "",
+        postFlag: isPostTailSegment ? "후처리" : "",
+        check: "확인",
+        workStatus: emp.workStatus
+    });
+}
+
+return result;
+}
+
+
+function makeForcedPostOutputRecords(a: ARecord, emp: EmployeeInfo): OutputRecord[] {
+const segments = splitRangeByHour(a.startMin, a.endMin);
+const result: OutputRecord[] = [];
+const hasEvidence = normalize(a.evidence) !== "";
+const forcedReason = hasEvidence ? "응대미종결" : "";
+
+for (const seg of segments) {
+    const outputDate = getOutputDateByStart(a.workDate, seg.startMin);
+
+    result.push({
+        workDate: a.workDate,
+        outputDate,
+        idText: a.idText || emp.idText,
+        name: a.name || emp.name,
+        startMin: seg.startMin,
+        endMin: seg.endMin,
+        promo: "",
+        reason: forcedReason,
+        evidence: hasEvidence ? a.evidence : "",
+        postFlag: "후처리",
+        check: "확인",
+        workStatus: emp.workStatus,
+        forcePost: true
+    });
+}
+
+return result;
+}
+
+function personExistsInBase(
+dateKey: string,
+idText: string,
+nameKey: string,
+baseRecords: BaseRecord[]
+): boolean {
+return baseRecords.some(base =>
+sameDate(base.workDate.key, dateKey) &&
+samePerson(base.idText, base.nameKey, idText, nameKey)
+);
+}
+
+function segmentOverlapsBase(
+dateKey: string,
+idText: string,
+nameKey: string,
+startMin: number,
+endMin: number,
+baseRecords: BaseRecord[]
+): boolean {
+return baseRecords.some(base =>
+sameDate(base.workDate.key, dateKey) &&
+samePerson(base.idText, base.nameKey, idText, nameKey) &&
+rangesOverlap(base.startMin, base.endMin, startMin, endMin)
+);
+}
+
+function buildNoteDefenseKeys(sheetNote: ExcelScript.Worksheet, fallbackDate: DateInfo): Set<string> {
+const MAX_ROWS = 10000;
+const values = sheetNote.getRangeByIndexes(0, 1, MAX_ROWS, 15).getValues();
+const texts = sheetNote.getRangeByIndexes(0, 1, MAX_ROWS, 15).getTexts();
+
+const result = new Set<string>();
+
+for (let r = 0; r < values.length; r++) {
+    const row = values[r];
+    const textRow = texts[r];
+
+    const dateInfo = parseDateToInfo(row[0], textRow[0], fallbackDate);
+    const startMinRaw = parseNoteSectionStartToMinutes(textRow[1], row[1]);
+
+    if (startMinRaw === null) continue;
+
+    const startBucket = Math.floor(startMinRaw / 60) * 60;
+    const outputDateInfo = getOutputDateByStart(dateInfo, startBucket);
+
+    for (let c = 5; c <= 14; c++) {
+        const id = normalize(row[c]);
+
+        if (!id) continue;
+
+        // 비고탭의 24~28구간은 해당 날짜의 익일 00~04시 구간으로 봅니다.
+        // 예: 비고 6/26 24구간 = 결과 출력 6/27 0:00구간
+        result.add(makeNoteDefenseKey(outputDateInfo.key, startBucket, id));
+    }
+}
+
+return result;
+}
+
+function applyNoteDefenseReason(records: OutputRecord[], noteDefenseKeys: Set<string>) {
+for (const r of records) {
+if (r.forcePost) continue;
+
+const id = normalize(r.idText);
+if (!id) continue;
+
+    const startBucket = Math.floor(r.startMin / 60) * 60;
+    const key = makeNoteDefenseKey(r.outputDate.key, startBucket, id);
+
+    if (noteDefenseKeys.has(key)) {
+        // 비고탭에 있는 대상자는 기존 사유가 후처리/응대 미종결/투입률 관리 등 무엇이든 무조건 응대율 방어로 통일합니다.
+        r.reason = "응대율방어(Eats요청)";
+        r.evidence = "";
+        r.postFlag = "";
+    }
+}
+}
+
+function makeNoteDefenseKey(dateKey: string, startBucketMin: number, id: string): string {
+return [dateKey, startBucketMin, normalize(id)].join("|");
+}
+
+function parseNoteSectionStartToMinutes(
+textValue: string,
+rawValue: string | number | boolean
+): number | null {
+const textParsed = parseTimeTextToMinutes(textValue);
+
+if (textParsed !== null) {
+    return fixEarlyHourToOperationalTime(textParsed);
+}
+
+if (typeof rawValue === "number") {
+    if (!isFinite(rawValue)) return null;
+
+    if (rawValue >= 0 && rawValue < 2) {
+        return fixEarlyHourToOperationalTime(Math.round(rawValue * 24 * 60));
+    }
+
+    if (Number.isInteger(rawValue) && rawValue >= 0 && rawValue <= 48) {
+        return fixEarlyHourToOperationalTime(rawValue * 60);
+    }
+
+    return null;
+}
+
+if (typeof rawValue === "boolean") return null;
+
+const rawTextParsed = parseTimeTextToMinutes(String(rawValue ?? ""));
+
+if (rawTextParsed !== null) {
+    return fixEarlyHourToOperationalTime(rawTextParsed);
+}
+
+return null;
+}
+
+function dedupeOutputRecords(records: OutputRecord[]): OutputRecord[] {
+const result: OutputRecord[] = [];
+const seen = new Set<string>();
+
+for (const r of records) {
+    const key = makeDuplicateKey(r);
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(r);
+}
+
+return result;
+}
+
+function sortOutputRecordsByTime(records: OutputRecord[]): OutputRecord[] {
+return records.slice().sort((a, b) => {
+    // OT청구 List를 제외한 모든 출력 탭 공통 정렬: 시간대 → 일자 → 종료시간 → 이름 → 사번
+    // 24~28시는 startMin 자체가 1440~1680이라 23시 다음으로 자연스럽게 정렬됩니다.
+    if (a.startMin !== b.startMin) return a.startMin - b.startMin;
+
+    const dateDiff = dateInfoToDayNumber(a.outputDate) - dateInfoToDayNumber(b.outputDate);
+    if (dateDiff !== 0) return dateDiff;
+
+    if (a.endMin !== b.endMin) return a.endMin - b.endMin;
+
+    const nameCompare = a.name.localeCompare(b.name, "ko");
+    if (nameCompare !== 0) return nameCompare;
+
+    return normalize(a.idText).localeCompare(normalize(b.idText), "ko");
+});
+}
+
+function sortOutputRecordsByNameForBill(records: OutputRecord[]): OutputRecord[] {
+return records.slice().sort((a, b) => {
+    // OT청구 List 전용 정렬: 이름 → 청구일자 → 시작시간 → 종료시간 → 사번
+    const nameCompare = a.name.localeCompare(b.name, "ko");
+    if (nameCompare !== 0) return nameCompare;
+
+    const dateDiff = dateInfoToDayNumber(getBillOperationalDate(a)) - dateInfoToDayNumber(getBillOperationalDate(b));
+    if (dateDiff !== 0) return dateDiff;
+
+    if (a.startMin !== b.startMin) return a.startMin - b.startMin;
+    if (a.endMin !== b.endMin) return a.endMin - b.endMin;
+
+    return normalize(a.idText).localeCompare(normalize(b.idText), "ko");
+});
+}
+
+function writeBTab(sheetB: ExcelScript.Worksheet, records: OutputRecord[], managerName: string) {
+const MAX_ROWS = 10000;
+const START_ROW = 5; // 6행 시작
+const MANAGER_COL = 2; // C열 = 금일 취합관리자
+const START_COL = 3; // D열부터 날짜/사번/이름/시간/사유 출력
+const STATUS_COL = 13; // N열 = 근무여부
+const CLEAR_COL_COUNT = 10; // D:M 기존 출력값 삭제
+const WRITE_COL_COUNT = 10; // D:M 작성
+
+const managerClearRange = sheetB.getRangeByIndexes(START_ROW, MANAGER_COL, MAX_ROWS, 1);
+managerClearRange.clear(ExcelScript.ClearApplyTo.contents);
+clearFillSafe(managerClearRange);
+
+const clearRange = sheetB.getRangeByIndexes(START_ROW, START_COL, MAX_ROWS, CLEAR_COL_COUNT);
+clearRange.clear(ExcelScript.ClearApplyTo.contents);
+clearFillSafe(clearRange);
+
+const statusClearRange = sheetB.getRangeByIndexes(START_ROW, STATUS_COL, MAX_ROWS, 1);
+statusClearRange.clear(ExcelScript.ClearApplyTo.contents);
+clearFillSafe(statusClearRange);
+
+// 후처리 대상은 인앱+귀책 OT 시트에서 제외하고 인앱 후처리 OT 탭으로만 넘깁니다.
+// 단, OT청구 List에는 후처리 포함 전체 records가 그대로 출력됩니다.
+const targetRecords = records.filter(r => normalize(r.postFlag) !== "후처리");
+
+if (targetRecords.length === 0) return;
+
+const sortedRecords = sortOutputRecordsByTime(targetRecords);
+
+if (managerName) {
+    const managerOutput = sortedRecords.map(() => [managerName]);
+    sheetB.getRangeByIndexes(START_ROW, MANAGER_COL, managerOutput.length, 1).setValues(managerOutput);
+}
+
+const output = sortedRecords.map(r => makeOutputRowWithoutRemark(r));
+const statusOutput = sortedRecords.map(r => [normalizeWorkStatusForOutput(r.workStatus)]);
+
+sheetB.getRangeByIndexes(START_ROW, START_COL, output.length, WRITE_COL_COUNT).setValues(output);
+sheetB.getRangeByIndexes(START_ROW, STATUS_COL, statusOutput.length, 1).setValues(statusOutput);
+
+const duplicateRows = findDuplicateRowIndexes(sortedRecords);
+
+for (const rowIndex of duplicateRows) {
+    sheetB
+        .getRangeByIndexes(START_ROW + rowIndex, START_COL, 1, WRITE_COL_COUNT)
+        .getFormat()
+        .getFill()
+        .setColor("#FFC7CE");
+}
+}
+
+function writePromotionTab(sheetPromo: ExcelScript.Worksheet, records: OutputRecord[]) {
+const MAX_ROWS = 10000;
+const START_ROW = 14; // 15행 시작
+const START_COL = 3; // D열 시작
+const LEFT_WRITE_COL_COUNT = 6; // D:I = 날짜 / 시간 / 사번 / 이름 / 시작시간 / 종료시간
+const REASON_COL = 11; // L열 = OT사유, J:K는 수식용으로 절대 기입/삭제하지 않음
+
+const targetRecords = sortOutputRecordsByTime(records.filter(r => isPromotionTargetReason(r.reason)));
+
+const leftClearRange = sheetPromo.getRangeByIndexes(START_ROW, START_COL, MAX_ROWS, LEFT_WRITE_COL_COUNT);
+leftClearRange.clear(ExcelScript.ClearApplyTo.contents);
+clearFillSafe(leftClearRange);
+
+const reasonClearRange = sheetPromo.getRangeByIndexes(START_ROW, REASON_COL, MAX_ROWS, 1);
+reasonClearRange.clear(ExcelScript.ClearApplyTo.contents);
+clearFillSafe(reasonClearRange);
+
+if (targetRecords.length === 0) return;
+
+const leftOutput = targetRecords.map(r => makePromotionLeftOutputRow(r));
+const reasonOutput = targetRecords.map(r => [r.reason]);
+
+sheetPromo.getRangeByIndexes(START_ROW, START_COL, leftOutput.length, LEFT_WRITE_COL_COUNT).setValues(leftOutput);
+sheetPromo.getRangeByIndexes(START_ROW, REASON_COL, reasonOutput.length, 1).setValues(reasonOutput);
+}
+
+function writePostProcessTab(
+sheetPost: ExcelScript.Worksheet,
+records: OutputRecord[],
+managerName: string
+) {
+const MAX_ROWS = 10000;
+const START_ROW = 5; // 6행 시작
+const START_COL = 2; // C열 시작
+const CLEAR_COL_COUNT = 10; // C:L까지만 이전 출력값 삭제, M열은 수식/기존값 보호
+const WRITE_COL_COUNT = 10; // C:L = 취합관리자/일자/사번/이름/시작/종료/OT사유/증빙자료/비고/근무여부
+
+const clearRange = sheetPost.getRangeByIndexes(START_ROW, START_COL, MAX_ROWS, CLEAR_COL_COUNT);
+clearRange.clear(ExcelScript.ClearApplyTo.contents);
+clearFillSafe(clearRange);
+
+const targetRecords = sortOutputRecordsByTime(records.filter(r => normalize(r.postFlag) === "후처리"));
+
+if (targetRecords.length === 0) return;
+
+const output = targetRecords.map(r => [
+    managerName,                                       // C 취합관리자
+    r.outputDate.text,                                // D 일자
+    r.idText,                                         // E 사번
+    r.name,                                           // F 이름
+    formatMinutesToTimeNoLeadingZero(r.startMin),     // G 시작시간
+    formatMinutesToTimeNoLeadingZero(r.endMin),       // H 종료시간
+    r.reason,                                         // I OT사유
+    r.evidence,                                       // J 증빙자료 / 티켓번호
+    normalize(r.evidence) ? "후처리" : "",             // K 비고: 증빙자료 있는 행만 후처리, 증빙자료 없으면 공란
+    normalizeWorkStatusForOutput(r.workStatus)        // L 근무여부
+]);
+
+sheetPost.getRangeByIndexes(START_ROW, START_COL, output.length, WRITE_COL_COUNT).setValues(output);
+}
+
+function makePromotionLeftOutputRow(r: OutputRecord): (string | number | boolean)[] {
+const hourStartMin = floorToHour(r.startMin);
+const hourText = String(Math.floor(hourStartMin / 60));
+
+return [
+    r.outputDate.text,
+    hourText,
+    r.idText,
+    r.name,
+    formatPromotionTimeOnlyIfNotExactHour(r.startMin),
+    formatPromotionTimeOnlyIfNotExactHour(r.endMin)
+];
+}
+
+function formatPromotionTimeOnlyIfNotExactHour(minutes: number): string {
+if (minutes % 60 === 0) return "";
+return formatMinutesToTimeNoLeadingZero(minutes);
+}
+
+function floorToHour(minutes: number): number {
+return Math.floor(minutes / 60) * 60;
+}
+
+function ceilToHour(minutes: number): number {
+return Math.ceil(minutes / 60) * 60;
+}
+
+function makeOutputRowWithoutRemark(r: OutputRecord): (string | number | boolean)[] {
+return [
+r.outputDate.text,
+r.idText,
+r.name,
+formatMinutesToTimeNoLeadingZero(r.startMin),
+formatMinutesToTimeNoLeadingZero(r.endMin),
+r.promo,
+r.reason,
+r.evidence,
+r.postFlag,
+r.check
+];
+}
+
+function isPromotionTargetReason(reason: string): boolean {
+const compact = normalize(reason);
+
+return compact.includes("투입률관리") || compact.includes("응대율방어(Eats요청)");
+}
+
+function writeCheckTab(sheetCheck: ExcelScript.Worksheet, records: OutputRecord[]) {
+const used = sheetCheck.getUsedRange();
+
+if (used) {
+    used.clear(ExcelScript.ClearApplyTo.all);
+}
+
+const headers = [[
+    "날짜",
+    "사번",
+    "이름",
+    "시작시간",
+    "종료시간",
+    "OT사유",
+    "증빙자료",
+    "후처리 여부",
+    "OT 취합 확인",
+    "근무여부",
+    "비고"
+]];
+
+sheetCheck.getRangeByIndexes(0, 0, 1, headers[0].length).setValues(headers);
+
+if (records.length === 0) return;
+
+const sortedRecords = sortOutputRecordsByTime(records);
+const duplicateRows = findDuplicateRowIndexes(sortedRecords);
+const duplicateSet = new Set<number>(duplicateRows);
+
+const output = sortedRecords.map((r, idx) => [
+    r.outputDate.text,
+    r.idText,
+    r.name,
+    formatMinutesToTimeNoLeadingZero(r.startMin),
+    formatMinutesToTimeNoLeadingZero(r.endMin),
+    r.reason,
+    r.evidence,
+    r.postFlag,
+    r.check,
+    normalizeWorkStatusForOutput(r.workStatus),
+    duplicateSet.has(idx) ? "중복" : ""
+]);
+
+sheetCheck.getRangeByIndexes(1, 0, output.length, headers[0].length).setValues(output);
+
+for (let i = 0; i < sortedRecords.length; i++) {
+    const r = sortedRecords[i];
+
+    if (r.check === "누락") {
+        sheetCheck
+            .getRangeByIndexes(1 + i, 0, 1, headers[0].length)
+            .getFormat()
+            .getFill()
+            .setColor("#FFEB9C");
+    }
+
+    if (duplicateSet.has(i)) {
+        sheetCheck
+            .getRangeByIndexes(1 + i, 0, 1, headers[0].length)
+            .getFormat()
+            .getFill()
+            .setColor("#FFC7CE");
+    }
+}
+
+try {
+    sheetCheck.getUsedRange()?.getFormat().autofitColumns();
+} catch (e) {
+    // 무시
+}
+}
+
+function writeBillTab(sheetBill: ExcelScript.Worksheet, records: OutputRecord[], baseDate: DateInfo) {
+const MAX_ROWS = 10000;
+const START_ROW = 9; // 10행 시작
+
+clearBillColumns(sheetBill, START_ROW, MAX_ROWS);
+
+if (records.length === 0) return;
+
+const sortedRecords = sortOutputRecordsByNameForBill(records);
+
+// OT청구 List 일자는 운영일자로 씁니다.
+// 24:00~28:59 구간은 엑셀 출력일자가 다음날로 잡혀도 실제 청구일자는 전일입니다.
+// 예: 6/27 24:00~25:00, 25:00~25:30처럼 잡힌 행도 청구일자는 6/26으로 씁니다.
+const dates = sortedRecords.map(r => [getBillDateTextForRecord(r)]);
+const names = sortedRecords.map(r => [r.name]);
+const starts = sortedRecords.map(r => [formatMinutesToTimeNoLeadingZero(r.startMin)]);
+const ends = sortedRecords.map(r => [formatMinutesToTimeNoLeadingZero(r.endMin)]);
+const reasons = sortedRecords.map(r => [r.reason]);
+const evidences = sortedRecords.map(r => [r.evidence]);
+const statuses = sortedRecords.map(r => [normalizeWorkStatusForOutput(r.workStatus)]);
+
+sheetBill.getRangeByIndexes(START_ROW, 8, dates.length, 1).setValues(dates);
+sheetBill.getRangeByIndexes(START_ROW, 10, names.length, 1).setValues(names);
+sheetBill.getRangeByIndexes(START_ROW, 16, starts.length, 1).setValues(starts);
+sheetBill.getRangeByIndexes(START_ROW, 17, ends.length, 1).setValues(ends);
+sheetBill.getRangeByIndexes(START_ROW, 21, reasons.length, 1).setValues(reasons);
+sheetBill.getRangeByIndexes(START_ROW, 22, evidences.length, 1).setValues(evidences);
+sheetBill.getRangeByIndexes(START_ROW, 24, statuses.length, 1).setValues(statuses);
+}
+
+function getBillDateTextForRecord(r: OutputRecord): string {
+return getBillOperationalDate(r).text;
+}
+
+function getBillOperationalDate(r: OutputRecord): DateInfo {
+// OT청구 List 기준 운영일자:
+// - 05:00~23:59는 해당 출력일자 그대로
+// - 24:00~28:59는 다음날로 넘어가 보이더라도 전일 날짜로 청구
+// startMin은 24:00 이후 구간이면 1440 이상으로 들어옵니다.
+if (r.startMin >= 24 * 60 && r.startMin < 29 * 60) {
+    return addDaysToDateInfo(r.outputDate, -1);
+}
+
+return r.outputDate;
+}
+
+function dateInfoToDayNumber(dateInfo: DateInfo): number {
+return Math.floor(Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day) / (24 * 60 * 60 * 1000));
+}
+
+function clearBillColumns(sheetBill: ExcelScript.Worksheet, startRow: number, rowCount: number) {
+sheetBill.getRangeByIndexes(startRow, 8, rowCount, 1).clear(ExcelScript.ClearApplyTo.contents);
+sheetBill.getRangeByIndexes(startRow, 10, rowCount, 1).clear(ExcelScript.ClearApplyTo.contents);
+sheetBill.getRangeByIndexes(startRow, 16, rowCount, 2).clear(ExcelScript.ClearApplyTo.contents);
+sheetBill.getRangeByIndexes(startRow, 21, rowCount, 2).clear(ExcelScript.ClearApplyTo.contents);
+sheetBill.getRangeByIndexes(startRow, 24, rowCount, 1).clear(ExcelScript.ClearApplyTo.contents);
+}
+
+function analyzeReason(value: string): ReasonInfo {
+const text = String(value ?? "").trim();
+const compact = text.replace(/\s+/g, "");
+
+const tickets = extractTicketNumbers(text);
+const hasPostText = compact.includes("후처리");
+const isPost = hasPostText || tickets.length > 0;
+
+if (isPost) {
+    return {
+        mappedReason: "응대미종결",
+        evidence: tickets.join(", "),
+        isPost: true,
+        hasPostText
+    };
+}
+
+if (compact.includes("결점OT") || compact.includes("결점")) {
+    return {
+        mappedReason: "투입률관리",
+        evidence: "",
+        isPost: false,
+        hasPostText: false
+    };
+}
+
+if (compact.includes("협력사요청") || compact.includes("협력사")) {
+    return {
+        mappedReason: "응대율방어(Eats요청)",
+        evidence: "",
+        isPost: false,
+        hasPostText: false
+    };
+}
+
+return {
+    mappedReason: "",
+    evidence: "",
+    isPost: false,
+    hasPostText: false
+};
+}
+
+function extractTicketNumbers(value: string): string[] {
+const text = String(value ?? "");
+const result: string[] = [];
+const seen = new Set<string>();
+
+const regex = /(?:^|[^0-9])#?(\d{8})(?!\d)/g;
+let match: RegExpExecArray | null;
+
+while ((match = regex.exec(text)) !== null) {
+    const ticket = match[1];
+
+    if (!seen.has(ticket)) {
+        seen.add(ticket);
+        result.push(ticket);
+    }
+}
+
+return result;
+}
+
+function lookupEmployee(
+idValue: string | number | boolean,
+nameValue: string | number | boolean,
+maps: EmployeeMaps
+): EmployeeInfo {
+const idText = normalize(idValue);
+const name = formatPersonName(nameValue);
+const nameKey = normalizeNameKey(nameValue);
+
+if (idText && maps.byId.has(idText)) {
+    return maps.byId.get(idText) as EmployeeInfo;
+}
+
+if (nameKey && maps.byName.has(nameKey)) {
+    return maps.byName.get(nameKey) as EmployeeInfo;
+}
+
+return {
+    idText,
+    name,
+    nameKey,
+    workStatus: "휴무"
+};
+}
+
+function sameDate(a: string, b: string): boolean {
+return a === b;
+}
+
+function samePerson(
+baseId: string,
+baseNameKey: string,
+aId: string,
+aNameKey: string
+): boolean {
+if (baseId && aId && baseId === aId) return true;
+if (baseNameKey && aNameKey && baseNameKey === aNameKey) return true;
+return false;
+}
+
+function rangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+return Math.max(startA, startB) < Math.min(endA, endB);
+}
+
+function splitRangeByHour(startMin: number, endMin: number): { startMin: number; endMin: number }[] {
+const result: { startMin: number; endMin: number }[] = [];
+
+let cursor = startMin;
+
+while (cursor < endMin) {
+    const nextHour = Math.floor(cursor / 60) * 60 + 60;
+    const next = Math.min(nextHour, endMin);
+
+    result.push({
+        startMin: cursor,
+        endMin: next
+    });
+
+    cursor = next;
+}
+
+return result;
+}
+
+function findDuplicateRowIndexes(records: OutputRecord[]): number[] {
+const countMap = new Map<string, number>();
+
+for (const r of records) {
+    const key = makeDuplicateKey(r);
+    countMap.set(key, (countMap.get(key) ?? 0) + 1);
+}
+
+const result: number[] = [];
+
+for (let i = 0; i < records.length; i++) {
+    const key = makeDuplicateKey(records[i]);
+
+    if ((countMap.get(key) ?? 0) > 1) {
+        result.push(i);
+    }
+}
+
+return result;
+}
+
+function makeDuplicateKey(r: OutputRecord): string {
+const personKey = normalize(r.idText) || normalizeNameKey(r.name);
+
+return [
+    r.outputDate.key,
+    personKey,
+    r.startMin,
+    r.endMin,
+    normalize(r.reason),
+    normalize(r.evidence),
+    normalize(r.postFlag),
+    normalize(r.check)
+].join("|");
+}
+
+function classifyWorkStatus(value: string | number | boolean): string {
+const v = normalize(value).toUpperCase();
+
+if (v === "1" || v === "근무") return "근무";
+if (v.includes("연차")) return "연차";
+
+const holidayWords = ["X", "근무X", "공휴", "토휴", "일휴", "휴무", "대휴", "휴"];
+
+for (const word of holidayWords) {
+    if (v.includes(word)) return "휴무";
+}
+
+return "휴무";
+}
+
+function normalizeWorkStatusForOutput(value: string | number | boolean): string {
+const v = normalize(value).toUpperCase();
+
+if (v === "1" || v === "근무") return "근무";
+if (v.includes("연차")) return "연차";
+
+return "휴무";
+}
+
+function normalize(value: string | number | boolean): string {
+return String(value ?? "")
+.replace(/\s+/g, "")
+.trim();
+}
+
+function normalizeNameKey(value: string | number | boolean): string {
+return formatPersonName(value)
+.replace(/\s+/g, "")
+.toUpperCase()
+.trim();
+}
+
+function formatPersonName(value: string | number | boolean): string {
+let text = String(value ?? "").trim();
+
+if (!text) return "";
+
+text = text.replace(/\s+/g, " ");
+
+const noSpace = text.replace(/\s+/g, "");
+const match = noSpace.match(/^(.+?)([a-zA-Z])$/);
+
+if (match) {
+    const baseName = match[1];
+    const suffix = match[2].toUpperCase();
+
+    return `${baseName} ${suffix}`;
+}
+
+return text;
+}
+
+function splitNamesInCell(value: string | number | boolean): string[] {
+const text = String(value ?? "").trim();
+
+if (!text) return [];
+
+return text
+    .split(/[\n\r,，]+/)
+    .map(v => v.trim())
+    .filter(v => v !== "");
+}
+
+function isBlank(value: string | number | boolean): boolean {
+return String(value ?? "").trim() === "";
+}
+
+function parseATimeToMinutes(
+textValue: string,
+rawValue: string | number | boolean
+): number | null {
+const textParsed = parseTimeTextToMinutes(textValue);
+
+if (textParsed !== null) {
+    return fixEarlyHourToOperationalTime(textParsed);
+}
+
+if (typeof rawValue === "number") {
+    if (!isFinite(rawValue)) return null;
+
+    if (rawValue >= 0 && rawValue < 2) {
+        return fixEarlyHourToOperationalTime(Math.round(rawValue * 24 * 60));
+    }
+
+    if (Number.isInteger(rawValue) && rawValue >= 0 && rawValue <= 48) {
+        return fixEarlyHourToOperationalTime(rawValue * 60);
+    }
+
+    return null;
+}
+
+if (typeof rawValue === "boolean") return null;
+
+const rawTextParsed = parseTimeTextToMinutes(String(rawValue ?? ""));
+
+if (rawTextParsed !== null) {
+    return fixEarlyHourToOperationalTime(rawTextParsed);
+}
+
+return null;
+}
+
+function parseDTableTimeToMinutes(
+textValue: string,
+rawValue: string | number | boolean
+): number | null {
+const textParsed = parseTimeTextToMinutes(textValue);
+
+if (textParsed !== null) {
+    return fixEarlyHourToOperationalTime(textParsed);
+}
+
+if (typeof rawValue === "number") {
+    if (!isFinite(rawValue)) return null;
+
+    if (rawValue >= 0 && rawValue < 2) {
+        return fixEarlyHourToOperationalTime(Math.round(rawValue * 24 * 60));
+    }
+
+    if (Number.isInteger(rawValue) && rawValue >= 0 && rawValue <= 48) {
+        return fixEarlyHourToOperationalTime(rawValue * 60);
+    }
+
+    return null;
+}
+
+if (typeof rawValue === "boolean") return null;
+
+const rawTextParsed = parseTimeTextToMinutes(String(rawValue ?? ""));
+
+if (rawTextParsed !== null) {
+    return fixEarlyHourToOperationalTime(rawTextParsed);
+}
+
+return null;
+}
+
+function fixEarlyHourToOperationalTime(minutes: number): number {
+if (minutes >= 0 && minutes < 5 * 60) {
+return minutes + 24 * 60;
+}
+
+return minutes;
+}
+
+function parseTimeTextToMinutes(value: string): number | null {
+let text = String(value ?? "").trim();
+
+if (!text) return null;
+
+text = text
+    .replace(/\s+/g, "")
+    .replace("：", ":");
+
+let isPM = false;
+let isAM = false;
+
+if (text.includes("오후")) {
+    isPM = true;
+    text = text.replace("오후", "");
+}
+
+if (text.includes("오전")) {
+    isAM = true;
+    text = text.replace("오전", "");
+}
+
+let match = text.match(/^(\d{1,2}):(\d{1,2})$/);
+
+if (match) {
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+
+    if (isNaN(hour) || isNaN(minute)) return null;
+    if (minute < 0 || minute >= 60) return null;
+
+    if (isPM && hour < 12) hour += 12;
+    if (isAM && hour === 12) hour = 0;
+
+    return hour * 60 + minute;
+}
+
+match = text.match(/^(\d{1,2})시(?:(\d{1,2})분?)?$/);
+
+if (match) {
+    let hour = Number(match[1]);
+    const minute = match[2] === undefined ? 0 : Number(match[2]);
+
+    if (isNaN(hour) || isNaN(minute)) return null;
+    if (minute < 0 || minute >= 60) return null;
+
+    if (isPM && hour < 12) hour += 12;
+    if (isAM && hour === 12) hour = 0;
+
+    return hour * 60 + minute;
+}
+
+match = text.match(/^(\d{3,4})$/);
+
+if (match) {
+    const raw = match[1];
+
+    const hourText = raw.length === 3 ? raw.substring(0, 1) : raw.substring(0, 2);
+    const minuteText = raw.length === 3 ? raw.substring(1, 3) : raw.substring(2, 4);
+
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+
+    if (isNaN(hour) || isNaN(minute)) return null;
+    if (minute < 0 || minute >= 60) return null;
+
+    return hour * 60 + minute;
+}
+
+match = text.match(/^(\d{1,2})$/);
+
+if (match) {
+    const hour = Number(match[1]);
+
+    if (isNaN(hour)) return null;
+
+    return hour * 60;
+}
+
+return null;
+}
+
+function getOutputDateByStart(baseDate: DateInfo, startMin: number): DateInfo {
+const dayOffset = Math.floor(startMin / (24 * 60));
+
+if (dayOffset <= 0) return baseDate;
+
+return addDaysToDateInfo(baseDate, dayOffset);
+}
+
+function parseDateToInfo(
+rawValue: string | number | boolean,
+textValue: string,
+fallback: DateInfo
+): DateInfo {
+const text = String(textValue ?? "").trim();
+
+if (!text && isBlank(rawValue)) {
+    return fallback;
+}
+
+if (typeof rawValue === "number" && isFinite(rawValue) && rawValue > 1000) {
+    const date = excelSerialToDate(Math.floor(rawValue));
+
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+
+    return makeDateInfo(year, month, day);
+}
+
+const parsedText = parseDateText(text || String(rawValue ?? ""), fallback.year);
+
+if (parsedText) {
+    return parsedText;
+}
+
+return fallback;
+}
+
+function parseDateText(value: string, defaultYear: number): DateInfo | null {
+let text = String(value ?? "").trim();
+
+if (!text) return null;
+
+text = text
+    .replace(/\s+/g, "")
+    .replace("년", "-")
+    .replace("월", "-")
+    .replace("일", "")
+    .replace(/[./]/g, "-");
+
+let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+
+if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+
+    if (!isValidDateParts(year, month, day)) return null;
+
+    return makeDateInfo(year, month, day);
+}
+
+match = text.match(/^(\d{1,2})-(\d{1,2})$/);
+
+if (match) {
+    const year = defaultYear;
+    const month = Number(match[1]);
+    const day = Number(match[2]);
+
+    if (!isValidDateParts(year, month, day)) return null;
+
+    return makeDateInfo(year, month, day);
+}
+
+return null;
+}
+
+function makeDateInfo(year: number, month: number, day: number): DateInfo {
+return {
+key: `${year}-${pad2(month)}-${pad2(day)}`,
+text: `${month}/${day}`,
+year,
+month,
+day
+};
+}
+
+function addDaysToDateInfo(dateInfo: DateInfo, days: number): DateInfo {
+const date = new Date(Date.UTC(dateInfo.year, dateInfo.month - 1, dateInfo.day + days));
+
+return makeDateInfo(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    date.getUTCDate()
+);
+}
+
+function isValidDateParts(year: number, month: number, day: number): boolean {
+if (isNaN(year) || isNaN(month) || isNaN(day)) return false;
+if (month < 1 || month > 12) return false;
+if (day < 1 || day > 31) return false;
+
+return true;
+}
+
+function excelSerialToDate(serial: number): Date {
+const utcMs = Math.round((serial - 25569) * 86400 * 1000);
+return new Date(utcMs);
+}
+
+function getTodayKstInfo(): DateInfo {
+const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
+
+const year = kstNow.getUTCFullYear();
+const month = kstNow.getUTCMonth() + 1;
+const day = kstNow.getUTCDate();
+
+return makeDateInfo(year, month, day);
+}
+
+function formatMinutesToTimeNoLeadingZero(totalMinutes: number): string {
+const hour = Math.floor(totalMinutes / 60);
+const minute = totalMinutes % 60;
+
+return `${hour}:${pad2(minute)}`;
+}
+
+function pad2(value: number): string {
+return value < 10 ? `0${value}` : String(value);
+}
+
+function clearFillSafe(range: ExcelScript.Range) {
+try {
+range.getFormat().getFill().clear();
+} catch (e) {
+// fill clear 실패 시 무시
+}
+}

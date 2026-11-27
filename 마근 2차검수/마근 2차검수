@@ -1,0 +1,1586 @@
+function main(workbook: ExcelScript.Workbook) {
+  const SM_SHEET = "SM";
+  const IL_SHEET = "일소정";
+  const RESULT_SHEET = "비교";
+  const DETAIL_SHEET = "비교상세";
+
+  // ===== 기본 위치 =====
+  const SM_NAME_COL = 5;        // F열 이름
+  const SM_START_COL = 7;       // H열 NE1830-어쩌구 기준
+  const SM_DATE_ROW = 5;        // 6행 날짜
+  const SM_DATE_START_COL = 19; // T열부터 날짜
+  const SM_DATA_START_ROW = 6;  // 7행부터 인원
+
+  const IL_NAME_COL = 3;        // D열 이름
+  const IL_DATE_ROW_1 = 1;      // 2행 날짜
+  const IL_DATE_ROW_2 = 2;      // 3행 요일/보조
+  const IL_HEADER_ROW = 3;      // 4행 출근/퇴근/식사
+  const IL_DATA_START_ROW = 4;  // 5행부터 인원
+  const IL_DATE_START_COL = 10; // K열부터
+
+  const SOURCE_MAX_ROWS = 1500;
+  const SM_MAX_COLS = 90;
+  const IL_MAX_COLS = 130;
+
+  // 페이로드 방지용 청크 크기
+  const READ_ROW_CHUNK = 60;
+  const READ_COL_CHUNK = 25;
+  const WRITE_ROW_CHUNK = 50;
+  const FORMAT_ROW_CHUNK = 80;
+  const FORMAT_COL_CHUNK = 20;
+  const CLEAR_ROW_CHUNK = 80;
+  const CLEAR_COL_CHUNK = 20;
+
+  type CellValue = string | number | boolean;
+  type DutyKind = "work" | "off" | "blank" | "special" | "unknown";
+
+  interface DataBlock {
+    values: CellValue[][];
+    texts: string[][];
+    rowCount: number;
+    colCount: number;
+  }
+
+  interface PersonRow {
+    row: number;
+    name: string;
+    nameKey: string;
+  }
+
+  interface ComparePerson {
+    ilPerson: PersonRow;
+    smPerson: PersonRow | null;
+    rowIssue: string;
+  }
+
+  interface DutyInfo {
+    kind: DutyKind;
+    raw: string;
+    norm: string;
+    startText: string;
+    startMin: number | null;
+    note: string;
+  }
+
+  interface CompareResult {
+    status: "일치" | "불일치" | "확인필요";
+    code: string;
+    text: string;
+  }
+
+  interface DetailRow {
+    status: string;
+    code: string;
+    dateLabel: string;
+    dateKey: string;
+    name: string;
+    content: string;
+    smValue: string;
+    ilValue: string;
+    smPos: string;
+    ilPos: string;
+    smRowName: string;
+    ilRowName: string;
+  }
+
+  interface ColorCell {
+    rowOffset: number;
+    col: number;
+    status: string;
+  }
+
+  interface DateContext {
+    year: number;
+    month: number;
+    lastDay: number | null;
+  }
+
+  const smSheet = workbook.getWorksheet(SM_SHEET);
+  const ilSheet = workbook.getWorksheet(IL_SHEET);
+
+  if (!smSheet) throw new Error(`"${SM_SHEET}" 탭을 찾을 수 없습니다.`);
+  if (!ilSheet) throw new Error(`"${IL_SHEET}" 탭을 찾을 수 없습니다.`);
+
+  // ===== addWorksheet 오류 방지: 결과 탭은 대량 작업 전에 먼저 생성만 =====
+  const resultSheet = getOrCreateSheet(workbook, RESULT_SHEET);
+  const detailSheet = getOrCreateSheet(workbook, DETAIL_SHEET);
+
+  try {
+    workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+  } catch (e) {
+    // 계산 실패해도 진행
+  }
+
+  // ===== 실제 사용범위 감지 =====
+  const smSize = detectDataSize(
+    smSheet,
+    SM_NAME_COL,
+    [SM_DATE_ROW],
+    SOURCE_MAX_ROWS,
+    SM_MAX_COLS,
+    SM_DATA_START_ROW + 1,
+    SM_DATE_START_COL + 1
+  );
+
+  const ilSize = detectDataSize(
+    ilSheet,
+    IL_NAME_COL,
+    [IL_DATE_ROW_1, IL_DATE_ROW_2, IL_HEADER_ROW],
+    SOURCE_MAX_ROWS,
+    IL_MAX_COLS,
+    IL_DATA_START_ROW + 1,
+    IL_DATE_START_COL + 1
+  );
+
+  // ===== 원본 읽기: 행+열 둘 다 청크 처리 =====
+  const smData = readFixedRangeSafe(smSheet, smSize.rowCount, smSize.colCount);
+  const ilData = readFixedRangeSafe(ilSheet, ilSize.rowCount, ilSize.colCount);
+
+  console.log(`읽기범위 / SM ${smSize.rowCount}행 ${smSize.colCount}열 / 일소정 ${ilSize.rowCount}행 ${ilSize.colCount}열`);
+
+  // ===== 한국시간 운영일 기준 =====
+  // 00:00~04:59 실행 시 전일로 봄.
+  const nowUtc = new Date();
+  const kstNow = new Date(nowUtc.getTime() + 9 * 60 * 60 * 1000);
+  const compareUntilKey = getKstBusinessDateKey(nowUtc);
+  const compareUntilLabel = makeDateLabel(compareUntilKey);
+
+  const initYear = kstNow.getUTCFullYear();
+  const initMonth = kstNow.getUTCMonth() + 1;
+
+  // ===== SM 날짜 읽기 =====
+  const smDateCtx: DateContext = {
+    year: initYear,
+    month: initMonth,
+    lastDay: null
+  };
+
+  const smDateCols: { col: number; dateKey: string; label: string }[] = [];
+
+  for (let c = SM_DATE_START_COL; c < smData.colCount; c++) {
+    const key = parseDateKeyWithContext(
+      getValue(smData, SM_DATE_ROW, c),
+      getText(smData, SM_DATE_ROW, c),
+      smDateCtx
+    );
+
+    if (key) {
+      smDateCols.push({
+        col: c,
+        dateKey: key,
+        label: makeDateLabel(key)
+      });
+    }
+  }
+
+  if (smDateCols.length === 0) {
+    throw new Error(`SM 탭 6행 T열 이후에서 날짜를 찾지 못했습니다.`);
+  }
+
+  // ===== 일소정 출근 날짜 컬럼 읽기 =====
+  const ilDateCtx: DateContext = {
+    year: initYear,
+    month: initMonth,
+    lastDay: null
+  };
+
+  const ilAttendCols: { col: number; dateKey: string; label: string }[] = [];
+
+  for (let c = IL_DATE_START_COL; c < ilData.colCount; c++) {
+    const header = clean(getText(ilData, IL_HEADER_ROW, c));
+
+    if (header === "출근" || header.includes("출근")) {
+      let key = parseDateKeyWithContext(
+        getValue(ilData, IL_DATE_ROW_1, c),
+        getText(ilData, IL_DATE_ROW_1, c),
+        ilDateCtx
+      );
+
+      if (!key) {
+        key = parseDateKeyWithContext(
+          getValue(ilData, IL_DATE_ROW_2, c),
+          getText(ilData, IL_DATE_ROW_2, c),
+          ilDateCtx
+        );
+      }
+
+      if (!key) {
+        for (let k = 1; k <= 2; k++) {
+          key = parseDateKeyWithContext(
+            getValue(ilData, IL_DATE_ROW_1, c - k),
+            getText(ilData, IL_DATE_ROW_1, c - k),
+            ilDateCtx
+          );
+
+          if (key) break;
+        }
+      }
+
+      if (key) {
+        ilAttendCols.push({
+          col: c,
+          dateKey: key,
+          label: makeDateLabel(key)
+        });
+      }
+    }
+  }
+
+  if (ilAttendCols.length === 0) {
+    throw new Error(`일소정 탭 4행 K열 이후에서 "출근" 컬럼을 찾지 못했습니다.`);
+  }
+
+  // ===== 이름 목록 / 중복 확인 =====
+  const smPersons = readPersons(smData, SM_DATA_START_ROW, SM_NAME_COL);
+  const ilPersons = readPersons(ilData, IL_DATA_START_ROW, IL_NAME_COL);
+
+  if (smPersons.length === 0) {
+    throw new Error(`SM 탭 F열에서 비교할 이름을 찾지 못했습니다.`);
+  }
+
+  if (ilPersons.length === 0) {
+    throw new Error(`일소정 탭 D열에서 비교할 이름을 찾지 못했습니다.`);
+  }
+
+  const smDupes = findDuplicateNames(smPersons);
+  const ilDupes = findDuplicateNames(ilPersons);
+
+  const smDupeSet: { [key: string]: boolean } = {};
+  const ilDupeSet: { [key: string]: boolean } = {};
+
+  for (const d of smDupes) smDupeSet[d.nameKey] = true;
+  for (const d of ilDupes) ilDupeSet[d.nameKey] = true;
+
+  const smMap: { [key: string]: PersonRow } = {};
+
+  for (const p of smPersons) {
+    if (!smDupeSet[p.nameKey]) {
+      smMap[p.nameKey] = p;
+    }
+  }
+
+  // ===== 비교대상: 일소정 D열 순서 그대로 =====
+  const comparePeople: ComparePerson[] = [];
+
+  for (const ilPerson of ilPersons) {
+    let smPerson: PersonRow | null = null;
+    let rowIssue = "";
+
+    if (ilDupeSet[ilPerson.nameKey]) {
+      rowIssue = "일소정중복";
+    } else if (smDupeSet[ilPerson.nameKey]) {
+      rowIssue = "SM중복";
+    } else if (smMap[ilPerson.nameKey]) {
+      smPerson = smMap[ilPerson.nameKey];
+    } else {
+      rowIssue = "SM없음";
+    }
+
+    comparePeople.push({
+      ilPerson,
+      smPerson,
+      rowIssue
+    });
+  }
+
+  // ===== 날짜 교집합 =====
+  const ilDateToCol: { [dateKey: string]: number } = {};
+
+  for (const x of ilAttendCols) {
+    if (ilDateToCol[x.dateKey] === undefined) {
+      ilDateToCol[x.dateKey] = x.col;
+    }
+  }
+
+  const dateTargets = smDateCols
+    .filter(x => ilDateToCol[x.dateKey] !== undefined)
+    .filter(x => x.dateKey <= compareUntilKey);
+
+  if (dateTargets.length === 0) {
+    throw new Error(`SM 날짜와 일소정 날짜 중 비교기준일(${compareUntilLabel} 28:59까지) 이내에서 매칭되는 날짜가 없습니다.`);
+  }
+
+  console.log(`유효성 확인 완료 / 비교대상 ${comparePeople.length}명 / 비교날짜 ${dateTargets.length}개`);
+
+  // ===== 비교 계산 =====
+  const header: (string | number)[] = ["이름", "H"];
+
+  for (const d of dateTargets) {
+    header.push(d.label);
+  }
+
+  const body: (string | number)[][] = [];
+  const details: DetailRow[] = [];
+  const colorCells: ColorCell[] = [];
+
+  let mismatchCount = 0;
+  let checkCount = 0;
+  let smMoveExcludeCount = 0;
+  let smMissingCount = 0;
+
+  const rowIssueDetailDone: { [key: string]: boolean } = {};
+
+  for (const target of comparePeople) {
+    const ilPerson = target.ilPerson;
+    const smPerson = target.smPerson;
+
+    const rowArr: (string | number)[] = [];
+    rowArr.push(ilPerson.name);
+
+    if (!smPerson) {
+      rowArr.push("");
+
+      for (let i = 0; i < dateTargets.length; i++) {
+        rowArr.push(target.rowIssue);
+
+        colorCells.push({
+          rowOffset: body.length,
+          col: 2 + i,
+          status: "확인필요"
+        });
+      }
+
+      if (target.rowIssue === "SM없음") {
+        smMissingCount++;
+
+        const detailKey = `${target.rowIssue}_${ilPerson.nameKey}`;
+
+        if (!rowIssueDetailDone[detailKey]) {
+          details.push({
+            status: "확인필요",
+            code: "SM없음",
+            dateLabel: "",
+            dateKey: "",
+            name: ilPerson.name,
+            content: "일소정에는 있으나 SM 탭에서 같은 이름을 찾지 못했습니다.",
+            smValue: "",
+            ilValue: ilPerson.name,
+            smPos: "",
+            ilPos: `${IL_SHEET}!${cellAddress(ilPerson.row, IL_NAME_COL)}`,
+            smRowName: "",
+            ilRowName: ilPerson.name
+          });
+
+          rowIssueDetailDone[detailKey] = true;
+          checkCount++;
+        }
+      }
+
+      body.push(rowArr);
+      continue;
+    }
+
+    const smStartRaw = displayCell(
+      getValue(smData, smPerson.row, SM_START_COL),
+      getText(smData, smPerson.row, SM_START_COL)
+    );
+
+    rowArr.push(smStartRaw);
+
+    const smStartTime = extractSmNeTime(
+      getValue(smData, smPerson.row, SM_START_COL),
+      getText(smData, smPerson.row, SM_START_COL)
+    );
+
+    for (let i = 0; i < dateTargets.length; i++) {
+      const d = dateTargets[i];
+      const ilCol = ilDateToCol[d.dateKey];
+
+      const smValue = getValue(smData, smPerson.row, d.col);
+      const smText = getText(smData, smPerson.row, d.col);
+      const smRaw = displayCell(smValue, smText);
+
+      const smReadPos = `${SM_SHEET}!${cellAddress(smPerson.row, d.col)}`;
+      const ilReadPos = `${IL_SHEET}!${cellAddress(ilPerson.row, ilCol)}`;
+
+      // SM 날짜칸에 이동 들어간 건 비교/상세 둘 다 제외
+      if (isSmMoveExcluded(smRaw)) {
+        rowArr.push("");
+        smMoveExcludeCount++;
+        continue;
+      }
+
+      const ilValue = getValue(ilData, ilPerson.row, ilCol);
+      const ilText = getText(ilData, ilPerson.row, ilCol);
+
+      // SM 날짜칸 1 + H열 NE 출근시간 = 일소정 출근시간이면 일치
+      if (isSmOneWork(smValue, smText)) {
+        const ilDirectTime = extractTime(ilValue, ilText, false);
+
+        if (
+          smStartTime.min !== null &&
+          ilDirectTime.min !== null &&
+          roundStartMin(smStartTime.min) === roundStartMin(ilDirectTime.min)
+        ) {
+          rowArr.push("");
+          continue;
+        }
+      }
+
+      const smDuty = classifySmDuty(smValue, smText, smStartTime);
+      const ilDuty = classifyDuty(ilValue, ilText, false);
+
+      const result = compareDuty(smDuty, ilDuty);
+
+      if (result.status === "일치") {
+        rowArr.push("");
+      } else {
+        rowArr.push(result.code);
+
+        colorCells.push({
+          rowOffset: body.length,
+          col: 2 + i,
+          status: result.status
+        });
+
+        details.push({
+          status: result.status,
+          code: result.code,
+          dateLabel: d.label,
+          dateKey: d.dateKey,
+          name: ilPerson.name,
+          content: `${result.text} / 실제읽은SM:${smReadPos} / 실제읽은일소정:${ilReadPos}`,
+          smValue: makeDebugValueText(smDuty, smValue, smText, smStartRaw),
+          ilValue: makeDebugValueText(ilDuty, ilValue, ilText, ""),
+          smPos: smReadPos,
+          ilPos: ilReadPos,
+          smRowName: smPerson.name,
+          ilRowName: ilPerson.name
+        });
+
+        if (result.status === "불일치") mismatchCount++;
+        if (result.status === "확인필요") checkCount++;
+      }
+    }
+
+    body.push(rowArr);
+  }
+
+  if (body.length === 0) {
+    const emptyRow: (string | number)[] = ["비교대상 없음", ""];
+    for (let i = 0; i < dateTargets.length; i++) emptyRow.push("");
+    body.push(emptyRow);
+  }
+
+  // =====================================================================
+  // 비교 탭 출력
+  // =====================================================================
+
+  clearSheetSafe(resultSheet);
+
+  const summary: (string | number)[] = [
+    "비교대상",
+    comparePeople.length,
+    "기준순서",
+    "일소정",
+    "불일치",
+    mismatchCount,
+    "확인필요",
+    checkCount,
+    "SM없음",
+    smMissingCount,
+    "SM중복",
+    smDupes.length,
+    "일소정중복",
+    ilDupes.length,
+    "SM이동제외",
+    smMoveExcludeCount,
+    "빈칸",
+    "일치",
+    "비교기준",
+    `${compareUntilLabel} 28:59까지`
+  ];
+
+  resultSheet.getRangeByIndexes(0, 0, 1, summary.length).setValues([summary]);
+  resultSheet.getRangeByIndexes(0, 0, 1, summary.length).getFormat().getFill().setColor("#D9EAF7");
+  resultSheet.getRangeByIndexes(0, 0, 1, summary.length).getFormat().getFont().setBold(true);
+
+  resultSheet.getRangeByIndexes(1, 0, 1, header.length).setValues([header]);
+  resultSheet.getRangeByIndexes(1, 0, 1, header.length).getFormat().getFill().setColor("#1F4E78");
+  resultSheet.getRangeByIndexes(1, 0, 1, header.length).getFormat().getFont().setColor("#FFFFFF");
+  resultSheet.getRangeByIndexes(1, 0, 1, header.length).getFormat().getFont().setBold(true);
+
+  writeRowsChunked(resultSheet, 2, 0, body, header.length, WRITE_ROW_CHUNK);
+
+  const mainRows = body.length + 2;
+  const mainCols = Math.max(header.length, summary.length);
+
+  applyBasicFormatChunked(resultSheet, 0, 0, mainRows, mainCols, true);
+  applyColumnWidths(resultSheet, mainCols);
+  paintCompareCells(resultSheet, colorCells);
+
+  // =====================================================================
+  // 비교상세 탭 출력
+  // =====================================================================
+
+  clearSheetSafe(detailSheet);
+
+  const detailHeader = [
+    "구분",
+    "코드",
+    "날짜",
+    "날짜키",
+    "이름",
+    "내용",
+    "SM값",
+    "일소정값",
+    "SM 위치",
+    "일소정 위치",
+    "SM행이름",
+    "일소정행이름"
+  ];
+
+  detailSheet.getRangeByIndexes(0, 0, 1, detailHeader.length).setValues([detailHeader]);
+  detailSheet.getRangeByIndexes(0, 0, 1, detailHeader.length).getFormat().getFill().setColor("#1F4E78");
+  detailSheet.getRangeByIndexes(0, 0, 1, detailHeader.length).getFormat().getFont().setColor("#FFFFFF");
+  detailSheet.getRangeByIndexes(0, 0, 1, detailHeader.length).getFormat().getFont().setBold(true);
+
+  const detailRows: (string | number)[][] = [];
+
+  for (const d of details) {
+    detailRows.push([
+      d.status,
+      d.code,
+      d.dateLabel,
+      d.dateKey,
+      d.name,
+      d.content,
+      d.smValue,
+      d.ilValue,
+      d.smPos,
+      d.ilPos,
+      d.smRowName,
+      d.ilRowName
+    ]);
+  }
+
+  for (const d of smDupes) {
+    detailRows.push([
+      "중복오류",
+      "중복",
+      "",
+      "",
+      d.name,
+      "SM 탭에 같은 이름이 2번 이상 있습니다.",
+      `행: ${d.rows.map(x => x + 1).join(", ")}`,
+      "",
+      "",
+      "",
+      d.name,
+      ""
+    ]);
+  }
+
+  for (const d of ilDupes) {
+    detailRows.push([
+      "중복오류",
+      "중복",
+      "",
+      "",
+      d.name,
+      "일소정 탭에 같은 이름이 2번 이상 있습니다.",
+      "",
+      `행: ${d.rows.map(x => x + 1).join(", ")}`,
+      "",
+      "",
+      "",
+      d.name
+    ]);
+  }
+
+  if (detailRows.length === 0) {
+    detailRows.push(["정상", "", "", "", "", "불일치/확인필요/중복 없음", "", "", "", "", "", ""]);
+  }
+
+  writeRowsChunked(detailSheet, 1, 0, detailRows, detailHeader.length, WRITE_ROW_CHUNK);
+
+  applyBasicFormatChunked(detailSheet, 0, 0, detailRows.length + 1, detailHeader.length, false);
+  paintDetailRows(detailSheet, detailRows, detailHeader.length);
+  applyDetailColumnWidths(detailSheet);
+
+  console.log(`완료 / 불일치 ${mismatchCount}건 / 확인필요 ${checkCount}건 / 상세 ${detailRows.length}행`);
+
+  // =====================================================================
+  // 함수들
+  // =====================================================================
+
+  function getOrCreateSheet(
+    workbook: ExcelScript.Workbook,
+    sheetName: string
+  ): ExcelScript.Worksheet {
+    let sheet = workbook.getWorksheet(sheetName);
+
+    if (!sheet) {
+      sheet = workbook.addWorksheet(sheetName);
+    }
+
+    return sheet;
+  }
+
+  function clearSheetSafe(sheet: ExcelScript.Worksheet) {
+    const used = sheet.getUsedRange();
+    if (!used) return;
+
+    const startRow = used.getRowIndex();
+    const startCol = used.getColumnIndex();
+    const rowCount = used.getRowCount();
+    const colCount = used.getColumnCount();
+
+    for (let r = 0; r < rowCount; r += CLEAR_ROW_CHUNK) {
+      const rows = Math.min(CLEAR_ROW_CHUNK, rowCount - r);
+
+      for (let c = 0; c < colCount; c += CLEAR_COL_CHUNK) {
+        const cols = Math.min(CLEAR_COL_CHUNK, colCount - c);
+        sheet.getRangeByIndexes(startRow + r, startCol + c, rows, cols).clear(ExcelScript.ClearApplyTo.all);
+      }
+    }
+  }
+
+  function detectDataSize(
+    sheet: ExcelScript.Worksheet,
+    nameCol: number,
+    headerRows: number[],
+    maxRows: number,
+    maxCols: number,
+    minRows: number,
+    minCols: number
+  ): { rowCount: number; colCount: number } {
+    let rowCount = minRows;
+
+    // 이름열은 1열만 읽어서 실제 마지막 이름 행 감지
+    const nameTexts = sheet.getRangeByIndexes(0, nameCol, maxRows, 1).getTexts();
+
+    for (let r = nameTexts.length - 1; r >= 0; r--) {
+      if (clean(nameTexts[r][0])) {
+        rowCount = Math.max(rowCount, r + 1);
+        break;
+      }
+    }
+
+    let colCount = minCols;
+
+    // 헤더행은 1행씩만 읽어서 실제 마지막 열 감지
+    for (const headerRow of headerRows) {
+      const rowTexts = sheet.getRangeByIndexes(headerRow, 0, 1, maxCols).getTexts()[0];
+
+      for (let c = rowTexts.length - 1; c >= 0; c--) {
+        if (clean(rowTexts[c])) {
+          colCount = Math.max(colCount, c + 1);
+          break;
+        }
+      }
+    }
+
+    // 날짜 병합/보조열 대비 여유
+    colCount = Math.min(maxCols, colCount + 2);
+
+    return {
+      rowCount: Math.min(maxRows, Math.max(rowCount, minRows)),
+      colCount: Math.min(maxCols, Math.max(colCount, minCols))
+    };
+  }
+
+  function readFixedRangeSafe(
+    sheet: ExcelScript.Worksheet,
+    maxRows: number,
+    maxCols: number
+  ): DataBlock {
+    const values: CellValue[][] = [];
+    const texts: string[][] = [];
+
+    for (let r = 0; r < maxRows; r++) {
+      const valueRow: CellValue[] = [];
+      const textRow: string[] = [];
+
+      for (let c = 0; c < maxCols; c++) {
+        valueRow.push("");
+        textRow.push("");
+      }
+
+      values.push(valueRow);
+      texts.push(textRow);
+    }
+
+    for (let r = 0; r < maxRows; r += READ_ROW_CHUNK) {
+      const rows = Math.min(READ_ROW_CHUNK, maxRows - r);
+
+      for (let c = 0; c < maxCols; c += READ_COL_CHUNK) {
+        const cols = Math.min(READ_COL_CHUNK, maxCols - c);
+        const range = sheet.getRangeByIndexes(r, c, rows, cols);
+
+        const valueChunk = range.getValues() as CellValue[][];
+        const textChunk = range.getTexts();
+
+        for (let rr = 0; rr < rows; rr++) {
+          for (let cc = 0; cc < cols; cc++) {
+            const v = valueChunk[rr][cc];
+            values[r + rr][c + cc] = v === null || v === undefined ? "" : v;
+            texts[r + rr][c + cc] = clean(textChunk[rr][cc]);
+          }
+        }
+      }
+    }
+
+    return {
+      values,
+      texts,
+      rowCount: maxRows,
+      colCount: maxCols
+    };
+  }
+
+  function getValue(data: DataBlock, r: number, c: number): CellValue {
+    if (r < 0 || c < 0) return "";
+    if (r >= data.rowCount || c >= data.colCount) return "";
+
+    const v = data.values[r][c];
+    if (v === null || v === undefined) return "";
+
+    return v;
+  }
+
+  function getText(data: DataBlock, r: number, c: number): string {
+    if (r < 0 || c < 0) return "";
+    if (r >= data.rowCount || c >= data.colCount) return "";
+
+    return clean(data.texts[r][c]);
+  }
+
+  function readPersons(data: DataBlock, startRow: number, nameCol: number): PersonRow[] {
+    const list: PersonRow[] = [];
+
+    for (let r = startRow; r < data.rowCount; r++) {
+      const name = clean(getText(data, r, nameCol));
+      if (!name) continue;
+
+      list.push({
+        row: r,
+        name,
+        nameKey: normalizeName(name)
+      });
+    }
+
+    return list;
+  }
+
+  function findDuplicateNames(list: PersonRow[]): { nameKey: string; name: string; rows: number[] }[] {
+    const map: { [key: string]: { name: string; rows: number[] } } = {};
+
+    for (const p of list) {
+      if (!map[p.nameKey]) {
+        map[p.nameKey] = {
+          name: p.name,
+          rows: []
+        };
+      }
+
+      map[p.nameKey].rows.push(p.row);
+    }
+
+    const result: { nameKey: string; name: string; rows: number[] }[] = [];
+
+    for (const key in map) {
+      if (map[key].rows.length >= 2) {
+        result.push({
+          nameKey: key,
+          name: map[key].name,
+          rows: map[key].rows
+        });
+      }
+    }
+
+    return result;
+  }
+
+  function classifySmDuty(
+    value: CellValue,
+    text: string,
+    smStart: { text: string; min: number | null }
+  ): DutyInfo {
+    const raw = displayCell(value, text);
+
+    if (isSmOneWork(value, text)) {
+      return {
+        kind: "work",
+        raw,
+        norm: "근무",
+        startText: smStart.text,
+        startMin: smStart.min,
+        note: "SM 날짜칸 1 = 근무 / H열 NE 출근 기준"
+      };
+    }
+
+    const base = classifyDuty(value, text, false);
+
+    if (base.kind === "work" && base.startMin === null && smStart.min !== null) {
+      base.startText = smStart.text;
+      base.startMin = smStart.min;
+      base.note = "SM H열 NE 출근 기준";
+    }
+
+    return base;
+  }
+
+  function classifyDuty(value: CellValue, text: string, allowPlainHour: boolean): DutyInfo {
+    const raw = displayCell(value, text);
+    const s = clean(raw);
+
+    if (!s) return makeBlankDuty();
+
+    const special: string[] = [];
+
+    if (s.includes("이동")) {
+      special.push("이동 포함");
+    }
+
+    if (hasMultipleValue(s)) {
+      special.push("값 2개 이상 가능성");
+    }
+
+    const time = extractTime(value, text, allowPlainHour);
+
+    if (s.includes("교육")) {
+      return {
+        kind: special.length > 0 ? "special" : "work",
+        raw,
+        norm: "근무",
+        startText: time.text,
+        startMin: time.min,
+        note: special.length > 0 ? `교육은 근무 / ${special.join(", ")}` : "교육은 근무"
+      };
+    }
+
+    const offNorm = normalizeOffValue(s);
+
+    if (offNorm) {
+      return {
+        kind: special.length > 0 ? "special" : "off",
+        raw,
+        norm: offNorm,
+        startText: "",
+        startMin: null,
+        note: special.join(", ")
+      };
+    }
+
+    if (time.min !== null) {
+      return {
+        kind: special.length > 0 ? "special" : "work",
+        raw,
+        norm: "근무",
+        startText: time.text,
+        startMin: time.min,
+        note: special.join(", ")
+      };
+    }
+
+    if (isWorkWord(s)) {
+      return {
+        kind: special.length > 0 ? "special" : "work",
+        raw,
+        norm: "근무",
+        startText: "",
+        startMin: null,
+        note: special.join(", ")
+      };
+    }
+
+    if (special.length > 0) {
+      return {
+        kind: "special",
+        raw,
+        norm: s,
+        startText: "",
+        startMin: null,
+        note: special.join(", ")
+      };
+    }
+
+    return {
+      kind: "unknown",
+      raw,
+      norm: s,
+      startText: "",
+      startMin: null,
+      note: "분류 불가"
+    };
+  }
+
+  function normalizeOffValue(s: string): string {
+    const compact = s.replace(/\s+/g, "");
+
+    const sameOffGroup = [
+      "대휴",
+      "휴무",
+      "일휴",
+      "공휴",
+      "토휴",
+      "주말",
+      "일휴-공휴"
+    ];
+
+    for (const w of sameOffGroup) {
+      if (compact === w || compact.includes(w)) {
+        return "휴무계열";
+      }
+    }
+
+    if (compact.includes("경조")) return "경조";
+    if (compact.includes("연차")) return "연차";
+
+    if (compact.includes("반차1")) return "반차1";
+    if (compact.includes("반차2")) return "반차2";
+    if (compact.includes("반차")) return "반차";
+
+    if (compact.includes("가족돌봄")) return "가족돌봄";
+    if (compact.includes("공가")) return "공가";
+    if (compact.includes("보건휴가")) return "보건휴가";
+
+    return "";
+  }
+
+  function compareDuty(sm: DutyInfo, il: DutyInfo): CompareResult {
+    if (sm.kind === "special" || il.kind === "special") {
+      return {
+        status: "확인필요",
+        code: "확인",
+        text: `확인필요 / SM:${labelDuty(sm)} / 일소정:${labelDuty(il)}`
+      };
+    }
+
+    if (sm.kind === "unknown" || il.kind === "unknown") {
+      return {
+        status: "확인필요",
+        code: "확인",
+        text: `분류불가 / SM:${labelDuty(sm)} / 일소정:${labelDuty(il)}`
+      };
+    }
+
+    if (sm.kind === "blank" && il.kind === "blank") {
+      return {
+        status: "일치",
+        code: "",
+        text: ""
+      };
+    }
+
+    if (sm.kind === "work" && il.kind === "work") {
+      if (sm.startMin !== null && il.startMin !== null) {
+        const smCompare = roundStartMin(sm.startMin);
+        const ilCompare = roundStartMin(il.startMin);
+
+        if (smCompare === ilCompare) {
+          return {
+            status: "일치",
+            code: "",
+            text: ""
+          };
+        }
+
+        return {
+          status: "불일치",
+          code: "시간",
+          text: `출근시간 다름 / SM:${sm.startText}→${minToText(smCompare)} / 일소정:${il.startText}→${minToText(ilCompare)}`
+        };
+      }
+
+      if (sm.note.includes("교육") || il.note.includes("교육")) {
+        return {
+          status: "일치",
+          code: "",
+          text: ""
+        };
+      }
+
+      return {
+        status: "확인필요",
+        code: "확인",
+        text: `근무이나 시간확인 필요 / SM:${labelDuty(sm)} / 일소정:${labelDuty(il)}`
+      };
+    }
+
+    if (sm.kind === "off" && il.kind === "off") {
+      if (sm.norm === il.norm) {
+        return {
+          status: "일치",
+          code: "",
+          text: ""
+        };
+      }
+
+      if (isHalfDayCompatible(sm.norm, il.norm)) {
+        return {
+          status: "일치",
+          code: "",
+          text: ""
+        };
+      }
+
+      return {
+        status: "불일치",
+        code: "휴무",
+        text: `휴무값 다름 / SM:${labelDuty(sm)} / 일소정:${labelDuty(il)}`
+      };
+    }
+
+    return {
+      status: "불일치",
+      code: "상태",
+      text: `상태 다름 / SM:${labelDuty(sm)} / 일소정:${labelDuty(il)}`
+    };
+  }
+
+  function isHalfDayCompatible(smNorm: string, ilNorm: string): boolean {
+    if ((smNorm === "반차1" || smNorm === "반차2") && ilNorm === "반차") {
+      return true;
+    }
+
+    if (smNorm === "반차" && (ilNorm === "반차1" || ilNorm === "반차2")) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function roundStartMin(min: number): number {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+
+    if (m >= 30) {
+      return (h + 1) * 60;
+    }
+
+    return h * 60;
+  }
+
+  function makeDebugValueText(
+    duty: DutyInfo,
+    value: CellValue,
+    text: string,
+    smStartRaw: string
+  ): string {
+    const display = displayCell(value, text);
+    const rawValue = String(value);
+    const dutyPart = labelDuty(duty);
+
+    if (duty.kind === "work" && duty.startMin !== null) {
+      return `표시:${display || "공란"} / 원값:${rawValue || "공란"} / ${dutyPart} / 비교:${minToText(roundStartMin(duty.startMin))}`;
+    }
+
+    if (!display && smStartRaw) {
+      return `표시:공란 / 원값:${rawValue || "공란"} / H출근:${smStartRaw} / ${dutyPart}`;
+    }
+
+    return `표시:${display || "공란"} / 원값:${rawValue || "공란"} / ${dutyPart}`;
+  }
+
+  function makeBlankDuty(): DutyInfo {
+    return {
+      kind: "blank",
+      raw: "",
+      norm: "공란",
+      startText: "",
+      startMin: null,
+      note: ""
+    };
+  }
+
+  function labelDuty(d: DutyInfo): string {
+    if (d.kind === "work") {
+      if (d.startMin !== null) {
+        return `근무 ${d.startText}→${minToText(roundStartMin(d.startMin))}`;
+      }
+
+      return "근무";
+    }
+
+    if (d.kind === "off") return d.norm;
+    if (d.kind === "blank") return "공란";
+    if (d.kind === "special") return d.raw || d.norm;
+
+    return d.raw || d.norm;
+  }
+
+  function extractSmNeTime(
+    value: CellValue,
+    text: string
+  ): { text: string; min: number | null } {
+    const raw = displayCell(value, text);
+    const compact = raw.replace(/\s+/g, "").toUpperCase();
+
+    let m = compact.match(/NE(\d{1,2})(\d{2})/);
+
+    if (m) {
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+
+      if (hh >= 0 && hh <= 29 && mm >= 0 && mm <= 59) {
+        const min = hh * 60 + mm;
+        return {
+          text: minToText(min),
+          min
+        };
+      }
+    }
+
+    m = compact.match(/NE(\d{1,2})[:：](\d{1,2})/);
+
+    if (m) {
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+
+      if (hh >= 0 && hh <= 29 && mm >= 0 && mm <= 59) {
+        const min = hh * 60 + mm;
+        return {
+          text: minToText(min),
+          min
+        };
+      }
+    }
+
+    return extractTime(value, text, true);
+  }
+
+  function extractTime(
+    value: CellValue,
+    text: string,
+    allowPlainHour: boolean
+  ): { text: string; min: number | null } {
+    const t = clean(text);
+
+    if (typeof value === "number") {
+      if (value > 0 && value < 1) {
+        const min = Math.round(value * 24 * 60);
+        return { text: minToText(min), min };
+      }
+
+      if (value >= 0 && value <= 29) {
+        const h = Math.floor(value);
+        const m = Math.round((value - h) * 60);
+
+        if (allowPlainHour || h >= 5) {
+          const min = h * 60 + m;
+          return { text: minToText(min), min };
+        }
+      }
+
+      if (value > 30000) {
+        const fraction = value - Math.floor(value);
+
+        if (fraction > 0) {
+          const min = Math.round(fraction * 24 * 60);
+          return { text: minToText(min), min };
+        }
+      }
+    }
+
+    if (!t) return { text: "", min: null };
+
+    let m = t.match(/(\d{1,2})\s*[:：]\s*(\d{1,2})/);
+
+    if (m) {
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+
+      if (hh >= 0 && hh <= 29 && mm >= 0 && mm <= 59) {
+        const min = hh * 60 + mm;
+        return { text: minToText(min), min };
+      }
+    }
+
+    m = t.match(/(\d{1,2})\s*시\s*(\d{1,2})?\s*분?/);
+
+    if (m) {
+      const hh = Number(m[1]);
+      const mm = m[2] ? Number(m[2]) : 0;
+
+      if (hh >= 0 && hh <= 29 && mm >= 0 && mm <= 59) {
+        const min = hh * 60 + mm;
+        return { text: minToText(min), min };
+      }
+    }
+
+    const compact = t.replace(/\s+/g, "");
+
+    m = compact.match(/^(\d{1,2})(\d{2})$/);
+
+    if (m) {
+      const hh = Number(m[1]);
+      const mm = Number(m[2]);
+
+      if (hh >= 0 && hh <= 29 && mm >= 0 && mm <= 59) {
+        const min = hh * 60 + mm;
+        return { text: minToText(min), min };
+      }
+    }
+
+    m = compact.match(/^(\d{1,2})$/);
+
+    if (m) {
+      const hh = Number(m[1]);
+
+      if (hh >= 0 && hh <= 29) {
+        if (allowPlainHour || hh >= 5) {
+          const min = hh * 60;
+          return { text: minToText(min), min };
+        }
+      }
+    }
+
+    return { text: "", min: null };
+  }
+
+  function isSmOneWork(value: CellValue, text: string): boolean {
+    const raw = displayCell(value, text);
+    const compact = raw.replace(/\s+/g, "");
+
+    if (compact === "1") return true;
+    if (compact === "1.0") return true;
+
+    if (typeof value === "number") {
+      if (Math.abs(value - 1) < 0.000001) return true;
+    }
+
+    return false;
+  }
+
+  function isSmMoveExcluded(s: string): boolean {
+    const compact = clean(s).replace(/\s+/g, "");
+    return compact.includes("이동");
+  }
+
+  function hasMultipleValue(s: string): boolean {
+    const compact = s.trim();
+
+    if (compact.includes("\n")) return true;
+    if (compact.includes(",")) return true;
+    if (compact.includes("，")) return true;
+    if (compact.includes("、")) return true;
+    if (compact.includes("+")) return true;
+    if (compact.includes("&")) return true;
+    if (compact.includes("/")) return true;
+
+    return false;
+  }
+
+  function isWorkWord(s: string): boolean {
+    const compact = s.replace(/\s+/g, "").toUpperCase();
+
+    if (compact === "근무") return true;
+    if (compact === "출근") return true;
+    if (compact === "O") return true;
+    if (compact === "○") return true;
+    if (compact === "Y") return true;
+
+    return false;
+  }
+
+  function parseDateKeyWithContext(value: CellValue, text: string, ctx: DateContext): string {
+    const t = clean(text);
+
+    if (typeof value === "number") {
+      if (value > 30000) {
+        const key = excelDateSerialToKey(value);
+        updateContextFromKey(ctx, key);
+        return key;
+      }
+
+      if (value >= 1 && value <= 31 && t.match(/^\d{1,2}(일)?$/)) {
+        return dayOnlyToKeyWithRollover(ctx, Math.floor(value));
+      }
+    }
+
+    if (!t) return "";
+
+    let s = t;
+    s = s.replace(/\([^)]*\)/g, "");
+    s = s.replace(/[년]/g, "-");
+    s = s.replace(/[월]/g, "-");
+    s = s.replace(/[일]/g, "");
+    s = s.replace(/\./g, "-");
+    s = s.replace(/\//g, "-");
+    s = s.replace(/\s+/g, "");
+    s = s.replace(/--+/g, "-");
+    s = s.replace(/-$/g, "");
+
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+
+    if (m) {
+      const key = dateKey(Number(m[1]), Number(m[2]), Number(m[3]));
+      updateContextFromKey(ctx, key);
+      return key;
+    }
+
+    m = s.match(/^(\d{1,2})-(\d{1,2})$/);
+
+    if (m) {
+      const key = dateKey(ctx.year, Number(m[1]), Number(m[2]));
+      updateContextFromKey(ctx, key);
+      return key;
+    }
+
+    m = s.match(/^(\d{1,2})$/);
+
+    if (m) {
+      return dayOnlyToKeyWithRollover(ctx, Number(m[1]));
+    }
+
+    return "";
+  }
+
+  function dayOnlyToKeyWithRollover(ctx: DateContext, day: number): string {
+    if (day < 1 || day > 31) return "";
+
+    if (
+      ctx.lastDay !== null &&
+      ctx.lastDay >= 25 &&
+      day <= 7 &&
+      day < ctx.lastDay
+    ) {
+      ctx.month++;
+
+      if (ctx.month > 12) {
+        ctx.month = 1;
+        ctx.year++;
+      }
+    }
+
+    ctx.lastDay = day;
+
+    return dateKey(ctx.year, ctx.month, day);
+  }
+
+  function updateContextFromKey(ctx: DateContext, key: string) {
+    const p = key.split("-");
+    ctx.year = Number(p[0]);
+    ctx.month = Number(p[1]);
+    ctx.lastDay = Number(p[2]);
+  }
+
+  function getKstBusinessDateKey(now: Date): string {
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+
+    const y = kst.getUTCFullYear();
+    const m = kst.getUTCMonth() + 1;
+    const d = kst.getUTCDate();
+    const h = kst.getUTCHours();
+
+    if (h < 5) {
+      const prev = new Date(Date.UTC(y, m - 1, d) - 24 * 60 * 60 * 1000);
+
+      return dateKey(
+        prev.getUTCFullYear(),
+        prev.getUTCMonth() + 1,
+        prev.getUTCDate()
+      );
+    }
+
+    return dateKey(y, m, d);
+  }
+
+  function excelDateSerialToKey(serial: number): string {
+    const ms = Math.round((serial - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+
+    return dateKey(
+      d.getUTCFullYear(),
+      d.getUTCMonth() + 1,
+      d.getUTCDate()
+    );
+  }
+
+  function makeDateLabel(key: string): string {
+    const p = key.split("-");
+    return `${Number(p[1])}/${Number(p[2])}`;
+  }
+
+  function dateKey(y: number, m: number, d: number): string {
+    return `${y}-${pad2(m)}-${pad2(d)}`;
+  }
+
+  function cellAddress(row: number, col: number): string {
+    return `${colLetter(col)}${row + 1}`;
+  }
+
+  function colLetter(col: number): string {
+    let n = col + 1;
+    let s = "";
+
+    while (n > 0) {
+      const m = (n - 1) % 26;
+      s = String.fromCharCode(65 + m) + s;
+      n = Math.floor((n - 1) / 26);
+    }
+
+    return s;
+  }
+
+  function displayCell(value: CellValue, text: string): string {
+    const t = clean(text);
+    if (t) return t;
+    if (value === null || value === undefined) return "";
+
+    return clean(String(value));
+  }
+
+  function clean(v: string): string {
+    if (v === null || v === undefined) return "";
+    return String(v).replace(/\u00A0/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function normalizeName(name: string): string {
+    return clean(name).replace(/\s+/g, "").toUpperCase();
+  }
+
+  function minToText(min: number): string {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+
+    return `${pad2(h)}:${pad2(m)}`;
+  }
+
+  function pad2(n: number): string {
+    return n < 10 ? `0${n}` : `${n}`;
+  }
+
+  function writeRowsChunked(
+    sheet: ExcelScript.Worksheet,
+    row: number,
+    col: number,
+    rows: (string | number | boolean)[][],
+    colCount: number,
+    chunkSize: number
+  ) {
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      sheet.getRangeByIndexes(row + i, col, chunk.length, colCount).setValues(chunk);
+    }
+  }
+
+  function applyBasicFormatChunked(
+    sheet: ExcelScript.Worksheet,
+    startRow: number,
+    startCol: number,
+    rowCount: number,
+    colCount: number,
+    firstColLeft: boolean
+  ) {
+    for (let r = 0; r < rowCount; r += FORMAT_ROW_CHUNK) {
+      const rows = Math.min(FORMAT_ROW_CHUNK, rowCount - r);
+
+      for (let c = 0; c < colCount; c += FORMAT_COL_CHUNK) {
+        const cols = Math.min(FORMAT_COL_CHUNK, colCount - c);
+        const range = sheet.getRangeByIndexes(startRow + r, startCol + c, rows, cols);
+
+        range.getFormat().setWrapText(false);
+        range.getFormat().getFont().setSize(9);
+        range.getFormat().setRowHeight(18);
+        range.getFormat().setHorizontalAlignment(ExcelScript.HorizontalAlignment.center);
+        range.getFormat().setVerticalAlignment(ExcelScript.VerticalAlignment.center);
+      }
+    }
+
+    if (firstColLeft && rowCount > 0) {
+      for (let r = 0; r < rowCount; r += FORMAT_ROW_CHUNK) {
+        const rows = Math.min(FORMAT_ROW_CHUNK, rowCount - r);
+        sheet.getRangeByIndexes(startRow + r, startCol, rows, 1)
+          .getFormat()
+          .setHorizontalAlignment(ExcelScript.HorizontalAlignment.left);
+      }
+    }
+  }
+
+  function applyColumnWidths(sheet: ExcelScript.Worksheet, mainCols: number) {
+    sheet.getRangeByIndexes(0, 0, 1, 1).getFormat().setColumnWidth(70);
+    sheet.getRangeByIndexes(0, 1, 1, 1).getFormat().setColumnWidth(85);
+
+    for (let c = 2; c < mainCols; c++) {
+      sheet.getRangeByIndexes(0, c, 1, 1).getFormat().setColumnWidth(38);
+    }
+  }
+
+  function applyDetailColumnWidths(sheet: ExcelScript.Worksheet) {
+    const widths = [65, 45, 45, 80, 70, 330, 190, 190, 90, 90, 80, 90];
+
+    for (let c = 0; c < widths.length; c++) {
+      sheet.getRangeByIndexes(0, c, 1, 1).getFormat().setColumnWidth(widths[c]);
+    }
+  }
+
+  function paintCompareCells(sheet: ExcelScript.Worksheet, cells: ColorCell[]) {
+    if (cells.length === 0) return;
+
+    cells.sort((a, b) => {
+      if (a.rowOffset !== b.rowOffset) return a.rowOffset - b.rowOffset;
+      if (a.status !== b.status) return a.status.localeCompare(b.status);
+      return a.col - b.col;
+    });
+
+    let i = 0;
+
+    while (i < cells.length) {
+      const start = cells[i];
+      let endCol = start.col;
+      let j = i + 1;
+
+      while (
+        j < cells.length &&
+        cells[j].rowOffset === start.rowOffset &&
+        cells[j].status === start.status &&
+        cells[j].col === endCol + 1
+      ) {
+        endCol = cells[j].col;
+        j++;
+      }
+
+      const color = start.status === "불일치" ? "#FCE4D6" : "#FFF2CC";
+      sheet.getRangeByIndexes(2 + start.rowOffset, start.col, 1, endCol - start.col + 1)
+        .getFormat()
+        .getFill()
+        .setColor(color);
+
+      i = j;
+    }
+  }
+
+  function paintDetailRows(
+    sheet: ExcelScript.Worksheet,
+    rows: (string | number)[][],
+    colCount: number
+  ) {
+    let r = 0;
+
+    while (r < rows.length) {
+      const status = String(rows[r][0]);
+      const color = getDetailStatusColor(status);
+
+      if (!color) {
+        r++;
+        continue;
+      }
+
+      let end = r + 1;
+
+      while (end < rows.length && getDetailStatusColor(String(rows[end][0])) === color) {
+        end++;
+      }
+
+      for (let p = r; p < end; p += FORMAT_ROW_CHUNK) {
+        const count = Math.min(FORMAT_ROW_CHUNK, end - p);
+        sheet.getRangeByIndexes(p + 1, 0, count, colCount)
+          .getFormat()
+          .getFill()
+          .setColor(color);
+      }
+
+      r = end;
+    }
+  }
+
+  function getDetailStatusColor(status: string): string {
+    if (status === "불일치") return "#FCE4D6";
+    if (status === "확인필요") return "#FFF2CC";
+    if (status === "중복오류") return "#F4CCCC";
+    return "";
+  }
+}

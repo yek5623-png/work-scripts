@@ -1,0 +1,178 @@
+/**
+ * 52OT정리 - Excel Office Script
+ *
+ * 기준 이름: 정리!B:B
+ * 삭제 대상:
+ *   - 각방OT(팀장용)!D:D의 이름이 기준 목록에 없으면 해당 행 전체 삭제
+ *   - OT시간!C:C의 이름이 기준 목록에 없으면 해당 행 전체 삭제
+ *
+ * 빈 이름 행과 이름 헤더 행은 삭제하지 않습니다.
+ * 행 번호가 당겨져 잘못 삭제되는 일을 막기 위해 아래쪽 행부터 삭제합니다.
+ */
+
+const LIST_SHEET_NAME = "정리";
+const LIST_NAME_COLUMN_INDEX = 1; // B열, 0-based
+
+const TEAM_OT_SHEET_NAME = "각방OT(팀장용)";
+const TEAM_OT_NAME_COLUMN_INDEX = 3; // D열, 0-based
+
+const OT_TIME_SHEET_NAME = "OT시간";
+const OT_TIME_NAME_COLUMN_INDEX = 2; // C열, 0-based
+
+function main(workbook: ExcelScript.Workbook): string {
+  // 삭제를 시작하기 전에 세 탭이 모두 있는지 먼저 확인합니다.
+  const listSheet = requireSheet(workbook, LIST_SHEET_NAME);
+  const teamOtSheet = requireSheet(workbook, TEAM_OT_SHEET_NAME);
+  const otTimeSheet = requireSheet(workbook, OT_TIME_SHEET_NAME);
+
+  const allowedNames = readAllowedNames(listSheet, LIST_NAME_COLUMN_INDEX);
+  const allowedNameCount = Object.keys(allowedNames).length;
+
+  // 정리 목록이 비어 있을 때 모든 행이 지워지는 사고를 방지합니다.
+  if (allowedNameCount === 0) {
+    throw new Error(
+      `'${LIST_SHEET_NAME}' 탭 B열에 이름이 없습니다. 아무 행도 삭제하지 않았습니다.`
+    );
+  }
+
+  // Worksheet 객체를 배열이나 다른 객체 안에 담으면 Office Scripts가
+  // API 별칭으로 판단하므로 각 시트를 직접 처리합니다.
+  const teamRowsToDelete = findRowsNotInList(
+    teamOtSheet,
+    TEAM_OT_NAME_COLUMN_INDEX,
+    allowedNames
+  );
+  const otTimeRowsToDelete = findRowsNotInList(
+    otTimeSheet,
+    OT_TIME_NAME_COLUMN_INDEX,
+    allowedNames
+  );
+
+  // 두 탭의 삭제 대상을 모두 계산한 뒤 실제 삭제를 시작합니다.
+  deleteWholeRowsBottomUp(teamOtSheet, teamRowsToDelete);
+  deleteWholeRowsBottomUp(otTimeSheet, otTimeRowsToDelete);
+
+  const teamDeleted = teamRowsToDelete.length;
+  const otTimeDeleted = otTimeRowsToDelete.length;
+  const result =
+    `정리 완료: 기준 이름 ${allowedNameCount}명 / ` +
+    `${TEAM_OT_SHEET_NAME} ${teamDeleted}행 삭제 / ` +
+    `${OT_TIME_SHEET_NAME} ${otTimeDeleted}행 삭제`;
+
+  console.log(result);
+  listSheet.activate();
+  return result;
+}
+
+function requireSheet(
+  workbook: ExcelScript.Workbook,
+  sheetName: string
+): ExcelScript.Worksheet {
+  const sheet = workbook.getWorksheet(sheetName);
+  if (!sheet) {
+    throw new Error(`시트 이름 확인: '${sheetName}' 탭이 없습니다.`);
+  }
+  return sheet;
+}
+
+function readAllowedNames(
+  sheet: ExcelScript.Worksheet,
+  nameColumnIndex: number
+): { [normalizedName: string]: boolean } {
+  const usedRange = sheet.getUsedRange(true);
+  const allowed: { [normalizedName: string]: boolean } = {};
+  if (!usedRange) return allowed;
+
+  const lastRowExclusive = usedRange.getRowIndex() + usedRange.getRowCount();
+  const texts = sheet
+    .getRangeByIndexes(0, nameColumnIndex, lastRowExclusive, 1)
+    .getTexts();
+
+  for (let rowIndex = 0; rowIndex < texts.length; rowIndex++) {
+    const name = normalizeName(texts[rowIndex][0]);
+    if (!name || isNameHeader(name)) continue;
+    allowed[name] = true;
+  }
+
+  return allowed;
+}
+
+function findRowsNotInList(
+  sheet: ExcelScript.Worksheet,
+  nameColumnIndex: number,
+  allowedNames: { [normalizedName: string]: boolean }
+): number[] {
+  const usedRange = sheet.getUsedRange(true);
+  if (!usedRange) return [];
+
+  const firstUsedRowIndex = usedRange.getRowIndex();
+  const texts = sheet
+    .getRangeByIndexes(firstUsedRowIndex, nameColumnIndex, usedRange.getRowCount(), 1)
+    .getTexts();
+  const rowsToDelete: number[] = [];
+
+  for (let offset = 0; offset < texts.length; offset++) {
+    const rowIndex = firstUsedRowIndex + offset;
+    const name = normalizeName(texts[offset][0]);
+
+    // 날짜 구분행, 빈 줄, 이름 헤더는 그대로 둡니다.
+    if (!name || isNameHeader(name)) continue;
+
+    if (!allowedNames[name]) {
+      rowsToDelete.push(rowIndex);
+    }
+  }
+
+  return rowsToDelete;
+}
+
+/**
+ * 0-based 행 번호를 받아 연속된 행끼리 묶고 아래쪽부터 전체 행을 삭제합니다.
+ */
+function deleteWholeRowsBottomUp(
+  sheet: ExcelScript.Worksheet,
+  rowIndexes: number[]
+): void {
+  if (rowIndexes.length === 0) return;
+
+  let cursor = rowIndexes.length - 1;
+
+  while (cursor >= 0) {
+    let runStart = rowIndexes[cursor];
+    const runEnd = runStart;
+    cursor--;
+
+    while (cursor >= 0 && rowIndexes[cursor] === runStart - 1) {
+      runStart = rowIndexes[cursor];
+      cursor--;
+    }
+
+    // Excel 주소는 1-based입니다. 예: 5:8은 5~8행 전체입니다.
+    const rowAddress = `${runStart + 1}:${runEnd + 1}`;
+    sheet
+      .getRange(rowAddress)
+      .delete(ExcelScript.DeleteShiftDirection.up);
+  }
+}
+
+function normalizeName(value: string): string {
+  return String(value == null ? "" : value)
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+function isNameHeader(normalizedName: string): boolean {
+  const headers: { [text: string]: boolean } = {
+    "이름": true,
+    "성명": true,
+    "사원명": true,
+    "상담사": true,
+    "상담사명": true,
+    "직원명": true,
+  };
+
+  return headers[normalizedName] === true;
+}
+

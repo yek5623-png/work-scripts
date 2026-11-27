@@ -1,0 +1,567 @@
+@echo off
+setlocal DisableDelayedExpansion
+chcp 65001 >nul
+set "CSV_MERGE_SELF=%~f0"
+set "CSV_MERGE_DIR=%~dp0"
+rem CSV header rows: 1 = keep the first file header only; 0 = keep all rows.
+set "CSV_MERGE_HEADER_ROWS=1"
+rem Empty URL uses a local saved link; ask once if no saved link exists.
+set "CSV_MERGE_TARGET_URL="
+set "CSV_MERGE_TARGET_SHEET=상태 RAW"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$s=Get-Content -LiteralPath $env:CSV_MERGE_SELF -Raw -Encoding UTF8; $body=$s.Substring($s.LastIndexOf('# POWERSHELL_START')+18); & ([scriptblock]::Create($body)) -InputFolder $env:CSV_MERGE_DIR -HeaderRows ([int]$env:CSV_MERGE_HEADER_ROWS)"
+set "CSV_MERGE_EXIT=%errorlevel%"
+if "%CSV_MERGE_EXIT%"=="0" exit /b 0
+echo.
+echo Exit code: %CSV_MERGE_EXIT%
+echo Press any key to close.
+pause >nul
+exit /b %CSV_MERGE_EXIT%
+# POWERSHELL_START
+param([string]$InputFolder = $env:CSV_MERGE_DIR, [int]$HeaderRows = 1)
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version 2
+Add-Type -AssemblyName Microsoft.VisualBasic
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$script:Utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+$script:Ansi = [Text.Encoding]::GetEncoding(949, [Text.EncoderFallback]::ExceptionFallback, [Text.DecoderFallback]::ExceptionFallback)
+
+function Read-CsvText([string]$Path) {
+    $b = [IO.File]::ReadAllBytes($Path)
+    if ($b.Length -ge 4 -and $b[0] -eq 255 -and $b[1] -eq 254 -and $b[2] -eq 0 -and $b[3] -eq 0) {
+        return (New-Object Text.UTF32Encoding($false,$false,$true)).GetString($b,4,$b.Length-4)
+    }
+    if ($b.Length -ge 4 -and $b[0] -eq 0 -and $b[1] -eq 0 -and $b[2] -eq 254 -and $b[3] -eq 255) {
+        return (New-Object Text.UTF32Encoding($true,$false,$true)).GetString($b,4,$b.Length-4)
+    }
+    if ($b.Length -ge 3 -and $b[0] -eq 239 -and $b[1] -eq 187 -and $b[2] -eq 191) {
+        return $script:Utf8.GetString($b,3,$b.Length-3)
+    }
+    if ($b.Length -ge 2 -and $b[0] -eq 255 -and $b[1] -eq 254) {
+        return (New-Object Text.UnicodeEncoding($false,$false,$true)).GetString($b,2,$b.Length-2)
+    }
+    if ($b.Length -ge 2 -and $b[0] -eq 254 -and $b[1] -eq 255) {
+        return (New-Object Text.UnicodeEncoding($true,$false,$true)).GetString($b,2,$b.Length-2)
+    }
+    # PowerShell wraps GetString failures in MethodInvocationException.
+    # Catch that wrapper too, then decode CP949 strictly instead of dropping bytes.
+    try { return $script:Utf8.GetString($b) }
+    catch { return $script:Ansi.GetString($b) }
+}
+
+function New-CsvParser([string]$Path) {
+    $parser = New-Object Microsoft.VisualBasic.FileIO.TextFieldParser($Path,$script:Ansi,$false)
+    $parser.TextFieldType = [Microsoft.VisualBasic.FileIO.FieldType]::Delimited
+    $parser.SetDelimiters(',')
+    $parser.HasFieldsEnclosedInQuotes = $true
+    $parser.TrimWhiteSpace = $false
+    return $parser
+}
+
+function Get-ColumnName([int]$Number) {
+    $name = ''
+    while ($Number -gt 0) {
+        $Number--
+        $name = [char](65 + ($Number % 26)) + $name
+        $Number = [int][Math]::Floor($Number / 26)
+    }
+    return $name
+}
+
+function Add-ZipText($Zip, [string]$Name, [string]$Text) {
+    $entry = $Zip.CreateEntry($Name, [IO.Compression.CompressionLevel]::Optimal)
+    $writer = New-Object IO.StreamWriter($entry.Open(), (New-Object Text.UTF8Encoding($false)))
+    try { $writer.Write($Text) } finally { $writer.Dispose() }
+}
+
+function Write-Xlsx([string[]]$Paths, [string]$Destination, [int]$SkipHeaders) {
+    $fileStream = [IO.File]::Open($Destination, [IO.FileMode]::CreateNew)
+    $zip = New-Object IO.Compression.ZipArchive($fileStream, [IO.Compression.ZipArchiveMode]::Create, $false)
+    $xml = $null
+    $parser = $null
+    $total = 0
+    $columns = 0
+    $header = New-Object 'System.Collections.Generic.List[string]'
+    try {
+        Add-ZipText $zip '[Content_Types].xml' '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'
+        Add-ZipText $zip '_rels/.rels' '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'
+        Add-ZipText $zip 'xl/workbook.xml' '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="통합" sheetId="1" r:id="rId1"/></sheets></workbook>'
+        Add-ZipText $zip 'xl/_rels/workbook.xml.rels' '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'
+        $entry = $zip.CreateEntry('xl/worksheets/sheet1.xml', [IO.Compression.CompressionLevel]::Optimal)
+        $settings = New-Object Xml.XmlWriterSettings
+        $settings.Encoding = New-Object Text.UTF8Encoding($false)
+        $settings.CloseOutput = $true
+        $xml = [Xml.XmlWriter]::Create($entry.Open(),$settings)
+        $ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+        $xml.WriteStartDocument()
+        $xml.WriteStartElement('worksheet',$ns)
+        if ($SkipHeaders -gt 0) {
+            $xml.WriteStartElement('sheetViews',$ns)
+            $xml.WriteStartElement('sheetView',$ns)
+            $xml.WriteAttributeString('workbookViewId','0')
+            $xml.WriteStartElement('pane',$ns)
+            $xml.WriteAttributeString('ySplit',[string]$SkipHeaders)
+            $xml.WriteAttributeString('topLeftCell',('A'+($SkipHeaders+1)))
+            $xml.WriteAttributeString('activePane','bottomLeft')
+            $xml.WriteAttributeString('state','frozen')
+            $xml.WriteEndElement(); $xml.WriteEndElement(); $xml.WriteEndElement()
+        }
+        $xml.WriteStartElement('sheetFormatPr',$ns)
+        $xml.WriteAttributeString('defaultColWidth','6')
+        $xml.WriteAttributeString('defaultRowHeight','15')
+        $xml.WriteEndElement()
+        $xml.WriteStartElement('sheetData',$ns)
+        $columnNames = @()
+        for ($fi = 0; $fi -lt $Paths.Count; $fi++) {
+            $parser = New-CsvParser $Paths[$fi]
+            $sourceRow = 0
+            $added = 0
+            try {
+                while (-not $parser.EndOfData) {
+                    $fields = $parser.ReadFields()
+                    $sourceRow++
+                    if ($fields.Count -gt 16384) { throw 'Excel 열 제한을 초과했습니다.' }
+                    if ($total -eq 0) {
+                        $columns = $fields.Count
+                        $columnNames = @(for ($ci=1; $ci -le $columns; $ci++) { Get-ColumnName $ci })
+                    }
+                    if ($fields.Count -ne $columns) { throw "열 개수가 다릅니다: $($Paths[$fi]), CSV 레코드 $sourceRow" }
+                    if ($sourceRow -le $SkipHeaders) {
+                        $signature = ConvertTo-Json -InputObject @($fields) -Compress
+                        if ($fi -eq 0) { $header.Add($signature) }
+                        else {
+                            if ($signature -cne $header[$sourceRow-1]) { throw "제목행이 다릅니다: $($Paths[$fi]), 레코드 $sourceRow" }
+                            continue
+                        }
+                    }
+                    $total++; $added++
+                    if ($total -gt 1048576) { throw 'Excel 최대 행 수 1,048,576행을 초과했습니다.' }
+                    $xml.WriteStartElement('row',$ns)
+                    $xml.WriteAttributeString('r',[string]$total)
+                    for ($ci=0; $ci -lt $fields.Count; $ci++) {
+                        $value = $fields[$ci]
+                        if ($value.Length -gt 32767) { throw "Excel 셀 글자 제한 초과: 레코드 $sourceRow, 열 $($ci+1)" }
+                        if ($value.Length -eq 0) { continue }
+                        # Escape literal OOXML escape sequences, then control characters.
+                        $value = [regex]::Replace($value,'_x[0-9A-Fa-f]{4}_', { param($m) '_x005F_' + $m.Value.Substring(1) })
+                        $value = [regex]::Replace($value,'[\x00-\x08\x0B\x0C\x0E-\x1F\uFFFE\uFFFF]', { param($m) '_x{0:X4}_' -f [int][char]$m.Value })
+                        $xml.WriteStartElement('c',$ns)
+                        $xml.WriteAttributeString('r',($columnNames[$ci]+$total))
+                        # Preserve IDs, leading zeroes, dates and formula-like text exactly.
+                        $xml.WriteAttributeString('t','inlineStr')
+                        $xml.WriteStartElement('is',$ns)
+                        $xml.WriteStartElement('t',$ns)
+                        $xml.WriteAttributeString('xml','space','http://www.w3.org/XML/1998/namespace','preserve')
+                        $xml.WriteString($value)
+                        $xml.WriteEndElement(); $xml.WriteEndElement(); $xml.WriteEndElement()
+                    }
+                    $xml.WriteEndElement()
+                }
+                if ($sourceRow -eq 0 -or $sourceRow -lt $SkipHeaders) { throw "비어 있거나 제목행이 부족한 CSV입니다: $($Paths[$fi])" }
+            } finally { $parser.Close(); $parser = $null }
+            Write-Host ("[적재] {0}: {1:N0}행" -f [IO.Path]::GetFileName($Paths[$fi]),$added)
+        }
+        $xml.WriteEndElement()
+        if ($SkipHeaders -eq 1 -and $total -gt 1) {
+            $xml.WriteStartElement('autoFilter',$ns)
+            $xml.WriteAttributeString('ref',('A1:'+(Get-ColumnName $columns)+$total))
+            $xml.WriteEndElement()
+        }
+        $xml.WriteEndElement(); $xml.WriteEndDocument()
+    } finally {
+        if ($null -ne $parser) { $parser.Close() }
+        if ($null -ne $xml) { $xml.Dispose() }
+        $zip.Dispose(); $fileStream.Dispose()
+    }
+    return $total
+}
+
+function ConvertFrom-SharePointEncoding([string]$Value) {
+    # SharePoint links can use legacy JavaScript escape() UTF-16 sequences.
+    # Decode normal URL escapes first, including %25uXXXX, then legacy %uXXXX.
+    $decoded = [uri]::UnescapeDataString($Value)
+    return [regex]::Replace($decoded, '%u([0-9a-f]{4})', {
+        param($match)
+        [string][char][Convert]::ToInt32($match.Groups[1].Value,16)
+    }, [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
+function ConvertTo-TargetSpec([string]$Link) {
+    $link = $Link.Trim().Trim('"').Replace('&amp;','&')
+    $uri = [uri]$link
+    if ($uri.Scheme -ne 'https' -or $uri.Host -notlike '*.sharepoint.com') { throw '대상은 HTTPS SharePoint 링크여야 합니다.' }
+    $query = @{}
+    foreach ($part in $uri.Query.TrimStart('?').Split('&')) {
+        $pair = $part.Split([char[]]'=',2)
+        if ($pair.Count -eq 2) { $query[$pair[0]] = ConvertFrom-SharePointEncoding ($pair[1].Replace('+',' ')) }
+    }
+    $name = ConvertFrom-SharePointEncoding ([IO.Path]::GetFileName($uri.AbsolutePath))
+    if ($query.ContainsKey('file')) { $name = $query['file'] }
+    # A browser link can identify the document by sourcedoc without a file name.
+    if ($name -notmatch '\.xlsx$') { $name = '' }
+    $site = [regex]::Match($uri.AbsolutePath,'/(sites|teams)/[^/]+/').Value
+    if (-not $site) { throw '대상 SharePoint 사이트 경로를 확인할 수 없습니다.' }
+    $id = ''
+    if ($query.ContainsKey('sourcedoc')) { $id = $query['sourcedoc'].Trim('{}') }
+    if (-not $name -and $id -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') { throw '파일명 또는 sourcedoc 파일 ID가 포함된 Excel 링크가 필요합니다.' }
+    return [pscustomobject]@{ Url=$link; Name=$name; Host=$uri.Host; Site=$site; Id=$id }
+}
+
+function Get-TargetSpec {
+    $link = $env:CSV_MERGE_TARGET_URL
+    if (-not [string]::IsNullOrWhiteSpace($link)) { return (ConvertTo-TargetSpec $link) }
+    $linkFolder = $InputFolder
+    if (-not $linkFolder) { $linkFolder = $env:CSV_MERGE_DIR }
+    if (-not $linkFolder) { throw '링크 설정 파일을 저장할 배치파일 폴더를 확인할 수 없습니다.' }
+    $linkPath = Join-Path $linkFolder '투입률_SharePoint링크.txt'
+    if (Test-Path -LiteralPath $linkPath) {
+        $link = [IO.File]::ReadAllText($linkPath).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($link)) {
+            try { return (ConvertTo-TargetSpec $link) }
+            catch { throw ('저장된 링크를 확인하세요: ' + $linkPath + ' / ' + $_.Exception.Message) }
+        }
+    }
+    Write-Host '최초 설정: 붙여넣을 SharePoint Excel 링크를 붙여넣고 Enter를 누르세요.'
+    Write-Host ('입력한 링크는 이 PC에 저장하여 다음 실행부터 재사용합니다: ' + $linkPath)
+    $link = Read-Host 'SharePoint Excel 링크'
+    if ([string]::IsNullOrWhiteSpace($link)) { throw '링크 입력을 취소했습니다. 통합 파일은 유지합니다.' }
+    $spec = ConvertTo-TargetSpec $link
+    [IO.File]::WriteAllText($linkPath,$spec.Url,(New-Object Text.UTF8Encoding($false)))
+    Write-Host '[링크 저장 완료] 다음 실행부터 자동으로 사용합니다.' -ForegroundColor Green
+    return $spec
+}
+
+function Initialize-ExcelWindowAccess {
+    if ('InputRateExcelWindows' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class InputRateExcelWindows {
+    private delegate bool EnumProc(IntPtr hwnd, IntPtr param);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback, IntPtr param);
+    [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr hwnd, EnumProc callback, IntPtr param);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, StringBuilder text, int count);
+    [DllImport("oleacc.dll")] private static extern int AccessibleObjectFromWindow(IntPtr hwnd, uint id, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out object result);
+    private static string ClassName(IntPtr hwnd) {
+        var text = new StringBuilder(256);
+        GetClassName(hwnd, text, text.Capacity);
+        return text.ToString();
+    }
+    public static object[] GetNativeWindows() {
+        var windows = new List<object>();
+        EnumWindows(delegate(IntPtr top, IntPtr param) {
+            if (ClassName(top) != "XLMAIN") return true;
+            EnumChildWindows(top, delegate(IntPtr child, IntPtr unused) {
+                if (ClassName(child) == "EXCEL7") {
+                    Guid iid = new Guid("00020400-0000-0000-C000-000000000046");
+                    object window;
+                    if (AccessibleObjectFromWindow(child, 0xFFFFFFF0, ref iid, out window) == 0 && window != null) windows.Add(window);
+                }
+                return true;
+            }, IntPtr.Zero);
+            return true;
+        }, IntPtr.Zero);
+        return windows.ToArray();
+    }
+}
+'@
+}
+
+function Get-OpenExcelApplications {
+    $seen = @{}
+    # Include both the registered instance and every workbook window, including
+    # Excel instances that have not registered in the Running Object Table.
+    try {
+        $app = [Runtime.InteropServices.Marshal]::GetActiveObject('Excel.Application')
+        $key = [string]$app.Hwnd
+        $seen[$key] = $true
+        Write-Output -NoEnumerate $app
+    } catch { }
+    foreach ($window in [InputRateExcelWindows]::GetNativeWindows()) {
+        try {
+            $app = $window.Application
+            $key = [string]$app.Hwnd
+            if (-not $seen.ContainsKey($key)) { $seen[$key] = $true; Write-Output -NoEnumerate $app }
+        } catch { }
+    }
+}
+
+function Find-TargetWorkbook($Excel, $Spec) {
+    foreach ($book in $Excel.Workbooks) {
+        $addresses = @([string]$book.FullName)
+        try { $addresses += [string]$book.FullNameURLEncoded } catch { }
+        foreach ($address in $addresses) {
+            $full = ConvertFrom-SharePointEncoding $address
+            # Never select a downloaded local copy merely because its name matches.
+            if ($full -notmatch '^https://') { continue }
+            $uri = [uri]$full
+            if ($uri.Host -ine $Spec.Host) { continue }
+            $idMatches = $Spec.Id -and $full.IndexOf($Spec.Id,[StringComparison]::OrdinalIgnoreCase) -ge 0
+            $siteMatches = $uri.AbsolutePath.IndexOf($Spec.Site,[StringComparison]::OrdinalIgnoreCase) -ge 0
+            $nameMatches = $book.Name -ieq $Spec.Name -or (ConvertFrom-SharePointEncoding ([IO.Path]::GetFileName($uri.AbsolutePath))) -ieq $Spec.Name
+            if ($idMatches -or ($siteMatches -and $nameMatches)) { return $book }
+        }
+    }
+    return $null
+}
+
+function Find-OpenTarget($Spec) {
+    $found = @()
+    foreach ($app in @(Get-OpenExcelApplications)) {
+        try {
+            $book = Find-TargetWorkbook $app $Spec
+            if ($null -ne $book) { $found += [pscustomobject]@{ Excel=$app; Workbook=$book } }
+        } catch { Write-Verbose ('Excel 연결 확인 중: ' + $_.Exception.Message) }
+    }
+    if ($found.Count -gt 1) { throw '대상 파일이 여러 Excel 인스턴스에서 열려 있습니다. 하나만 남기고 다시 실행하세요.' }
+    if ($found.Count -eq 1) { return $found[0] }
+    return $null
+}
+
+function Find-NewTarget($Spec, $Before) {
+    $found = @()
+    foreach ($app in @(Get-OpenExcelApplications)) {
+        foreach ($book in $app.Workbooks) {
+            $address = [string]$book.FullName
+            $key = [string]$app.Hwnd + '|' + $address
+            if ($Before.ContainsKey($key) -or $address -notmatch '^https://') { continue }
+            $uri = [uri]$address
+            if ($uri.Host -ine $Spec.Host -or -not $uri.AbsolutePath.StartsWith($Spec.Site,[StringComparison]::OrdinalIgnoreCase)) { continue }
+            if ([string]$book.Name -notmatch '\.xlsx$') { continue }
+            $found += [pscustomobject]@{ Excel=$app; Workbook=$book }
+        }
+    }
+    if ($found.Count -gt 1) { throw '링크를 연 뒤 새 SharePoint 파일이 여러 개 감지되어 대상을 확정하지 못했습니다. 원본과 통합 파일은 유지합니다.' }
+    if ($found.Count -eq 1) { return $found[0] }
+    return $null
+}
+
+function Get-AppendStartRow($Sheet) {
+    # CountA matches the destination guard, including empty text and formulas.
+    # UsedRange bounds the search; formatting alone does not count as data.
+    $used = $Sheet.UsedRange
+    $lastRow = [int]$used.Row + [int]$used.Rows.Count - 1
+    $counter = $Sheet.Application.WorksheetFunction
+    if ($counter.CountA($Sheet.Range(('I1:AD{0}' -f $lastRow))) -eq 0) { return 1 }
+    $low = 1
+    $high = $lastRow
+    while ($low -lt $high) {
+        $middle = [int][Math]::Floor(($low + $high + 1) / 2)
+        if ($counter.CountA($Sheet.Range(('I{0}:AD{1}' -f $middle,$lastRow))) -gt 0) {
+            $low = $middle
+        } else { $high = $middle - 1 }
+    }
+    return ($low + 1)
+}
+
+function Save-TargetWorkbook($Workbook, [int]$TimeoutSeconds = 120, [int]$PollMilliseconds = 1000) {
+    Write-Host '[저장 요청] SharePoint 파일의 Excel 저장 완료를 기다립니다. 최대 120초.'
+    [void]$Workbook.Save()
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    $lastError = ''
+    do {
+        try {
+            if ($Workbook.Saved) {
+                Write-Host '[Excel 저장 확인 완료]' -ForegroundColor Green
+                return
+            }
+            $lastError = ''
+        } catch {
+            # Excel may temporarily reject COM reads while saving or uploading.
+            $lastError = $_.Exception.Message
+        }
+        if ($timer.Elapsed.TotalSeconds -ge $TimeoutSeconds) { break }
+        Start-Sleep -Milliseconds $PollMilliseconds
+    } while ($true)
+    $message = '값 붙여넣기는 완료했지만 제한 시간 안에 Excel 저장 완료를 확인하지 못했습니다. 대상 Excel에서 Ctrl+S를 누르고 저장/동기화 상태를 확인하세요. CSV와 통합 파일은 보존합니다. 같은 CSV로 다시 실행하면 중복될 수 있습니다.'
+    if ($lastError) { $message += ' / 저장 상태 조회 오류: ' + $lastError }
+    throw $message
+}
+
+function Invoke-AppendToSharePoint([string]$Path, [int]$RowCount) {
+    if ($RowCount -le 1) { Write-Host '첫 행을 제외한 데이터가 없어 붙여넣기를 건너뜁니다.'; return }
+    $spec = Get-TargetSpec
+    $sheetName = $env:CSV_MERGE_TARGET_SHEET
+    if ([string]::IsNullOrWhiteSpace($sheetName)) { $sheetName = '상태 RAW' }
+    $excel = $null
+    $source = $null
+    $pasteStarted = $false
+    try {
+        Initialize-ExcelWindowAccess
+        $connection = Find-OpenTarget $spec
+        if ($null -ne $connection) { $excel = $connection.Excel }
+        else { $excel = New-Object -ComObject Excel.Application }
+        $excel.Visible = $true
+        Write-Host ('[통합 파일 열기] ' + $Path)
+        $source = $excel.Workbooks.Open($Path,0,$true)
+        Write-Host ('[통합 파일 열기 완료] ' + $source.Name)
+        if ($null -eq $connection) {
+            # Keep the supplied URL unchanged, as in the original workflow.
+            # Record existing workbooks so an unidentified old workbook is never selected.
+            $before = @{}
+            foreach ($app in @(Get-OpenExcelApplications)) {
+                foreach ($book in $app.Workbooks) { $before[([string]$app.Hwnd + '|' + [string]$book.FullName)] = $true }
+            }
+            Write-Host '[대상 파일 열기] 저장한 링크를 Excel 앱으로 엽니다.'
+            Start-Process -FilePath ('ms-excel:ofe|u|' + $spec.Url) -WindowStyle Hidden
+            $deadline = [DateTime]::UtcNow.AddSeconds(120)
+            do {
+                Start-Sleep -Milliseconds 1000
+                $connection = Find-OpenTarget $spec
+                if ($null -eq $connection -and -not $spec.Name) {
+                    $connection = Find-NewTarget $spec $before
+                }
+            } while ($null -eq $connection -and [DateTime]::UtcNow -lt $deadline)
+            if ($null -eq $connection) { throw '120초 안에 링크의 대상 Excel 파일이 열린 것을 확인하지 못했습니다. 통합 파일과 원본 CSV는 유지합니다.' }
+        }
+        # Office can route the target to a different Excel instance. Reopen the
+        # source there, so Copy/PasteSpecial uses a single Excel application.
+        if ([string]$excel.Hwnd -ne [string]$connection.Excel.Hwnd) {
+            $oldExcel = $excel
+            [void]$source.Close($false)
+            $source = $null
+            if ($oldExcel.Workbooks.Count -eq 0) { [void]$oldExcel.Quit() }
+            $excel = $connection.Excel
+            $excel.Visible = $true
+            $source = $excel.Workbooks.Open($Path,0,$true)
+        }
+        $target = $connection.Workbook
+        $spec.Name = [string]$target.Name
+        Write-Host ('[대상 연결 완료] ' + $target.Name)
+        if ($target.ReadOnly) { throw 'SharePoint 파일이 읽기 전용입니다. 편집 상태를 확인하세요.' }
+        try { $sheet = $target.Worksheets.Item($sheetName) }
+        catch { throw ('대상 탭을 찾지 못했습니다: ' + $sheetName) }
+        if ($sheet.ProtectContents) { throw ('대상 탭이 보호되어 있습니다: ' + $sheetName) }
+        $start = Get-AppendStartRow $sheet
+        $end = $start + $RowCount - 2
+        if ($end -gt $sheet.Rows.Count) { throw '붙여넣을 데이터가 Excel 최대 행 수를 초과합니다.' }
+        $destination = $sheet.Range(('I{0}:AD{1}' -f $start,$end))
+        if ($excel.WorksheetFunction.CountA($destination) -gt 0) { throw '붙여넣을 I:AD 범위에 기존 값/수식이 있어 중단했습니다. 대상 범위의 값과 수식을 확인하세요.' }
+        $sourceRange = $source.Worksheets.Item('통합').Range(('A2:V{0}' -f $RowCount))
+        [void]$sourceRange.Copy()
+        # xlPasteValues: retain target formatting and literal formula-like CSV text.
+        $pasteStarted = $true
+        [void]$destination.PasteSpecial(-4163)
+        $excel.CutCopyMode = 0
+        Write-Host ('[값 붙여넣기 완료] {0}!I{1}:AD{2} / {3:N0}행' -f $sheetName,$start,$end,($RowCount-1))
+        Save-TargetWorkbook $target
+        Write-Host ('[값 붙여넣기/저장 완료] {0} / {1}!I{2}:AD{3} / {4:N0}행' -f $spec.Name,$sheetName,$start,$end,($RowCount-1)) -ForegroundColor Green
+        # 성공한 두 통합문서만 닫습니다. 다른 업무 파일이 있으면 Excel은 유지합니다.
+        [void]$source.Close($false)
+        $source = $null
+        [void]$target.Close($true)
+        if ($excel.Workbooks.Count -eq 0) { [void]$excel.Quit() }
+        Write-Host '[닫기 완료] 통합 파일과 SharePoint 대상 파일'
+    } catch {
+        if ($pasteStarted) { Write-Host '붙여넣기/저장 확인 중 실패했습니다. Excel에서 붙여넣기 여부와 저장/동기화, 마지막 행을 확인하세요. 재실행하면 중복될 수 있습니다.' -ForegroundColor Yellow }
+        throw
+    } finally {
+        if ($null -ne $source) { try { $source.Close($false) } catch { Write-Host '통합 파일을 Excel에서 직접 닫아 주세요.' -ForegroundColor Yellow } }
+        if ($null -ne $excel) { try { $excel.CutCopyMode = 0 } catch { } }
+        # 오류 시에는 대상 파일을 유지하여 붙여넣기/저장 상태를 확인할 수 있게 합니다.
+    }
+}
+
+function Get-InputNameInfo([string]$BaseName) {
+    $match = [regex]::Match($BaseName,'^(?<Date>\d{4}-\d{2}-\d{2})[\s_+\-]*상담원[\s_+\-]*상태[\s_+\-]*요약(?:\s*\((?<Index>[1-9]\d*)\))?$')
+    if (-not $match.Success) { return $null }
+    $date = [DateTime]::ParseExact($match.Groups['Date'].Value,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture)
+    $index = 0L
+    if ($match.Groups['Index'].Success) { $index = [long]::Parse($match.Groups['Index'].Value) }
+    return [pscustomobject]@{ Date=$date; Index=$index }
+}
+
+function Remove-CompletedFiles([string]$Folder, [string[]]$Paths) {
+    $root = [IO.Path]::GetFullPath($Folder).TrimEnd('\')
+    foreach ($path in $Paths) {
+        try {
+            $resolved = [IO.Path]::GetFullPath($path)
+            $name = [IO.Path]::GetFileName($resolved)
+            $isInput = [IO.Path]::GetExtension($resolved) -ieq '.csv' -and $null -ne (Get-InputNameInfo ([IO.Path]::GetFileNameWithoutExtension($resolved)))
+            if ([IO.Path]::GetDirectoryName($resolved) -ine $root -or (-not $isInput -and $name -cne '투입률통합.xlsx')) {
+                throw ('삭제 대상 경로가 예상 범위를 벗어났습니다: ' + $resolved)
+            }
+            if (Test-Path -LiteralPath $resolved) {
+                Remove-Item -LiteralPath $resolved -Force -ErrorAction Stop
+                Write-Host ('[삭제 완료] ' + $name)
+            }
+        } catch {
+            Write-Host ('[정리 실패] ' + $path + ' / ' + $_.Exception.Message) -ForegroundColor Yellow
+            Write-Host '붙여넣기와 저장은 완료했습니다. 남은 파일만 직접 삭제하세요. 정리를 위해 재실행하지 마세요.' -ForegroundColor Yellow
+        }
+    }
+}
+
+function Invoke-CsvMerge {
+    if (-not $InputFolder) { $InputFolder = $PSScriptRoot }
+    if ($HeaderRows -lt 0 -or $HeaderRows -gt 100) { throw '제목행 설정은 0~100이어야 합니다.' }
+    $folder = [IO.Path]::GetFullPath($InputFolder)
+    $files = @(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Extension -ieq '.csv' } | Sort-Object Name)
+    if ($files.Count -eq 0) { throw '같은 폴더에 CSV 파일이 없습니다.' }
+    $matches = @(foreach ($file in $files) {
+        $info = Get-InputNameInfo $file.BaseName
+        if ($null -ne $info) { [pscustomobject]@{ File=$file; Date=$info.Date; Index=$info.Index } }
+    })
+    $ordered = @($matches | Sort-Object Date,Index | ForEach-Object { $_.File })
+    if ($ordered.Count -eq 0) { throw '날짜+상담원+상태+요약.csv 또는 뒤에 (1), (2) 등이 붙은 CSV가 없습니다. 예: 2026-10-04상담원상태요약.csv' }
+    $runId = (Get-Date -Format 'yyyyMMdd_HHmmss') + '_' + [guid]::NewGuid().ToString('N')
+    $ansiDir = Join-Path ([IO.Path]::GetTempPath()) ('투입률_ANSI_' + $runId)
+    [void][IO.Directory]::CreateDirectory($ansiDir)
+    $partial = Join-Path $folder ('투입률_작성중_' + $runId + '.tmp')
+    $final = Join-Path $folder '투입률통합.xlsx'
+    $merged = $false
+    try {
+        Write-Host 'CSV ANSI(CP949) 변환 → 숫자순 통합 Excel 생성'
+        Write-Host '붙여넣기/Excel 저장 성공 후 사용한 CSV와 통합 파일을 삭제합니다. 실행로그는 생성하지 않습니다.'
+        Write-Host ('통합 순서: ' + (($ordered | ForEach-Object { $_.Name }) -join ' → '))
+        foreach ($f in $ordered) {
+            $text = Read-CsvText $f.FullName
+            $converted = $script:Ansi.GetBytes($text)
+            [IO.File]::WriteAllBytes((Join-Path $ansiDir $f.Name),$converted)
+            Write-Host ('[변환] ' + $f.Name)
+        }
+        $paths = @($ordered | ForEach-Object { Join-Path $ansiDir $_.Name })
+        $rowCount = Write-Xlsx $paths $partial $HeaderRows
+        if (Test-Path -LiteralPath $final) { [IO.File]::Replace($partial,$final,[System.Management.Automation.Language.NullString]::Value) }
+        else { [IO.File]::Move($partial,$final) }
+        $merged = $true
+        Write-Host ("완료: {0:N0}행 / {1}개 파일" -f $rowCount,$paths.Count) -ForegroundColor Green
+        Write-Host $final
+        Invoke-AppendToSharePoint $final $rowCount
+        if ($rowCount -gt 1) {
+            $cleanupPaths = @($ordered | ForEach-Object { $_.FullName }) + @($final)
+            Remove-CompletedFiles $folder $cleanupPaths
+        } else { Write-Host '붙여넣을 데이터가 없어 CSV와 통합 파일은 유지했습니다.' -ForegroundColor Yellow }
+    } catch {
+        if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial -Force }
+        Write-Host ('오류: ' + $_.Exception.Message) -ForegroundColor Red
+        if ($merged) { Write-Host ('통합 파일은 유지했습니다: ' + $final) }
+        else { Write-Host '이번 통합 파일은 생성하지 않았습니다. 기존 통합 파일과 원본 CSV는 유지합니다.' }
+        throw
+    } finally {
+        $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+        $resolvedAnsi = [IO.Path]::GetFullPath($ansiDir)
+        if ($resolvedAnsi.StartsWith($tempRoot,[StringComparison]::OrdinalIgnoreCase) -and [IO.Path]::GetFileName($resolvedAnsi) -eq ('투입률_ANSI_' + $runId)) {
+            if (Test-Path -LiteralPath $resolvedAnsi) { Remove-Item -LiteralPath $resolvedAnsi -Recurse -Force }
+        }
+    }
+}
+
+function Show-CompletionAfterExit {
+    # 별도 숨김 프로세스가 작업 PowerShell 종료 후 팝업 하나만 표시합니다.
+    # 배치는 성공 시 pause 없이 반환하므로 더블클릭으로 연 CMD도 종료됩니다.
+    $notification = @"
+Wait-Process -Id $PID -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
+Add-Type -AssemblyName System.Windows.Forms
+[void][System.Windows.Forms.MessageBox]::Show('투입률 작업이 완료되었습니다.', '투입률 완료', 'OK', 'Information')
+"@
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($notification))
+    Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList @('-NoProfile', '-STA', '-EncodedCommand', $encoded) -ErrorAction Stop
+}
+
+if ($env:CSV_MERGE_TEST_ONLY -ne '1') {
+    try { Invoke-CsvMerge; Show-CompletionAfterExit; exit 0 } catch { Write-Host ('실행 실패: ' + $_.Exception.Message) -ForegroundColor Red; exit 1 }
+}

@@ -1,0 +1,134 @@
+// 긴조 투입률 진단 · 20261118.3
+// 현재 A1 입력을 유지하고 Excel 웹 > 자동화 > 새 스크립트에서 실행합니다.
+// 기존 셀·수식·계산 모드는 변경하지 않습니다. 새 '긴조입력진단' 탭에 요약만 기록합니다.
+// A1 원문·사번·이름은 보고서나 로그에 기록하지 않습니다.
+type InputDiagValue = string | number | boolean;
+interface InputDiagArray { values: InputDiagValue[][]; formula: boolean; spill: boolean; error: string; }
+interface InputDiagPerson { id: string; state: string; }
+function main(workbook: ExcelScript.Workbook) {
+  const rows: string[][] = [];
+  const add = (place: string, result: string, detail: string) => rows.push([place, result, detail]);
+  const status = workbook.getWorksheet("상태출력");
+  if (!status) throw new Error("상태출력 탭이 없습니다. 기존 셀을 변경하지 않았습니다.");
+  const app = workbook.getApplication();
+  add("계산 모드", String(app.getCalculationMode()), "Automatic이 아니면 A1을 바꿔도 계산이 남을 수 있습니다. 이 진단은 재계산하지 않습니다.");
+  const raw = String(status.getRange("A1").getValue());
+  const expectedLines = inputDiagLines(raw);
+  const expectedPeople = inputDiagPeople(expectedLines);
+  add("상태출력!A1 직접 읽기", raw.length + "글자 / " + expectedLines.length + "줄", "사번이 있는 줄 " + expectedLines.filter(line => inputDiagIds(line).length > 0).length + "개 / 기존 7줄 형식에서 상태 확인 " + expectedPeople.length + "명");
+  add("A1 직접 읽은 상태", inputDiagStats(expectedPeople.map(p => p.state)), "Excel 수식을 사용하지 않고 현재 A1을 스크립트가 직접 읽은 결과. 근무시간 필터 전입니다.");
+  const split = inputDiagRead(workbook, "수식원문", "A2");
+  inputDiagStage("수식원문!A2", split, add);
+  if (!split.error) {
+    const calculatedLines = split.values.map(r => inputDiagClean(String(r[0]))).filter(v => v !== "");
+    const equal = JSON.stringify(expectedLines) === JSON.stringify(calculatedLines);
+    add("A1 → 원문 분리 일치", equal ? "일치" : "불일치", "A1 직접 분리 " + expectedLines.length + "줄 / 수식원문 배열 " + calculatedLines.length + "줄. 불일치면 명단 정렬보다 앞에서 입력 반영이 멈췄습니다.");
+  }
+  const parsed = inputDiagRead(workbook, "수식원문", "D2");
+  inputDiagStage("수식원문!D2", parsed, add);
+  const parsedPeople = inputDiagFromRows(parsed.values, 0, 3);
+  add("D2 파싱된 상태", inputDiagStats(parsedPeople.map(p => p.state)), "현재 파싱 배열 " + parsedPeople.length + "명");
+  if (!parsed.error) inputDiagCompare("A1 → D2 사번·상태", expectedPeople, parsedPeople, add);
+  for (const spec of [["수식판정", "A2", 4], ["수식판정", "P2", 4], ["수식명단", "A2", 3], ["상태출력", "D10", 3]]) {
+    const sheetName = String(spec[0]);
+    const address = String(spec[1]);
+    const result = inputDiagRead(workbook, sheetName, address);
+    inputDiagStage(sheetName + "!" + address, result, add);
+    if (!result.error) {
+      const people = inputDiagFromRows(result.values, 0, Number(spec[2]));
+      add(sheetName + "!" + address + " 상태", inputDiagStats(people.map(p => p.state)), "사번 " + people.length + "명. 숫자 0과 구분 빈 줄은 인원에서 제외합니다.");
+      inputDiagCompare("A1 대조: " + sheetName + "!" + address, expectedPeople, people, add, true);
+    }
+  }
+  const settings = workbook.getWorksheet("수식설정");
+  if (settings) {
+    for (const address of ["B2", "B3", "B4"]) {
+      const cell = settings.getRange(address);
+      const value = cell.getValue();
+      const formula = cell.getFormula().startsWith("=");
+      let detail = formula ? "수식 있음" : "수식 없음";
+      if (typeof value === "number" && Number.isFinite(value)) {
+        detail += " / 숫자=" + value;
+        if (address !== "B4" && value > 1) detail += " / 엑셀 날짜·시간=" + new Date(Math.round((value - 25569) * 86400000)).toISOString().slice(0, 19).replace("T", " ");
+      }
+      add("수식설정!" + address, value === "" ? "빈 값" : typeof value === "number" ? "숫자 값" : "문자/논리/오류 값", detail + (address === "B2" ? " / B2가 비어 있지 않으면 기본 B3 수식은 NOW() 대신 B2를 사용합니다. 의도한 고정값인지 확인하세요." : ""));
+    }
+  } else add("수식설정", "탭 없음", "시간 기준을 확인할 수 없습니다.");
+  add("판독 순서", "A1 → 원문 A2 → 원문 D2 → 판정 A2/P2 → 명단 A2 → D10", "첫 불일치와 시간 고정 여부부터 확인합니다. 현재 예상 인원 9명은 이 진단에서 강제로 설정하지 않습니다.");
+  let reportName = "긴조입력진단";
+  for (let n = 1; workbook.getWorksheet(reportName); n++) reportName = "긴조입력진단" + n;
+  const report = workbook.addWorksheet(reportName);
+  report.getRange("A1:C1").setValues([["긴조 투입률 입력·시간 진단", "20261118.3", new Date(Date.now() + 32400000).toISOString().slice(0, 19) + " KST"]]);
+  report.getRange("A3:C3").setValues([["위치", "결과", "설명"]]);
+  report.getRangeByIndexes(3, 0, rows.length, 3).setValues(rows.map(r => r.map(v => "'" + v)));
+  report.getRangeByIndexes(0, 0, rows.length + 3, 3).getFormat().setWrapText(true);
+  report.getRange("A:B").getFormat().setColumnWidth(230);
+  report.getRange("C:C").getFormat().setColumnWidth(600);
+  report.getFreezePanes().freezeRows(3);
+  report.activate();
+  console.log("진단 완료: " + reportName + " 탭의 A열~C열 결과를 확인하세요. 기존 셀·계산 모드는 변경하지 않았습니다.");
+}
+function inputDiagClean(value: string): string {
+  return value.replace(/\u00a0/g, " ").replace(/[\u200b-\u200d]/g, "").replace(/\s+/g, " ").trim();
+}
+function inputDiagLines(raw: string): string[] {
+  return raw.replace(/\r\n?/g, "\n").split("\n").map(inputDiagClean).filter(v => v !== "");
+}
+function inputDiagIds(line: string): string[] {
+  return (line.match(/\b(?:cssp-[a-zA-Z0-9_-]+|[Kk](?:[Ee])?\d+)\b/g) || []).map(v => v.toLowerCase());
+}
+function inputDiagState(value: string): string { return inputDiagClean(value).replace(/\s/g, ""); }
+function inputDiagPeople(lines: string[]): InputDiagPerson[] {
+  const aliases = ["자리에없음", "대화가능", "식사", "식사중", "교육", "교육중", "회의", "회의중", "휴식", "휴식중", "오프라인", "온라인", "인터랙션", "인터랙션중", "커뮤니케이션", "커뮤니케이션중"];
+  const people: InputDiagPerson[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const ids = inputDiagIds(lines[i]);
+    if (!ids.length) continue;
+    for (let j = i; j < Math.min(lines.length, i + 7); j++) {
+      if (j > i && inputDiagIds(lines[j]).length) break;
+      const state = inputDiagState(lines[j]);
+      if (!aliases.includes(state)) continue;
+      for (const id of ids) {
+        const canonical = state.replace(/^(식사|교육|회의|휴식|인터랙션|커뮤니케이션)중$/, "$1");
+        if (!people.some(p => p.id === id && p.state === canonical)) people.push({ id, state: canonical });
+      }
+      break;
+    }
+  }
+  return people;
+}
+function inputDiagFromRows(rows: InputDiagValue[][], idColumn: number, stateColumn: number): InputDiagPerson[] {
+  return rows.filter(r => typeof r[idColumn] === "string" && inputDiagIds(String(r[idColumn])).includes(String(r[idColumn]).toLowerCase())).map(r => ({ id: String(r[idColumn]).toLowerCase(), state: inputDiagState(String(r[stateColumn] ?? "")) }));
+}
+function inputDiagStats(states: string[]): string {
+  const labels = ["대화가능", "온라인", "인터랙션", "인터랙션중", "커뮤니케이션", "커뮤니케이션중", "식사", "식사중", "휴식", "휴식중", "교육", "교육중", "회의", "자리에없음", "오프라인", "출근", "정상출근"];
+  const parts = labels.map(label => ({ label, count: states.filter(s => s === label).length })).filter(p => p.count > 0).map(p => p.label + "=" + p.count);
+  const unknown = states.filter(s => !labels.includes(s)).length;
+  if (unknown) parts.push("기타" + "=" + unknown);
+  return parts.join(" / ") || "인식된 상태 없음";
+}
+function inputDiagCompare(label: string, raw: InputDiagPerson[], actual: InputDiagPerson[], add: (place: string, result: string, detail: string) => void, subset: boolean = false) {
+  const absent = actual.filter(p => !raw.some(q => q.id === p.id)).length;
+  const different = actual.filter(p => raw.some(q => q.id === p.id) && !raw.some(q => q.id === p.id && q.state === p.state)).length;
+  const missing = raw.filter(p => !actual.some(q => q.id === p.id && q.state === p.state)).length;
+  const okay = absent === 0 && different === 0 && (subset || missing === 0);
+  add(label, okay ? "일치" : "불일치", "현재 A1에 없는 사번 " + absent + "명 / A1과 상태가 다른 사번 " + different + "명" + (subset ? " / 근무 필터·출근 표시 때문에 일부 제외 또는 상태 차이가 날 수 있으므로 앞단 결과와 함께 판단" : " / 수식에서 빠진 사번·상태 " + missing + "건"));
+}
+function inputDiagRead(workbook: ExcelScript.Workbook, sheetName: string, address: string): InputDiagArray {
+  const sheet = workbook.getWorksheet(sheetName);
+  if (!sheet) return { values: [], formula: false, spill: false, error: "탭 없음" };
+  try {
+    const cell = sheet.getRange(address);
+    const spill = cell.getSpillingToRange();
+    const area = spill || cell;
+    const types = area.getValueTypes();
+    const values = area.getValues();
+    const errors: string[] = [];
+    for (let r = 0; r < types.length; r++) for (let c = 0; c < types[r].length; c++) if (types[r][c] === ExcelScript.RangeValueType.error) errors.push(String(values[r][c]));
+    return { values, formula: cell.getFormula().startsWith("="), spill: !!spill, error: errors.length ? errors[0] + " 등 " + errors.length + "칸 오류" : "" };
+  } catch (error) { return { values: [], formula: false, spill: false, error: "조회 실패" }; }
+}
+function inputDiagStage(label: string, result: InputDiagArray, add: (place: string, result: string, detail: string) => void) {
+  const first = result.values[0]?.[0];
+  add(label, result.error || (first === 0 ? "첫 칸 숫자 0" : first === "" ? "첫 칸 빈 값" : "값 있음"), (result.formula ? "수식 있음" : "수식 없음") + " / " + (result.spill ? "배열 있음" : "배열 없음") + " / " + result.values.length + "행×" + (result.values[0]?.length || 0) + "열");
+}

@@ -1,0 +1,295 @@
+// 긴조 공용 접수 2단계. 시험용으로 복사한 '긴조_클라우드시험.xlsx'에 연결하세요.
+// 원문은 SharePoint 목록, 접수시각은 목록의 Created, 접수번호는 목록의 ID입니다.
+// 이 파일의 데일리 지정 9구간은 제출할 때마다 원본 값으로 교체됩니다.
+interface SavedRange { sheet: string; address: string; values: Cell[][]; formulas: string[][]; }
+interface Order { date: string; ms: number; id: number; }
+function main(workbook: ExcelScript.Workbook, 원문: string, 접수시각: string, 접수번호: number, 데일리자료: string): string {
+  const at = clock(접수시각);
+  if (typeof 원문 !== "string" || !원문.trim()) throw new Error("원문을 입력해 주세요.");
+  if (원문.length > 32767) throw new Error("원문이 Excel 한 칸의 최대 길이인 32,767자를 넘었습니다. 기록하지 않았습니다.");
+  if (!Number.isSafeInteger(접수번호) || 접수번호 < 1) throw new Error("접수번호에는 목록의 ID를 넣으세요.");
+  const incoming: Order = { date: at.date, ms: at.ms, id: 접수번호 };
+  const packet = validatePacket(데일리자료, at);
+  const status = workbook.getWorksheet("상태출력"), settings = workbook.getWorksheet("수식설정"), daily = workbook.getWorksheet("데일리"), link = workbook.getWorksheet("데일리연결");
+  if (!status || !settings || !daily || !link) throw new Error("기존 긴조 수식 파일의 복사본을 선택하세요. 상태출력·수식설정·데일리·데일리연결 탭이 필요합니다.");
+  if (!String(link.getRange("B9").getValue()).startsWith("긴급 ") || !String(link.getRange("B21").getValue()).includes("긴급조치 DailySheet.")) throw new Error("긴조 전용입니다. 인앱·귀책에는 적용하지 않습니다.");
+  if (getName(workbook, "긴조_자동기록").toUpperCase().replace(/\(\)/g, "") === "=TRUE") throw new Error("시험 파일의 추가 기능 패널에서 '끄기'를 먼저 누르세요. 클라우드와 추가 기능을 동시에 켜지 않습니다.");
+  if (getName(workbook, "AA누적_설치버전") !== '=\"20261114.1\"') throw new Error("AA 시간대 누적을 복구한 최신 긴조 파일을 복사해 주세요. 정상 작동 중인 긴조 파일에서 '복사본 저장'을 하세요.");
+  if (!status.getRange("AA34").getFormula().startsWith("=")) throw new Error("AA34의 데일리 결점 수식이 없습니다. 정상 작동 중인 긴조 파일을 복사해 주세요.");
+  const day = textName(getName(workbook, "AA누적_운영일"));
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("AA 운영일 저장값이 손상되었습니다. 기존 기록을 유지합니다.");
+  const latest = orderName(workbook, "긴조_클라우드최신접수");
+  const slotName = "긴조_클라우드구간_" + String(at.hour).padStart(2, "0");
+  const slot = orderName(workbook, slotName);
+  if ((day && at.date < day) || (latest && at.date < latest.date)) return result("건너뜀", 접수번호, "이전 운영일 접수입니다. 현재 화면은 유지하며 원문은 접수 목록에 남습니다.");
+  if (slot && slot.date === at.date && compareOrder(incoming, slot) <= 0) return result("건너뜀", 접수번호, "이미 처리했거나 같은 시간대의 더 최신 접수가 있습니다.");
+  for (const spec of [["수식원문", "D2"], ["수식근무", "A2"], ["수식근무", "P2"], ["수식OT", "G2"], ["수식판정", "P2"], ["수식명단", "AB2"]]) {
+    const sheet = workbook.getWorksheet(spec[0]);
+    if (!sheet || !sheet.getRange(spec[1]).getFormula().startsWith("=")) throw new Error(spec[0] + "!" + spec[1] + " 계산 수식이 없습니다. 원본 파일은 변경하지 않습니다.");
+  }
+  const previousInput = capture(workbook, [["상태출력", "A1"], ["상태출력", "D5"], ["수식설정", "B2"], ["데일리", "A1"], ...ADDRESSES.map(address => ["데일리", address])]);
+  const previousAa = capture(workbook, [["상태출력", "AA3:AA33"]]);
+  const namesToRestore = ["AA누적_운영일", "긴조_클라우드최신접수", slotName, "긴조_마지막입력"];
+  const priorNames = namesToRestore.map(name => ({ name, formula: getName(workbook, name) }));
+  const showAsLatest = !latest || compareOrder(incoming, latest) > 0;
+  let summary = "";
+  try {
+    for (const block of packet.blocks) writeValues(daily, block.address, block.values);
+    daily.getRange("A1").setValue(at.daySerial);
+    settings.getRange("B2").setValue(at.serial);
+    // B2 freezes the business formulas at submission time, even if the cloud run is delayed.
+    status.getRange("A1").setValue(literal(원문));
+    status.getRange("D5").setValue(at.serial);
+    workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+    const clockValue = settings.getRange("B3").getValue();
+    if (typeof clockValue !== "number" || Math.abs(clockValue - at.serial) > 1e-7) throw new Error("수식설정 B3이 접수시각을 따르지 않습니다. 기존 기록을 복원합니다.");
+    summary = recordAaReport(workbook);
+    if (!summary.startsWith("(")) throw new Error("AA 기록을 완료하지 못했습니다.");
+    if (!showAsLatest) {
+      // A late older hour may fill its own AA slot, but cannot rewind the current A1/D5/daily view.
+      restore(workbook, previousInput);
+      workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+      status.getRange("AA3").setValue(literal(previousAa[0].values[0][0]));
+    } else {
+      aaPutName(workbook, "긴조_클라우드최신접수", nameOrder(incoming));
+      aaPutName(workbook, "긴조_마지막입력", '=\"' + new Date(at.ms).toISOString() + '\"');
+    }
+    aaPutName(workbook, slotName, nameOrder(incoming));
+  } catch (error) {
+    restore(workbook, previousInput);
+    restore(workbook, previousAa);
+    for (const item of priorNames) {
+      const existing = workbook.getNamedItem(item.name);
+      if (item.formula) aaPutName(workbook, item.name, item.formula);
+      else if (existing) existing.delete();
+    }
+    workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+    throw error;
+  }
+  if (showAsLatest) {
+    status.getRange("D5").setNumberFormat("hh:mm");
+    daily.getRange("A1").setNumberFormat("m.d");
+  }
+  return result("완료", 접수번호, summary + (showAsLatest ? " · 접수시각 기준으로 기록했습니다." : " · 지연 접수의 해당 구간만 반영했습니다. 최신 A1·D5는 유지했습니다."));
+}
+// Keep raw text as text. Never execute an incoming value as an Excel formula.
+function literal(value: Cell): Cell { return typeof value === "string" && /^[=+\-@']/.test(value) ? "'" + value : value; }
+function validatePacket(json: string, at: Clock): Packet {
+  if (typeof json !== "string" || json.length > 4000000) throw new Error("데일리자료에는 첫 번째 스크립트 실행의 '결과(result)'를 넣으세요.");
+  const packet = JSON.parse(json) as Packet;
+  if (!packet || packet.version !== 1 || packet.submittedMs !== at.ms || packet.date !== at.date || packet.month !== at.month || packet.tab !== at.tab || !Array.isArray(packet.blocks) || packet.blocks.length !== ADDRESSES.length) throw new Error("데일리자료와 접수시각이 다릅니다. 두 스크립트의 접수시각에 같은 '만든 날짜'를 연결하세요.");
+  for (let i = 0; i < ADDRESSES.length; i++) {
+    const block = packet.blocks[i], shape = dimensions(ADDRESSES[i]);
+    if (!block || block.address !== ADDRESSES[i] || !Array.isArray(block.values) || block.values.length !== shape.rows) throw new Error("데일리자료 범위가 잘못되었습니다.");
+    for (const row of block.values) {
+      if (!Array.isArray(row) || row.length !== shape.cols || row.some(value => !(typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))))) throw new Error("데일리자료 안에 잘못된 값이 있습니다.");
+    }
+  }
+  if (!packet.blocks[1].values.some(row => String(row[1]).trim()) || !packet.blocks[2].values.some(row => String(row[0]).trim())) throw new Error("데일리자료에 사번 또는 이름이 없습니다.");
+  return packet;
+}
+function capture(workbook: ExcelScript.Workbook, specs: string[][]): SavedRange[] {
+  return specs.map(spec => {
+    const sheet = workbook.getWorksheet(spec[0]);
+    if (!sheet) throw new Error(spec[0] + " 탭이 없습니다.");
+    const range = sheet.getRange(spec[1]);
+    return { sheet: spec[0], address: spec[1], values: range.getValues(), formulas: range.getFormulas() };
+  });
+}
+function restore(workbook: ExcelScript.Workbook, saved: SavedRange[]) {
+  for (const item of saved) {
+    const sheet = workbook.getWorksheet(item.sheet);
+    if (!sheet) throw new Error(item.sheet + " 탭이 없습니다. 복원을 확인해 주세요.");
+    const range = sheet.getRange(item.address);
+    writeValues(sheet, item.address, item.values);
+    for (let r = 0; r < item.formulas.length; r++) for (let c = 0; c < item.formulas[r].length; c++) {
+      const formula = item.formulas[r][c];
+      if (typeof formula === "string" && formula.startsWith("=") && formula !== item.values[r][c]) range.getCell(r, c).setFormula(formula);
+    }
+  }
+}
+function writeValues(sheet: ExcelScript.Worksheet, address: string, values: Cell[][]) {
+  const range = sheet.getRange(address), merged = range.getMergedAreas();
+  const safe = values.map(row => row.map(value => literal(value)));
+  if (!merged) { range.setValues(safe); return; }
+  const skip = new Set<string>();
+  const baseR = range.getRowIndex(), baseC = range.getColumnIndex();
+  for (const area of merged.getAreas()) {
+    const r0 = area.getRowIndex(), c0 = area.getColumnIndex();
+    for (let r = 0; r < area.getRowCount(); r++) for (let c = 0; c < area.getColumnCount(); c++) if (r || c) skip.add((r0 + r - baseR) + "," + (c0 + c - baseC));
+  }
+  // Vertical runs keep unmerged employee columns in one operation, even beside merged groups.
+  for (let c = 0; c < safe[0].length; c++) {
+    let r = 0;
+    while (r < safe.length) {
+      if (skip.has(r + "," + c)) { r++; continue; }
+      const begin = r;
+      while (r < safe.length && !skip.has(r + "," + c)) r++;
+      sheet.getRangeByIndexes(baseR + begin, baseC + c, r - begin, 1).setValues(safe.slice(begin, r).map(row => [row[c]]));
+    }
+  }
+}
+function getName(workbook: ExcelScript.Workbook, name: string): string { const item = workbook.getNamedItem(name); return item ? item.getFormula() : ""; }
+function textName(formula: string): string { return formula.replace(/^=\"|\"$/g, "").replace(/\"\"/g, '\"'); }
+function orderName(workbook: ExcelScript.Workbook, name: string): Order | undefined {
+  const formula = getName(workbook, name);
+  if (!formula) return undefined;
+  const match = textName(formula).match(/^(\d{4}-\d{2}-\d{2})\|(\d+)\|([1-9]\d*)$/);
+  if (!match) throw new Error("자동 접수 기록값이 손상되었습니다. 현재 기록을 유지합니다.");
+  return { date: match[1], ms: Number(match[2]), id: Number(match[3]) };
+}
+function nameOrder(value: Order): string { return '=\"' + value.date + "|" + value.ms + "|" + value.id + '\"'; }
+function compareOrder(a: Order, b: Order): number { return a.ms === b.ms ? a.id - b.id : a.ms - b.ms; }
+function result(state: string, id: number, message: string): string { return JSON.stringify({ 처리: state, 접수번호: id, 안내: message }); }
+
+type Cell = string | number | boolean;
+interface Clock { ms: number; serial: number; daySerial: number; date: string; month: string; tab: string; hour: number; }
+interface Block { address: string; values: Cell[][]; }
+interface Packet { version: number; submittedMs: number; date: string; month: string; tab: string; blocks: Block[]; }
+const ADDRESSES = ["J4:J5", "B6:C140", "E6:G140", "I6:J140", "L6:M140", "R6:R140", "AY6:AY29", "BC6:BC29", "BP6:CD29"];
+function clock(value: string): Clock {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) throw new Error("접수시각에는 목록의 '만든 날짜(Created)'를 넣으세요. 현재 시각을 넣지 마세요.");
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) throw new Error("접수시각을 읽을 수 없습니다.");
+  const serial = ms / 86400000 + 25569 + 9 / 24;
+  if (serial < 45000 || serial > 100000) throw new Error("접수시각이 지원 범위를 벗어났습니다.");
+  const daySerial = Math.floor(serial - 5 / 24 + 1e-10);
+  const date = new Date(Date.UTC(1899, 11, 30) + daySerial * 86400000);
+  const year = date.getUTCFullYear(), month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const hour24 = new Date(ms + 9 * 3600000).getUTCHours();
+  return { ms, serial, daySerial, date: date.toISOString().slice(0, 10), month: String(year) + "-" + month, tab: "긴급 " + month + "(" + date.getUTCDate() + ")", hour: hour24 < 5 ? hour24 + 24 : hour24 };
+}
+function dimensions(address: string): { rows: number; cols: number } {
+  const match = address.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (!match) throw new Error("지원하지 않는 범위입니다.");
+  const col = (s: string): number => s.split("").reduce((sum, c) => sum * 26 + c.charCodeAt(0) - 64, 0);
+  return { rows: Number(match[4]) - Number(match[2]) + 1, cols: col(match[3]) - col(match[1]) + 1 };
+}
+function recordAaReport(workbook: ExcelScript.Workbook): string {
+  const auto = workbook.getNamedItem("긴조_자동기록");
+  if (auto && /^=TRUE(?:\(\))?$/i.test(auto.getFormula().trim())) return "추가 기능이 자동 기록 중이므로 수동 AA 기록은 생략했습니다.";
+  const sheet = workbook.getWorksheet("상태출력");
+  const settings = workbook.getWorksheet("수식설정");
+  if (!sheet || !settings) throw new Error("상태출력과 수식설정 탭이 필요합니다.");
+  const raw = sheet.getRange("A1").getValue();
+  if (typeof raw !== "string" || !raw.trim()) throw new Error("A1 상태 원문이 비어 있어 AA 기록을 건너뜁니다.");
+  const clock = settings.getRange("B3").getValue();
+  if (typeof clock !== "number" || !Number.isFinite(clock) || clock < 60 || clock > 100000) {
+    throw new Error("수식설정 B3의 기준 시각을 확인하세요. 기존 AA 기록은 유지합니다.");
+  }
+  const parts = aaBusinessTime(clock);
+  const parsed = aaReadSpill(workbook, "수식원문", "D2");
+  if (!parsed.some(row => aaKey(row[1]) !== "")) throw new Error("A1에서 유효한 상담사 상태를 읽지 못했습니다. 기존 AA 기록은 유지합니다.");
+  const source = aaReadSpill(workbook, "수식근무", "A2");
+  const scheduledMask = aaReadSpill(workbook, "수식근무", "P2");
+  const activeOt = aaReadSpill(workbook, "수식OT", "G2");
+  const present = aaReadSpill(workbook, "수식판정", "P2");
+  const missing = aaReadSpill(workbook, "수식명단", "AB2");
+  if (source.length !== scheduledMask.length) throw new Error("근무표와 판정 행 수가 맞지 않습니다. 기존 AA 기록은 유지합니다.");
+  const scheduled = new Set<string>();
+  for (let index = 0; index < source.length; index++) {
+    if (scheduledMask[index][0] === true || scheduledMask[index][0] === 1) {
+      const key = aaKey(source[index][1]);
+      if (key) scheduled.add(key);
+    }
+  }
+  const ot = new Set<string>();
+  for (const row of activeOt) { const key = aaKey(row[0]); if (key && !scheduled.has(key)) ot.add(key); }
+  const presentKeys = new Set<string>();
+  for (const row of present) { const key = aaKey(row[1]); if (key) presentKeys.add(key); }
+  const missingKeys = new Set<string>();
+  for (const row of missing) { const key = aaKey(row[0]); if (key) missingKeys.add(key); }
+  const summary = aaSummary(parts.hour, scheduled, ot, presentKeys, missingKeys);
+  const dayName = "AA누적_운영일";
+  const installName = "AA누적_설치버전";
+  const savedDay = workbook.getNamedItem(dayName);
+  const storedDay = savedDay ? savedDay.getFormula().replace(/^="|"$/g, "") : "";
+  if (savedDay && !/^\d{4}-\d{2}-\d{2}$/.test(storedDay)) throw new Error("AA 운영일 저장값을 확인하세요. 기존 기록은 유지합니다.");
+  const installed = workbook.getNamedItem(installName);
+  const version = '="20261114.1"';
+  const needsInstall = !installed || installed.getFormula() !== version;
+  const oldHeader = sheet.getRange("AA3").getText().trim();
+  const sameDay = storedDay ? storedDay === parts.dateKey : oldHeader.startsWith(parts.dateText + " SM ");
+  // 24개 구간만 AA6:AA29에 두어 AA33 아래 데일리 결점과 겹치지 않습니다.
+  let rows: string[][];
+  if (!sameDay) rows = Array.from({ length: 24 }, () => [""]);
+  else if (needsInstall) rows = aaMigrateRows(sheet.getRange("AA6:AA32").getTexts());
+  else rows = sheet.getRange("AA6:AA29").getTexts();
+  rows[parts.hour - 5] = [summary];
+  // 모든 원본/판정 확인이 끝난 다음에만 AA 출력에 씁니다.
+  if (needsInstall) {
+    sheet.getRange("AA6:AA32").clear(ExcelScript.ClearApplyTo.contents);
+    sheet.getRange("AA34:AA2003").clear(ExcelScript.ClearApplyTo.contents);
+    sheet.getRange("AA34").setFormula('=LET(source,수식근무!A2#,names,CHOOSECOLS(source,3),starts,CHOOSECOLS(source,10),ends,CHOOSECOLS(source,11),reason,CHOOSECOLS(source,12),rows,HSTACK(names,starts,ends,reason),valid,(names<>"")*(starts>=0)*(ends>=0)*(starts<>ends),picked,UNIQUE(FILTER(rows,valid,HSTACK("",-1,-1,""))),MAP(CHOOSECOLS(picked,1),CHOOSECOLS(picked,2),CHOOSECOLS(picked,3),CHOOSECOLS(picked,4),LAMBDA(person,beginMin,endMin,note,IF(person="","",person&" "&TEXT(beginMin/1440,"hh:mm")&"~"&TEXT(endMin/1440,"hh:mm")&IF(note="","","("&note&")")))))');
+  }
+  sheet.getRange("AA6:AA29").setValues(rows);
+  sheet.getRange("AA3:AA5").setValues([[parts.dateText + " SM " + aaPad(parts.hour) + "시 투입률 공유드립니다."], [""], ["[긴급조치]"]]);
+  sheet.getRange("AA33").setValue("[데일리 결점]");
+  aaPutName(workbook, dayName, '="' + parts.dateKey + '"');
+  if (needsInstall) aaPutName(workbook, installName, version);
+  return summary;
+}
+
+function aaReadSpill(workbook: ExcelScript.Workbook, sheetName: string, address: string): (string | number | boolean)[][] {
+  const sheet = workbook.getWorksheet(sheetName);
+  if (!sheet) throw new Error(sheetName + " 탭이 없습니다. 기존 AA 기록은 유지합니다.");
+  const anchor = sheet.getRange(address);
+  if (!anchor.getFormula()) throw new Error(sheetName + "!" + address + "의 계산 수식이 없습니다.");
+  const range = anchor.getSpillingToRange() || anchor;
+  const types = range.getValueTypes();
+  if (types.some(row => row.some(type => type === ExcelScript.RangeValueType.error))) {
+    throw new Error(sheetName + "!" + address + " 계산 오류로 AA 기록을 건너뜁니다. 오류를 결점 없음으로 기록하지 않습니다.");
+  }
+  return range.getValues();
+}
+
+function aaBusinessTime(serial: number): { dateKey: string; dateText: string; hour: number } {
+  const whole = Math.floor(serial);
+  const hour24 = Math.min(23, Math.floor((serial - whole) * 24 + 0.0000001));
+  const businessDay = whole - (hour24 < 5 ? 1 : 0);
+  const day = new Date(Date.UTC(1899, 11, 30) + businessDay * 86400000);
+  return { dateKey: day.toISOString().slice(0, 10), dateText: (day.getUTCMonth() + 1) + "/" + day.getUTCDate(), hour: hour24 < 5 ? hour24 + 24 : hour24 };
+}
+
+function aaSummary(hour: number, scheduled: Set<string>, ot: Set<string>, present: Set<string>, missing: Set<string>): string {
+  const missingNormal = new Set<string>();
+  missing.forEach(key => { if (!ot.has(key)) missingNormal.add(key); });
+  let missingOt = 0;
+  let presentOt = 0;
+  ot.forEach(key => {
+    if (present.has(key)) presentOt++;
+    // 예외/예정 이탈로 미출근 대상에서 제외된 인원은 결점으로 다시 세지 않습니다.
+    else if (missing.has(key)) missingOt++;
+  });
+  // 누락 판정과 로그인 판정이 어긋나도 정상으로 숨기지 않습니다.
+  missing.forEach(key => { if (ot.has(key) && present.has(key)) throw new Error("OT 출근·미출근 판정이 충돌합니다. 기존 AA 기록은 유지합니다."); });
+  let verdict = "결점 없음";
+  if (missingNormal.size > 0) verdict = "미출근 " + missingNormal.size + "명";
+  else if (missingOt > 0) verdict = "OT 미출근 " + missingOt + "명";
+  let result = "(" + aaPad(hour) + "~" + aaPad(hour + 1) + ") " + verdict;
+  if (ot.size > 0) {
+    result += " / OT " + ot.size + "명";
+    if (missingOt > 0) result += presentOt > 0 ? " (출근 " + presentOt + "명, 미출근 " + missingOt + "명)" : " (미출근 " + missingOt + "명)";
+  }
+  return result;
+}
+
+function aaMigrateRows(previous: string[][]): string[][] {
+  const rows = Array.from({ length: 24 }, () => [""]);
+  for (const row of previous) {
+    const match = (row[0] || "").match(/^\(\s*(\d{1,2})\s*[-~～]\s*(\d{1,2})\s*\)/);
+    if (!match) continue;
+    const hour = Number(match[1]);
+    if (hour >= 5 && hour <= 28 && Number(match[2]) === hour + 1) {
+      rows[hour - 5] = ["(" + aaPad(hour) + "~" + aaPad(hour + 1) + ")" + row[0].slice(match[0].length)];
+    }
+  }
+  return rows;
+}
+
+function aaPutName(workbook: ExcelScript.Workbook, name: string, formula: string) {
+  const existing = workbook.getNamedItem(name);
+  if (existing) existing.setFormula(formula); else workbook.addNamedItem(name, formula);
+}
+function aaKey(value: string | number | boolean): string { return String(value === undefined ? "" : value).trim().toLowerCase(); }
+function aaPad(value: number): string { return String(value).padStart(2, "0"); }

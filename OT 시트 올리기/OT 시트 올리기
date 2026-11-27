@@ -1,0 +1,81 @@
+function main(workbook: ExcelScript.Workbook) {
+    let stage = "대상 시트 확인";
+    let sheetName = "(확인 전)";
+    let completedCopies = 0;
+    const tempName = "__temp_rotate__";
+
+    try {
+        console.log(`[OT 시트 올리기] 시작: ${stage}`);
+        const sheet = workbook.getActiveWorksheet();
+        sheetName = sheet.getName();
+        console.log(`[OT 시트 올리기] 대상 시트: ${sheetName}`);
+
+        stage = "기존 임시 시트 확인 및 삭제";
+        console.log(`[OT 시트 올리기] ${stage}`);
+        const oldTemp = workbook.getWorksheet(tempName);
+        if (oldTemp) oldTemp.delete();
+
+        stage = "임시 시트 생성";
+        console.log(`[OT 시트 올리기] ${stage}`);
+        const temp = workbook.addWorksheet(tempName);
+
+        const startCol = "Y";
+        const endCol = "AB";
+        const firstRow = 2;
+        const blockHeight = 28;
+        const gapRows = 1;
+        const blockCount = 10;
+        const blocks: string[] = [];
+
+        for (let i = 0; i < blockCount; i++) {
+            const startRow = firstRow + i * (blockHeight + gapRows);
+            const endRow = startRow + blockHeight - 1;
+            blocks.push(`${startCol}${startRow}:${endCol}${endRow}`);
+        }
+
+        stage = `맨 위 구역 임시 보관: ${blocks[0]} → ${tempName}!A1:D28`;
+        console.log(`[OT 시트 올리기] ${stage}`);
+        temp.getRange("A1:D28").copyFrom(
+            sheet.getRange(blocks[0]),
+            ExcelScript.RangeCopyType.all
+        );
+
+        for (let i = 0; i < blocks.length - 1; i++) {
+            stage = `구역 ${i + 2} → ${i + 1} 복사: ${blocks[i + 1]} → ${blocks[i]}`;
+            console.log(`[OT 시트 올리기] ${stage}`);
+            sheet.getRange(blocks[i]).copyFrom(
+                sheet.getRange(blocks[i + 1]),
+                ExcelScript.RangeCopyType.all
+            );
+            completedCopies++;
+        }
+
+        stage = `맨 위 구역을 마지막으로 복사: ${tempName}!A1:D28 → ${blocks[blocks.length - 1]}`;
+        console.log(`[OT 시트 올리기] ${stage}`);
+        sheet.getRange(blocks[blocks.length - 1]).copyFrom(
+            temp.getRange("A1:D28"),
+            ExcelScript.RangeCopyType.all
+        );
+        completedCopies++;
+
+        stage = "임시 시트 삭제";
+        console.log(`[OT 시트 올리기] ${stage}`);
+        temp.delete();
+        console.log(`[OT 시트 올리기] 완료: ${sheetName}, ${completedCopies}개 구역 복사 성공`);
+    } catch (error) {
+        const detail = error instanceof Error
+            ? `${error.name}: ${error.message}`
+            : String(error);
+        const message = [
+            "[OT 시트 올리기] 실행 실패",
+            `대상 시트: ${sheetName}`,
+            `실패 단계: ${stage}`,
+            `대상 시트에 복사 완료한 구역: ${completedCopies}/10`,
+            `원래 오류: ${detail}`,
+            "일부 구역이 이미 변경되었을 수 있습니다. 재실행 전에 시트와 임시 시트를 확인하세요."
+        ].join("\n");
+        console.log(message);
+        // 버튼 실행에서도 Excel의 오류 표시로 확인할 수 있도록 다시 발생시킵니다.
+        throw new Error(message);
+    }
+}

@@ -1,0 +1,201 @@
+/**
+ * 뉴오티역순 - Excel Office Script
+ *
+ * 1) '데일리 역순' 탭이 없으면 '긴급조치OT'의 B3:T29를 복사해 만듭니다.
+ * 2) 데일리 역순!G6:T29에 직접 입력한 이름을 사람별로 묶습니다.
+ * 3) Y6:AB부터 이름 / 신청날짜 / 공란 / 신청시간을 출력합니다.
+ *    예: 홍길동 | 8/29 | (공란) | 5;6;7
+ */
+
+type CellValue = string | number | boolean;
+
+type PersonRequest = {
+  displayName: string;
+  hours: number[];
+};
+
+const SOURCE_SHEET_NAME = "긴급조치OT";
+const TARGET_SHEET_NAME = "데일리 역순";
+
+const TEMPLATE_RANGE = "B3:T29";
+const DATE_CELL = "B3";
+const TIME_RANGE = "B6:B29";
+const NAME_RANGE = "G6:T29";
+
+const OUTPUT_HEADER_RANGE = "Y5:AB5";
+const OUTPUT_FIRST_ROW_INDEX = 5; // Excel 6행 (0-based)
+const OUTPUT_FIRST_COLUMN_INDEX = 24; // Y열 (0-based)
+const OUTPUT_COLUMN_COUNT = 4;
+
+function main(workbook: ExcelScript.Workbook): void {
+  const target = getOrCreateDailyReverseSheet(workbook);
+  const outputRows = buildReverseOutput(target);
+
+  clearOldOutput(target);
+  target
+    .getRange(OUTPUT_HEADER_RANGE)
+    .setValues([["이름", "신청날짜", "", "신청시간"]]);
+
+  if (outputRows.length > 0) {
+    const outputRange = target.getRangeByIndexes(
+      OUTPUT_FIRST_ROW_INDEX,
+      OUTPUT_FIRST_COLUMN_INDEX,
+      outputRows.length,
+      OUTPUT_COLUMN_COUNT
+    );
+
+    outputRange.setNumberFormatLocal(
+      outputRows.map(() => ["@", "@", "@", "@"])
+    );
+    outputRange.setValues(outputRows);
+  }
+
+  target.activate();
+  target.getRange("Y5").select();
+}
+
+/**
+ * 대상 탭이 없을 때만 새로 만듭니다.
+ * 이미 있는 '데일리 역순' 탭은 입력 내용을 보호하기 위해 덮어쓰지 않습니다.
+ */
+function getOrCreateDailyReverseSheet(
+  workbook: ExcelScript.Workbook
+): ExcelScript.Worksheet {
+  const existing = workbook.getWorksheet(TARGET_SHEET_NAME);
+  if (existing) return existing;
+
+  const source = workbook.getWorksheet(SOURCE_SHEET_NAME);
+  if (!source) {
+    throw new Error(`시트 이름 확인: '${SOURCE_SHEET_NAME}' 탭이 없습니다.`);
+  }
+
+  const target = workbook.addWorksheet(TARGET_SHEET_NAME);
+  const sourceRange = source.getRange(TEMPLATE_RANGE);
+  const targetRange = target.getRange(TEMPLATE_RANGE);
+
+  targetRange.copyFrom(
+    sourceRange,
+    ExcelScript.RangeCopyType.all,
+    false,
+    false
+  );
+
+  copyTemplateDimensions(source, target);
+
+  // 새 탭에서는 이름을 직접 넣어야 하므로 원본의 기존 이름만 지웁니다.
+  target.getRange(NAME_RANGE).clear(ExcelScript.ClearApplyTo.contents);
+  return target;
+}
+
+function buildReverseOutput(sheet: ExcelScript.Worksheet): CellValue[][] {
+  const applicationDate = cleanText(sheet.getRange(DATE_CELL).getText());
+  const timeTexts = sheet.getRange(TIME_RANGE).getTexts();
+  const nameTexts = sheet.getRange(NAME_RANGE).getTexts();
+
+  const people: { [normalizedName: string]: PersonRequest } = {};
+  const personOrder: string[] = [];
+
+  for (let row = 0; row < nameTexts.length; row++) {
+    const startHour = parseHour(timeTexts[row][0]);
+
+    for (let column = 0; column < nameTexts[row].length; column++) {
+      const displayName = normalizeDisplayName(nameTexts[row][column]);
+      if (!displayName) continue;
+
+      const key = displayName.toLocaleLowerCase();
+      if (!people[key]) {
+        people[key] = { displayName, hours: [] };
+        personOrder.push(key);
+      }
+
+      if (startHour !== null && people[key].hours.indexOf(startHour) < 0) {
+        people[key].hours.push(startHour);
+      }
+    }
+  }
+
+  const output: CellValue[][] = [];
+  for (let index = 0; index < personOrder.length; index++) {
+    const person = people[personOrder[index]];
+    const applicationTimes = person.hours.map((hour) => String(hour)).join(";");
+
+    output.push([
+      person.displayName,
+      applicationDate,
+      "",
+      applicationTimes,
+    ]);
+  }
+
+  return output;
+}
+
+function clearOldOutput(sheet: ExcelScript.Worksheet): void {
+  const usedRange = sheet.getUsedRange(true);
+  const usedLastRowIndex = usedRange
+    ? usedRange.getRowIndex() + usedRange.getRowCount() - 1
+    : OUTPUT_FIRST_ROW_INDEX;
+  const rowsToClear = Math.max(
+    usedLastRowIndex - OUTPUT_FIRST_ROW_INDEX + 1,
+    1
+  );
+
+  sheet
+    .getRangeByIndexes(
+      OUTPUT_FIRST_ROW_INDEX,
+      OUTPUT_FIRST_COLUMN_INDEX,
+      rowsToClear,
+      OUTPUT_COLUMN_COUNT
+    )
+    .clear(ExcelScript.ClearApplyTo.contents);
+}
+
+function copyTemplateDimensions(
+  source: ExcelScript.Worksheet,
+  target: ExcelScript.Worksheet
+): void {
+  // B:T 열 너비 복사
+  for (let columnIndex = 1; columnIndex <= 19; columnIndex++) {
+    const sourceColumn = source.getRangeByIndexes(2, columnIndex, 27, 1);
+    const targetColumn = target.getRangeByIndexes(2, columnIndex, 27, 1);
+    targetColumn
+      .getFormat()
+      .setColumnWidth(sourceColumn.getFormat().getColumnWidth());
+  }
+
+  // 3:29행 높이 복사
+  for (let rowIndex = 2; rowIndex <= 28; rowIndex++) {
+    const sourceRow = source.getRangeByIndexes(rowIndex, 1, 1, 19);
+    const targetRow = target.getRangeByIndexes(rowIndex, 1, 1, 19);
+    targetRow.getFormat().setRowHeight(sourceRow.getFormat().getRowHeight());
+  }
+}
+
+function normalizeDisplayName(value: string): string {
+  return cleanText(value).replace(/\s+/g, " ");
+}
+
+function cleanText(value: string): string {
+  return String(value == null ? "" : value).trim();
+}
+
+/**
+ * 5, 05:00, 5시, 오전 5:00, 오후 5:00 형식을 모두 시간 숫자로 바꿉니다.
+ */
+function parseHour(value: string): number | null {
+  const text = cleanText(value);
+  if (!text) return null;
+
+  const match = text.match(/(?:오전|오후|AM|PM)?\s*(\d{1,2})(?:\s*[:시]|$)/i);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  if (!Number.isFinite(hour)) return null;
+
+  if (/오후|PM/i.test(text) && hour < 12) hour += 12;
+  if (/오전|AM/i.test(text) && hour === 12) hour = 0;
+
+  if (hour < 0 || hour > 23) return null;
+  return hour;
+}
+

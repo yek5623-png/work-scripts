@@ -1,0 +1,20 @@
+{
+  "assertions": 125,
+  "scope": "긴급만",
+  "inappFaultAccumulationRemoved": true,
+  "wrongPatchCleanupIdempotent": true,
+  "unpatchedManualAaPreserved": true,
+  "sameIntervalOverwritten": true,
+  "cleanAfterResolution": true,
+  "otMissingNeverShownAsClean": true,
+  "exceptionsRespected": true,
+  "midnightPreservesDay": true,
+  "fiveAmResetsDay": true,
+  "all24SlotsChecked": true,
+  "yearBoundaryChecked": true,
+  "legacyRowsMigrated": true,
+  "noWritesOnInvalidInputs": true,
+  "plannedAbsenceRestored": true,
+  "manualExecutionRequired": true,
+  "nativeExcelTested": false
+}

@@ -1,0 +1,1 @@
+replace(string(body('Read_template')), decodeUriComponent('%5F%5FGINJO%5FDAILY%5FBASE64%5F%5F'), base64(string(setProperty(json(string(outputs('SharePoint_라이브러리에서_스크립트_실행')?['body/result'])), 'sharedInput', body('Get_shared')))))

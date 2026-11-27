@@ -1,0 +1,751 @@
+@echo off
+setlocal DisableDelayedExpansion
+chcp 65001 >nul
+set "DAILY_ROW_SELF=%~f0"
+set "DAILY_ROW_DIR=%~dp0"
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -Command "$s=Get-Content -LiteralPath $env:DAILY_ROW_SELF -Raw -Encoding UTF8; $m='# DAILY_ROW_POWERSHELL_START'; $body=$s.Substring($s.LastIndexOf($m)+$m.Length); & ([scriptblock]::Create($body))"
+set "DAILY_ROW_EXIT=%errorlevel%"
+echo.
+pause
+exit /b %DAILY_ROW_EXIT%
+# DAILY_ROW_POWERSHELL_START
+param([switch]$CheckOnly, [switch]$LibraryOnly)
+Set-StrictMode -Version 2
+$ErrorActionPreference = 'Stop'
+$script:Root = $env:DAILY_ROW_DIR
+$script:Utf8 = New-Object Text.UTF8Encoding($true)
+
+function Write-JsonFile($Path, $Data) {
+    $temp = $Path + '.tmp'
+    [IO.File]::WriteAllText($temp, (ConvertTo-Json -InputObject $Data -Depth 30), $script:Utf8)
+    if (Test-Path -LiteralPath $Path) { [IO.File]::Replace($temp, $Path, [System.Management.Automation.Language.NullString]::Value) }
+    else { [IO.File]::Move($temp, $Path) }
+}
+function Read-JsonFile($Path) { Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json }
+function Has-Value($Value) { return ($null -ne $Value -and [string]$Value -ne '') }
+function Equal-Value($A, $B) {
+    if (-not (Has-Value $A) -and -not (Has-Value $B)) { return $true }
+    if ($A -is [string] -or $B -is [string]) {
+        return ($A -is [string] -and $B -is [string] -and [string]::Equals($A,$B,[StringComparison]::Ordinal))
+    }
+    if ($A -is [bool] -or $B -is [bool]) { return ($A -is [bool] -and $B -is [bool] -and $A -eq $B) }
+    if ($A -is [ValueType] -and $B -is [ValueType]) {
+        try { return ([double]$A -eq [double]$B) } catch {}
+    }
+    return [object]::Equals($A,$B)
+}
+function Get-Input($Prompt) {
+    $answer = (Read-Host $Prompt).Trim()
+    if (-not $answer) { throw '빈 항목은 등록할 수 없습니다.' }
+    return $answer
+}
+function ConvertFrom-SharePointEncoding([string]$Value) {
+    # SharePoint links can use legacy JavaScript escape() UTF-16 sequences.
+    # Decode normal URL escapes first, including %25uXXXX, then legacy %uXXXX.
+    $decoded = [uri]::UnescapeDataString($Value)
+    return [regex]::Replace($decoded, '%u([0-9a-f]{4})', {
+        param($match)
+        [string][char][Convert]::ToInt32($match.Groups[1].Value,16)
+    }, [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+
+function ConvertTo-TargetSpec([string]$Link) {
+    $link = $Link.Trim().Trim('"').Replace('&amp;','&')
+    $uri = [uri]$link
+    if ($uri.Scheme -ne 'https' -or $uri.Host -notlike '*.sharepoint.com') { throw '대상은 HTTPS SharePoint 링크여야 합니다.' }
+    $query = @{}
+    foreach ($part in $uri.Query.TrimStart('?').Split('&')) {
+        $pair = $part.Split([char[]]'=',2)
+        if ($pair.Count -eq 2) { $query[$pair[0]] = ConvertFrom-SharePointEncoding ($pair[1].Replace('+',' ')) }
+    }
+    $name = ConvertFrom-SharePointEncoding ([IO.Path]::GetFileName($uri.AbsolutePath))
+    if ($query.ContainsKey('file')) { $name = $query['file'] }
+    # A browser link can identify the document by sourcedoc without a file name.
+    if ($name -notmatch '\.xlsx$') { $name = '' }
+    $site = [regex]::Match($uri.AbsolutePath,'/(sites|teams)/[^/]+/').Value
+    if (-not $site) { throw '대상 SharePoint 사이트 경로를 확인할 수 없습니다.' }
+    $id = ''
+    if ($query.ContainsKey('sourcedoc')) { $id = $query['sourcedoc'].Trim('{}') }
+    if (-not $name -and $id -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') { throw '파일명 또는 sourcedoc 파일 ID가 포함된 Excel 링크가 필요합니다.' }
+    return [pscustomobject]@{ Url=$link; Name=$name; Host=$uri.Host; Site=$site; Id=$id }
+}
+
+function Initialize-ExcelWindowAccess {
+    if ('InputRateExcelWindows' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class InputRateExcelWindows {
+    private delegate bool EnumProc(IntPtr hwnd, IntPtr param);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback, IntPtr param);
+    [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr hwnd, EnumProc callback, IntPtr param);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, StringBuilder text, int count);
+    [DllImport("oleacc.dll")] private static extern int AccessibleObjectFromWindow(IntPtr hwnd, uint id, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out object result);
+    private static string ClassName(IntPtr hwnd) {
+        var text = new StringBuilder(256);
+        GetClassName(hwnd, text, text.Capacity);
+        return text.ToString();
+    }
+    public static object[] GetNativeWindows() {
+        var windows = new List<object>();
+        EnumWindows(delegate(IntPtr top, IntPtr param) {
+            if (ClassName(top) != "XLMAIN") return true;
+            EnumChildWindows(top, delegate(IntPtr child, IntPtr unused) {
+                if (ClassName(child) == "EXCEL7") {
+                    Guid iid = new Guid("00020400-0000-0000-C000-000000000046");
+                    object window;
+                    if (AccessibleObjectFromWindow(child, 0xFFFFFFF0, ref iid, out window) == 0 && window != null) windows.Add(window);
+                }
+                return true;
+            }, IntPtr.Zero);
+            return true;
+        }, IntPtr.Zero);
+        return windows.ToArray();
+    }
+}
+'@
+}
+
+function Get-OpenExcelApplications {
+    $seen = @{}
+    # Include both the registered instance and every workbook window, including
+    # Excel instances that have not registered in the Running Object Table.
+    try {
+        $app = [Runtime.InteropServices.Marshal]::GetActiveObject('Excel.Application')
+        $key = [string]$app.Hwnd
+        $seen[$key] = $true
+        Write-Output -NoEnumerate $app
+    } catch { }
+    foreach ($window in [InputRateExcelWindows]::GetNativeWindows()) {
+        try {
+            $app = $window.Application
+            $key = [string]$app.Hwnd
+            if (-not $seen.ContainsKey($key)) { $seen[$key] = $true; Write-Output -NoEnumerate $app }
+        } catch { }
+    }
+}
+
+function Find-TargetWorkbook($Excel, $Spec) {
+    foreach ($book in $Excel.Workbooks) {
+        $addresses = @([string]$book.FullName)
+        try { $addresses += [string]$book.FullNameURLEncoded } catch { }
+        foreach ($address in $addresses) {
+            $full = ConvertFrom-SharePointEncoding $address
+            # Never select a downloaded local copy merely because its name matches.
+            if ($full -notmatch '^https://') { continue }
+            $uri = [uri]$full
+            if ($uri.Host -ine $Spec.Host) { continue }
+            $idMatches = $Spec.Id -and $full.IndexOf($Spec.Id,[StringComparison]::OrdinalIgnoreCase) -ge 0
+            $siteMatches = $uri.AbsolutePath.IndexOf($Spec.Site,[StringComparison]::OrdinalIgnoreCase) -ge 0
+            $nameMatches = $book.Name -ieq $Spec.Name -or (ConvertFrom-SharePointEncoding ([IO.Path]::GetFileName($uri.AbsolutePath))) -ieq $Spec.Name
+            if ($idMatches -or ($siteMatches -and $nameMatches)) { return $book }
+        }
+    }
+    return $null
+}
+
+function Find-OpenTarget($Spec) {
+    $found = @()
+    foreach ($app in @(Get-OpenExcelApplications)) {
+        try {
+            $book = Find-TargetWorkbook $app $Spec
+            if ($null -ne $book) { $found += [pscustomobject]@{ Excel=$app; Workbook=$book } }
+        } catch { Write-Verbose ('Excel 연결 확인 중: ' + $_.Exception.Message) }
+    }
+    if ($found.Count -gt 1) { throw '대상 파일이 여러 Excel 인스턴스에서 열려 있습니다. 하나만 남기고 다시 실행하세요.' }
+    if ($found.Count -eq 1) { return $found[0] }
+    return $null
+}
+
+function Find-NewTarget($Spec, $Before) {
+    $found = @()
+    foreach ($app in @(Get-OpenExcelApplications)) {
+        foreach ($book in $app.Workbooks) {
+            $address = [string]$book.FullName
+            $key = [string]$app.Hwnd + '|' + $address
+            if ($Before.ContainsKey($key) -or $address -notmatch '^https://') { continue }
+            $uri = [uri]$address
+            if ($uri.Host -ine $Spec.Host -or -not $uri.AbsolutePath.StartsWith($Spec.Site,[StringComparison]::OrdinalIgnoreCase)) { continue }
+            if ([string]$book.Name -notmatch '\.xlsx$') { continue }
+            $found += [pscustomobject]@{ Excel=$app; Workbook=$book }
+        }
+    }
+    if ($found.Count -gt 1) { throw '링크를 연 뒤 새 SharePoint 파일이 여러 개 감지되어 대상을 확정하지 못했습니다. 원본과 통합 파일은 유지합니다.' }
+    if ($found.Count -eq 1) { return $found[0] }
+    return $null
+}
+
+
+$script:ManagedBooks = @{}
+$script:ManagedApps = @{}
+$script:OnlineResolved = @{}
+$script:LocalExcel = $null
+function Resolve-Location([string]$Location) {
+    $s = $Location.Trim().Trim('"').Replace('&amp;','&')
+    if ($s -match '^ms-excel:of[ev]\|u\|') { $s = $s -replace '^ms-excel:of[ev]\|u\|', '' }
+    if ($s -match '^https://') {
+        # 투입률과 동일하게 원래 온라인 링크/쿼리 전체를 보존합니다.
+        $null = ConvertTo-TargetSpec $s
+        return $s
+    }
+    if (-not (Test-Path -LiteralPath $s -PathType Leaf)) { throw "파일 경로를 찾지 못했습니다: $s" }
+    return (Resolve-Path -LiteralPath $s).Path
+}
+function Close-ManagedBook($Book) {
+    $key=[string]$Book.Application.Hwnd + '|' + [string]$Book.FullName
+    $entry=$null
+    if ($script:ManagedBooks.ContainsKey($key)) { $entry=$script:ManagedBooks[$key] }
+    if ($null -ne $entry -and $entry.PreserveUnsaved -and -not $Book.Saved) {
+        Write-Host ("[닫기 보류] {0}: 실행 전 미저장 변경이 남아 있어 창을 유지합니다." -f $Book.Name) -ForegroundColor Yellow
+        return
+    }
+
+    $lastError=''
+    for ($attempt=0; $attempt -lt 3; $attempt++) {
+        try {
+            $app=$Book.Application
+            $priorAlerts=$app.DisplayAlerts
+            try {
+                $app.DisplayAlerts=$false
+                # 성공 시 이미 Save-Book으로 저장했습니다. 실패 시 새 변경은 추가 저장하지 않습니다.
+                $Book.Close([bool]$Book.Saved)
+            } finally { try { $app.DisplayAlerts=$priorAlerts } catch {} }
+            $script:ManagedBooks.Remove($key)
+            return
+        } catch { $lastError=$_.Exception.Message; Start-Sleep -Milliseconds 500 }
+    }
+    throw "Excel 파일 닫기 실패: $lastError"
+}
+function Complete-ExcelCleanup {
+    foreach ($entry in @($script:ManagedBooks.Values)) {
+        try { Close-ManagedBook $entry.Book }
+        catch { Write-Host ("[파일 닫기 오류] " + $_.Exception.Message) -ForegroundColor Yellow }
+    }
+    foreach ($app in @($script:ManagedApps.Values)) {
+        try {
+            if ($app.Workbooks.Count -eq 0) {
+                $app.Quit()
+                Write-Host '[Excel 종료] 작업 후 남은 빈 Excel 창을 닫았습니다.'
+            }
+        } catch { Write-Host ("[Excel 종료 확인] " + $_.Exception.Message) -ForegroundColor Yellow }
+    }
+    [GC]::Collect()
+    [GC]::WaitForPendingFinalizers()
+}
+function New-Settings($Path) {
+    Write-Host '최초 설정: 투입률처럼 브라우저의 SharePoint 온라인 Excel 링크를 그대로 붙여넣으세요.'
+    $target = Resolve-Location (Get-Input '공통 A 온라인 Excel 링크')
+    $teams = @()
+    for ($i = 1; $i -le 7; $i++) {
+        Write-Host "--- $i 팀 등록 ---"
+        $name = Get-Input '팀 이름 또는 팀장 이름 (실행 메뉴에 표시)'
+        $tab = Get-Input 'A 파일의 팀장 탭 이름 (정확하게)'
+        $source = Resolve-Location (Get-Input '이 팀의 B 온라인 Excel 링크')
+        $teams += [pscustomobject]@{ Name=$name; TargetSheet=$tab; Source=$source; ExcludedTabs=@() }
+    }
+    $settings = [pscustomobject]@{ Target=$target; Teams=$teams }
+    Write-JsonFile $Path $settings
+    return $settings
+}
+function Wait-BookReady($Book, [int]$TimeoutSeconds=120) {
+    $timer=[Diagnostics.Stopwatch]::StartNew()
+    do {
+        try {
+            if ($Book.Application.Ready -and [int]$Book.Application.CalculationState -eq 0) { return }
+        } catch { }
+        if ($timer.Elapsed.TotalSeconds -ge $TimeoutSeconds) { break }
+        Start-Sleep -Milliseconds 1000
+    } while ($true)
+    throw 'Excel 준비/계산 완료를 기다리다 중단했습니다. 로그인·대화상자·셀 편집 상태를 확인하세요. 원본 입력값은 삭제하지 않습니다.'
+}
+function Prepare-BookForRead($Book) {
+    Wait-BookReady $Book
+    if (-not $Book.Saved) {
+        Write-Host ("[열기 후 저장] {0}: 재계산 또는 기존 변경을 저장한 뒤 진행합니다." -f $Book.Name)
+        Save-Book $Book
+        Wait-BookReady $Book
+    }
+}
+function Open-Book($Excel, $Location) {
+    $location = Resolve-Location $Location
+    $book=$null
+    if ($location -match '^https://') {
+        Initialize-ExcelWindowAccess
+        $spec=ConvertTo-TargetSpec $location
+        # sourcedoc 링크도 최초 연결 뒤 실제 원격 경로로 정확히 추적합니다.
+        if ($script:OnlineResolved.ContainsKey($location)) {
+            $resolved=ConvertTo-TargetSpec $script:OnlineResolved[$location]
+            $resolved.Url=$location
+            $spec=$resolved
+        }
+        $connection=Find-OpenTarget $spec
+        if ($null -eq $connection) {
+            $before=@{}
+            foreach ($app in @(Get-OpenExcelApplications)) {
+                foreach ($existing in $app.Workbooks) { $before[([string]$app.Hwnd+'|'+[string]$existing.FullName)]=$true }
+            }
+            Write-Host '[온라인 링크 열기] Excel 앱으로 연결합니다. 로그인 창이 나오면 로그인하세요.'
+            Start-Process -FilePath ('ms-excel:ofe|u|' + $location) -WindowStyle Hidden
+            $timer=[Diagnostics.Stopwatch]::StartNew()
+            do {
+                Start-Sleep -Milliseconds 1000
+                $connection=Find-OpenTarget $spec
+                if ($null -eq $connection -and -not $spec.Name) { $connection=Find-NewTarget $spec $before }
+                if ($timer.Elapsed.TotalSeconds -ge 120) { break }
+            } while ($null -eq $connection)
+            if ($null -eq $connection) { throw '120초 안에 온라인 Excel 파일 연결을 확인하지 못했습니다. 링크/로그인/앱 열기를 확인하세요.' }
+        }
+        $book=$connection.Workbook
+        $script:OnlineResolved[$location]=[string]$book.FullName
+    } else {
+        if ($null -eq $script:LocalExcel) {
+            $script:LocalExcel=New-Object -ComObject Excel.Application
+            $script:LocalExcel.Visible=$true
+        }
+        $priorSecurity=$script:LocalExcel.AutomationSecurity
+        try {
+            $script:LocalExcel.AutomationSecurity=3
+            $book=$script:LocalExcel.Workbooks.Open($location,0,$false)
+        } finally { $script:LocalExcel.AutomationSecurity=$priorSecurity }
+    }
+    $app=$book.Application
+    $script:ManagedApps[[string]$app.Hwnd]=$app
+    $key=[string]$app.Hwnd+'|'+[string]$book.FullName
+    if (-not $script:ManagedBooks.ContainsKey($key)) {
+        $auto=$false
+        try { $auto=[bool]$book.AutoSaveOn } catch {}
+        $script:ManagedBooks[$key]=[pscustomobject]@{ Book=$book; AutoSave=$auto; PreserveUnsaved=(-not $book.Saved) }
+    }
+    if ($book.ReadOnly) { throw "읽기 전용으로 열렸습니다: $location" }
+    Prepare-BookForRead $book
+    $script:ManagedBooks[$key].PreserveUnsaved=$false
+    # 투입률처럼 온라인 파일의 자동 저장 설정은 변경하지 않습니다.
+    return $book
+}
+function Save-Book($Book) {
+    $Book.Save()
+    $timer=[Diagnostics.Stopwatch]::StartNew()
+    do {
+        try { if ($Book.Saved) { return } } catch {}
+        if ($timer.Elapsed.TotalSeconds -ge 120) { break }
+        Start-Sleep -Milliseconds 1000
+    } while ($true)
+    throw "120초 안에 저장 완료를 확인하지 못했습니다: $($Book.Name)"
+}
+function Get-Sheet($Book, $Name) {
+    try { return $Book.Worksheets.Item($Name) } catch { throw "탭을 찾지 못했습니다: $Name" }
+}
+function Get-ColumnLetter([int]$Number) {
+    if ($Number -lt 1 -or $Number -gt 16384) { throw '잘못된 열 번호입니다.' }
+    $letters=''
+    while ($Number -gt 0) {
+        $Number--
+        $letters=[string][char](65+($Number % 26))+$letters
+        $Number=[int][Math]::Floor($Number/26)
+    }
+    return $letters
+}
+function Get-TargetAddress($Operation) {
+    $first=Get-ColumnLetter ([int]$Operation.Column)
+    $last=Get-ColumnLetter ([int]$Operation.Column+3)
+    $row=[int]$Operation.StartRow
+    $end=$row+@($Operation.Rows).Count-1
+    return ('{0}{1}:{2}{3}' -f $first,$row,$last,$end)
+}
+function Assert-Unmerged($Range, [string]$Label) {
+    $merged=$Range.MergeCells
+    if ($merged -is [bool] -and -not $merged) { return }
+    # 범위의 Null/DBNull 판정을 병합으로 단정하지 않고 개별 셀로 확인합니다.
+    foreach ($cell in $Range.Cells) {
+        if ($cell.MergeCells -eq $true) {
+            throw ("실제 병합 셀 발견: {0} / {1}" -f $Label,$cell.Address())
+        }
+    }
+}
+function Assert-Destination($TargetSheet, $SourceSheet, $Operation) {
+    $name=([string]$SourceSheet.Name).Trim()
+    if ($name -cne ([string]$Operation.SourceSheet).Trim()) { throw '원본 탭 이름과 작업 기록이 다릅니다.' }
+    if ([string]$TargetSheet.Name -cne [string]$Operation.TargetSheet) { throw 'A 팀장 탭과 작업 기록이 다릅니다.' }
+    $headers=Get-Headers $TargetSheet
+    if (-not $headers.ContainsKey($name)) { throw "A 2행에서 원본 상담사 '$name'을 찾지 못했습니다." }
+    $actualColumn=[int]$headers[$name]
+    if ($actualColumn -ne [int]$Operation.Column) {
+        $expected=Get-ColumnLetter $actualColumn
+        $recorded=Get-ColumnLetter ([int]$Operation.Column)
+        throw "상담사 위치 불일치: '$name'은 ${expected}2인데 작업 기록은 ${recorded}열입니다. 잘못된 위치에 적재/삭제하지 않고 중단합니다. 미완료작업.json과 기존 적재 내용을 확인하세요."
+    }
+    $headerAddress=(Get-ColumnLetter $actualColumn)+'2'
+    $header=([string]$TargetSheet.Range($headerAddress).Value2).Trim()
+    if ($header -cne $name) { throw "대상 이름 재검증 실패: ${headerAddress}='$header', 원본='$name'" }
+}
+function Get-Headers($Sheet) {
+    $headers = @{}
+    $last = [int]$Sheet.Cells.Item(2, $Sheet.Columns.Count).End(-4159).Column
+    for ($c=2; $c -le $last; $c+=5) {
+        $name = ([string]$Sheet.Cells.Item(2,$c).Value2).Trim()
+        if ($name) {
+            if ($headers.ContainsKey($name)) { throw "A '$($Sheet.Name)' 2행에 상담사 이름 중복: $name" }
+            $headers[$name] = $c
+        }
+    }
+    return $headers
+}
+function Test-CounselorTab($Sheet, $Team, $Headers) {
+    $name=([string]$Sheet.Name).Trim()
+    if (@($Team.ExcludedTabs) -contains $Sheet.Name) { return $false }
+    if (-not $Headers.ContainsKey($name)) {
+        Write-Host ("[탭 제외] B '{0}': A 팀장 탭 2행에 없는 이름이므로 읽거나 변경하지 않습니다." -f $Sheet.Name)
+        return $false
+    }
+    return $true
+}
+function Get-SourceData($Sheet) {
+    $range = $Sheet.Range('B5:E200')
+    Assert-Unmerged $range ("B 탭 '{0}' B5:E200" -f $Sheet.Name)
+    $values = $range.Value2
+    $formulas = $range.Formula
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $constants = New-Object 'System.Collections.Generic.List[object]'
+    for ($r=1; $r -le 196; $r++) {
+        $hasInput = $false
+        for ($c=1; $c -le 4; $c++) {
+            $formula = $formulas[$r,$c]
+            # 수식 결과만 존재하는 빈 입력 행은 적재하지 않습니다.
+            if ((Has-Value $values[$r,$c]) -and -not ($formula -is [string] -and $formula.StartsWith('='))) {
+                $hasInput = $true
+                $constants.Add([pscustomobject]@{ Row=($r+4); Col=($c+1); Value=($values[$r,$c]) })
+            }
+        }
+        if ($hasInput) {
+            $rows.Add([pscustomobject]@{ SourceRow=($r+4); Values=@($values[$r,1],$values[$r,2],$values[$r,3],$values[$r,4]) })
+        }
+    }
+    return [pscustomobject]@{ Rows=@($rows.ToArray()); Constants=@($constants.ToArray()) }
+}
+function Get-AppendRow($Sheet, [int]$Column) {
+    $block = $Sheet.Range(("{0}4:{1}{2}" -f (Get-ColumnLetter $Column),(Get-ColumnLetter ($Column+3)),$Sheet.Rows.Count))
+    # xlValues: 빈 문자열을 반환하는 수식은 마지막 데이터에서 제외합니다.
+    $last = $block.Find('*', $block.Cells.Item(1,1), -4163, 2, 1, 2, $false, $false, $false)
+    if ($null -eq $last) { return 4 }
+    return [int]$last.Row + 1
+}
+function Get-CopiedFormula($Operation,[int]$Row,[int]$Col) {
+    if ($Operation.PSObject.Properties['CopiedFormulas']) {return $Operation.CopiedFormulas[$Row].Values[$Col]}
+    return $null
+}
+function Test-ExpectedCell($Sheet,$Operation,[int]$Row,[int]$Col) {
+    $address=(Get-ColumnLetter ([int]$Operation.Column+$Col))+([int]$Operation.StartRow+$Row)
+    $cell=$Sheet.Range($address)
+    $formula=Get-CopiedFormula $Operation $Row $Col
+    if ($null -ne $formula) {return ($cell.HasFormula -and [string]$cell.FormulaR1C1 -ceq [string]$formula)}
+    return (Equal-Value $cell.Value2 $Operation.Rows[$Row].Values[$Col])
+}
+function Assert-TargetValues($Sheet,$Operation) {
+    for ($r=0;$r -lt @($Operation.Rows).Count;$r++) {
+        for ($c=0;$c -lt 4;$c++) {
+            if (-not (Test-ExpectedCell $Sheet $Operation $r $c)) {
+                $address=(Get-ColumnLetter ([int]$Operation.Column+$c))+([int]$Operation.StartRow+$r)
+                throw ("A 복사 검증 실패: '{0}'!{1}. B 입력값은 삭제하지 않습니다." -f $Sheet.Name,$address)
+            }
+        }
+    }
+}
+function Test-Target($Sheet,$Operation) {
+    try {Assert-TargetValues $Sheet $Operation;return $true} catch {return $false}
+}
+function Test-RepairableTarget($Sheet,$Operation) {
+    for ($r=0;$r -lt @($Operation.Rows).Count;$r++) {
+        for ($c=0;$c -lt 4;$c++) {
+            $address=(Get-ColumnLetter ([int]$Operation.Column+$c))+([int]$Operation.StartRow+$r)
+            if ((Has-Value $Sheet.Range($address).Value2) -and -not (Test-ExpectedCell $Sheet $Operation $r $c)) {return $false}
+        }
+    }
+    return $true
+}
+function Test-BlankTarget($Sheet, $Operation) {
+    for ($r=0; $r -lt @($Operation.Rows).Count; $r++) {
+        for ($c=0; $c -lt 4; $c++) {
+            if (Has-Value $Sheet.Range(((Get-ColumnLetter ([int]$Operation.Column+$c))+([int]$Operation.StartRow+$r))).Value2) { return $false }
+        }
+    }
+    return $true
+}
+function Begin-SheetEdit($Sheet) {
+    if (-not ($Sheet.ProtectContents -or $Sheet.ProtectDrawingObjects -or $Sheet.ProtectScenarios)) { return $null }
+    $p=$Sheet.Protection
+    $state=[pscustomobject]@{
+        Drawing=[bool]$Sheet.ProtectDrawingObjects; Contents=[bool]$Sheet.ProtectContents
+        Scenarios=[bool]$Sheet.ProtectScenarios; UIOnly=[bool]$Sheet.ProtectionMode
+        Selection=[int]$Sheet.EnableSelection
+        FormatCells=[bool]$p.AllowFormattingCells; FormatColumns=[bool]$p.AllowFormattingColumns
+        FormatRows=[bool]$p.AllowFormattingRows; InsertColumns=[bool]$p.AllowInsertingColumns
+        InsertRows=[bool]$p.AllowInsertingRows; InsertLinks=[bool]$p.AllowInsertingHyperlinks
+        DeleteColumns=[bool]$p.AllowDeletingColumns; DeleteRows=[bool]$p.AllowDeletingRows
+        Sort=[bool]$p.AllowSorting; Filter=[bool]$p.AllowFiltering; Pivot=[bool]$p.AllowUsingPivotTables
+    }
+    try { $Sheet.Unprotect('') | Out-Null }
+    catch { throw ("암호 없이 보호를 해제하지 못했습니다: {0}. 입력값은 삭제하지 않습니다." -f $Sheet.Name) }
+    if ($Sheet.ProtectContents -or $Sheet.ProtectDrawingObjects -or $Sheet.ProtectScenarios) {
+        throw ("시트 보호가 해제되지 않았습니다: {0}" -f $Sheet.Name)
+    }
+    Write-Host ("[보호 임시 해제] {0}" -f $Sheet.Name)
+    return $state
+}
+function Restore-SheetProtection($Sheet, $State) {
+    if ($null -eq $State) { return }
+    $Sheet.Protect('', $State.Drawing, $State.Contents, $State.Scenarios, $State.UIOnly,
+        $State.FormatCells, $State.FormatColumns, $State.FormatRows,
+        $State.InsertColumns, $State.InsertRows, $State.InsertLinks,
+        $State.DeleteColumns, $State.DeleteRows, $State.Sort, $State.Filter, $State.Pivot) | Out-Null
+    $Sheet.EnableSelection=$State.Selection
+    if ([bool]$Sheet.ProtectContents -ne $State.Contents -or
+        [bool]$Sheet.ProtectDrawingObjects -ne $State.Drawing -or
+        [bool]$Sheet.ProtectScenarios -ne $State.Scenarios) {
+        throw ("보호 복원 확인 실패: {0}. 저장/원본 삭제를 진행하지 않습니다." -f $Sheet.Name)
+    }
+    Write-Host ("[보호 복원] {0}" -f $Sheet.Name)
+}
+function Move-BookToApplication($Book,$Application) {
+    if ([string]$Book.Application.Hwnd -eq [string]$Application.Hwnd) {return $Book}
+    Save-Book $Book
+    $location=[string]$Book.FullName
+    Close-ManagedBook $Book
+    $book=$Application.Workbooks.Open($location,0,$false)
+    $key=[string]$Application.Hwnd+'|'+[string]$book.FullName
+    $script:ManagedApps[[string]$Application.Hwnd]=$Application
+    $script:ManagedBooks[$key]=[pscustomobject]@{Book=$book;AutoSave=$false;PreserveUnsaved=(-not $book.Saved)}
+    if ($book.ReadOnly) {throw '원본을 같은 Excel 앱으로 연결했지만 읽기 전용입니다.'}
+    Prepare-BookForRead $book
+    $script:ManagedBooks[$key].PreserveUnsaved=$false
+    return $book
+}
+function Get-CopyRows($Operation) {
+    if ($Operation.Rows[0].PSObject.Properties['SourceRow']) {return @($Operation.Rows | ForEach-Object {[int]$_.SourceRow})}
+    # 이전 버전의 미완료 기록도 입력 셀 행 번호로 복구합니다.
+    $rows=@($Operation.Constants | ForEach-Object {[int]$_.Row} | Sort-Object -Unique)
+    if ($rows.Count -ne @($Operation.Rows).Count) {throw '이전 작업의 원본 행을 확정할 수 없습니다. 원본을 보존하고 중단합니다.'}
+    return $rows
+}
+function Assert-CopySource($Sheet,$Operation) {
+    $current=Get-SourceData $Sheet
+    if (@($current.Constants).Count -ne @($Operation.Constants).Count) {throw '복사 전 B 입력 행이 변경되었습니다. 원본을 보존하고 중단합니다.'}
+    $expected=@{}
+    foreach ($cell in $Operation.Constants) {$expected["$($cell.Row),$($cell.Col)"]=$cell.Value}
+    foreach ($cell in $current.Constants) {
+        $key="$($cell.Row),$($cell.Col)"
+        if (-not $expected.ContainsKey($key) -or -not (Equal-Value $cell.Value $expected[$key])) {throw '복사 전 B 입력값이 변경되었습니다. 원본을 보존하고 중단합니다.'}
+    }
+}
+function Invoke-FullPaste($TargetSheet,$SourceSheet,$Operation) {
+    $app=$TargetSheet.Application
+    if ([string]$app.Hwnd -ne [string]$SourceSheet.Application.Hwnd) {throw '복사 대상과 원본이 같은 Excel 앱에 연결되지 않았습니다.'}
+    Assert-CopySource $SourceSheet $Operation
+    $rows=@(Get-CopyRows $Operation)
+    $priorAlerts=$app.DisplayAlerts
+    try {
+        # 통합 문서 사이에서 복사할 때 정의된 이름의 충돌 경고를 숨깁니다.
+        $app.DisplayAlerts=$false
+        # 연속한 원본 행을 묶어 복사합니다. 빈 입력 행은 적재하지 않습니다.
+        for ($i=0;$i -lt $rows.Count;) {
+            $end=$i
+            while ($end+1 -lt $rows.Count -and $rows[$end+1] -eq $rows[$end]+1) {$end++}
+            $sourceAddress='B{0}:E{1}' -f $rows[$i],$rows[$end]
+            $destinationAddress='{0}{1}:{2}{3}' -f (Get-ColumnLetter ([int]$Operation.Column)),([int]$Operation.StartRow+$i),(Get-ColumnLetter ([int]$Operation.Column+3)),([int]$Operation.StartRow+$end)
+            $SourceSheet.Range($sourceAddress).Copy() | Out-Null
+            $TargetSheet.Range($destinationAddress).PasteSpecial(-4104) | Out-Null
+            $i=$end+1
+        }
+    } finally {
+        try {$app.CutCopyMode=0} catch {}
+        $app.DisplayAlerts=$priorAlerts
+    }
+    # Ctrl+C/V로 이동한 수식은 결과 대신 복사된 수식 자체를 검증·기록합니다.
+    $copied=New-Object 'System.Collections.Generic.List[object]'
+    for ($r=0;$r -lt $rows.Count;$r++) {
+        $formulas=@($null,$null,$null,$null)
+        for ($c=0;$c -lt 4;$c++) {
+            $src=$SourceSheet.Range(((Get-ColumnLetter ($c+2))+$rows[$r]))
+            $dst=$TargetSheet.Range(((Get-ColumnLetter ([int]$Operation.Column+$c))+([int]$Operation.StartRow+$r)))
+            if ($src.HasFormula) {
+                if (-not $dst.HasFormula) {throw '수식 복사 검증 실패. B는 삭제하지 않습니다.'}
+                $formulas[$c]=[string]$dst.FormulaR1C1
+            } elseif (-not (Equal-Value $dst.Value2 $Operation.Rows[$r].Values[$c])) {throw '입력값 복사 검증 실패. B는 삭제하지 않습니다.'}
+            if ([string]$src.NumberFormat -cne [string]$dst.NumberFormat) {throw '셀 표시 형식 복사 검증 실패. B는 삭제하지 않습니다.'}
+        }
+        $copied.Add([pscustomobject]@{Values=$formulas})
+    }
+    $Operation | Add-Member NoteProperty CopiedFormulas @($copied.ToArray()) -Force
+    $Operation | Add-Member NoteProperty CopyMode 'All' -Force
+}
+function Write-Target($Sheet,$Operation,$SourceSheet) {
+    $range=$Sheet.Range((Get-TargetAddress $Operation))
+    Assert-Unmerged $range ("A 탭 '{0}' {1}" -f $Sheet.Name,(Get-TargetAddress $Operation))
+    $protection=Begin-SheetEdit $Sheet
+    try {
+        Invoke-FullPaste $Sheet $SourceSheet $Operation
+        Assert-TargetValues $Sheet $Operation
+    } finally {Restore-SheetProtection $Sheet $protection}
+    Write-Host ("[전체 복사 확인] B '{0}' -> A '{1}'!{2}: 값·수식·셀 서식" -f $SourceSheet.Name,$Sheet.Name,(Get-TargetAddress $Operation))
+}
+function Clear-Source($Sheet, $Operation) {
+    # 전체 범위 재검사: 복사 이후 새 입력/수정이 있으면 어떤 셀도 지우지 않습니다.
+    $current = Get-SourceData $Sheet
+    $expected = @{}
+    foreach ($cell in $Operation.Constants) { $expected["$($cell.Row),$($cell.Col)"] = $cell }
+    foreach ($cell in $current.Constants) {
+        $key = "$($cell.Row),$($cell.Col)"
+        if (-not $expected.ContainsKey($key) -or -not (Equal-Value $cell.Value $expected[$key].Value)) {
+            throw "복사 이후 B '$($Sheet.Name)' 입력값이 달라졌습니다. 삭제하지 않고 중단합니다."
+        }
+    }
+    foreach ($cell in $Operation.Constants) {
+        $range = $Sheet.Cells.Item([int]$cell.Row,[int]$cell.Col)
+        if ($range.HasFormula) { throw '원본 입력 셀이 수식으로 바뀌어 삭제를 중단합니다.' }
+        if ((Has-Value $range.Value2) -and -not (Equal-Value $range.Value2 $cell.Value)) { throw '원본이 변경되어 삭제를 중단합니다.' }
+    }
+    $protection=Begin-SheetEdit $Sheet
+    try {
+        foreach ($cell in $Operation.Constants) { $Sheet.Cells.Item([int]$cell.Row,[int]$cell.Col).ClearContents() | Out-Null }
+    } finally { Restore-SheetProtection $Sheet $protection }
+}
+function Invoke-Operation($Excel, $TargetBook, $SourceBook, $Operation, $JournalPath) {
+    $targetSheet = Get-Sheet $TargetBook $Operation.TargetSheet
+    $sourceSheet = Get-Sheet $SourceBook $Operation.SourceSheet
+    Assert-Destination $targetSheet $sourceSheet $Operation
+    Write-Host ("[전송 경로] B '{0}'!B5:E200 -> A '{1}'!{2} (이름: {3}2)" -f $sourceSheet.Name,$targetSheet.Name,(Get-TargetAddress $Operation),(Get-ColumnLetter ([int]$Operation.Column)))
+    if ($Operation.State -eq 'Prepared') {
+        if (-not (Test-Target $targetSheet $Operation) -or -not $Operation.PSObject.Properties['CopyMode']) {
+            if (-not (Test-RepairableTarget $targetSheet $Operation)) { Assert-TargetValues $targetSheet $Operation; throw '이전 작업의 A 적재 범위가 변경되었습니다. 기록을 확인해야 합니다.' }
+            Write-Target $targetSheet $Operation $sourceSheet
+            Write-JsonFile $JournalPath $Operation
+        }
+        Save-Book $TargetBook
+        # 투입률처럼 저장 완료 후 같은 원격 통합문서에서 값을 재검증합니다.
+        if (-not (Test-Target $targetSheet $Operation) -or -not $Operation.PSObject.Properties['CopyMode']) { throw 'A 저장 후 검증 실패. B는 삭제하지 않습니다.' }
+        $Operation.State = 'TargetSaved'
+        Write-JsonFile $JournalPath $Operation
+    }
+    if (-not (Test-Target $targetSheet $Operation)) { throw 'A에 적재된 값이 바뀌어 B 삭제를 중단했습니다.' }
+    Assert-Destination $targetSheet $sourceSheet $Operation
+    Clear-Source $sourceSheet $Operation
+    Save-Book $SourceBook
+    Write-Host ("[원본 정리 저장] B '{0}': 입력값 {1}개 삭제, 수식 보존" -f $sourceSheet.Name,@($Operation.Constants).Count)
+    # 상담사마다 파일을 재열지 않고 저장 후 입력 셀을 재검증합니다.
+    foreach ($cell in $Operation.Constants) {
+        if (Has-Value $sourceSheet.Cells.Item([int]$cell.Row,[int]$cell.Col).Value2) { throw 'B 저장 후 정리 검증 실패. 작업 기록을 유지합니다.' }
+    }
+    $Operation.State = 'Done'
+    $history = Join-Path $script:Root '처리기록'
+    [IO.Directory]::CreateDirectory($history) | Out-Null
+    Write-JsonFile (Join-Path $history ($Operation.Id + '.json')) $Operation
+    Remove-Item -LiteralPath $JournalPath
+    Write-Host "완료: $($Operation.Team) / $($Operation.SourceSheet) / $(@($Operation.Rows).Count)행 / A $($Operation.StartRow)행부터" -ForegroundColor Green
+    return [pscustomobject]@{ Target=$TargetBook; Source=$SourceBook }
+}
+
+if ($LibraryOnly) { return }
+$excel = $null; $lock = $null
+try {
+    $lock = [IO.File]::Open((Join-Path $script:Root '실행중.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+    $settingsPath = Join-Path $script:Root '설정.json'
+    $journal = Join-Path $script:Root '미완료작업.json'
+    if (Test-Path -LiteralPath $settingsPath) { $settings = Read-JsonFile $settingsPath }
+    else { $settings = New-Settings $settingsPath }
+    Write-Host "`n데일리로우 v4 (원본 전체 복사, A 2행 B/G/L..., 데이터 4행부터)"
+    for ($i=0; $i -lt @($settings.Teams).Count; $i++) { Write-Host "$($i+1). $($settings.Teams[$i].Name)" }
+    Write-Host '0. 전체 팀 / Q. 종료'
+    if (Test-Path -LiteralPath $journal) {
+        if ($CheckOnly) { throw '미완료 작업이 있습니다. 실행.bat에서 복구를 먼저 진행하세요.' }
+        Write-Host '미완료 작업이 있어 해당 작업부터 자동 복구합니다.' -ForegroundColor Yellow
+        $selected = @()
+    } else {
+        $choice = Get-Input '번호/팀 이름 (복수 선택: 1,3 / 점검만: 점검:1)'
+        if ($choice -eq 'Q') { exit 0 }
+        if ($choice.StartsWith('점검:')) { $CheckOnly=$true; $choice=$choice.Substring(3) }
+        $selected = @()
+        foreach ($part in ($choice -split ',')) {
+            $part = $part.Trim()
+            if ($part -eq '0') { $selected = @($settings.Teams); break }
+            $number=0
+            if ([int]::TryParse($part,[ref]$number) -and $number -ge 1 -and $number -le @($settings.Teams).Count) { $selected += $settings.Teams[$number-1] }
+            else {
+                $matches = @($settings.Teams | Where-Object { $_.Name -eq $part })
+                if ($matches.Count -ne 1) { throw "팀 선택을 확인하세요: $part" }
+                $selected += $matches[0]
+            }
+        }
+        $selected = @($selected | Sort-Object Name -Unique)
+    }
+    $targetLocation = Resolve-Location $settings.Target
+    $locations = @{}
+    foreach ($team in $selected) {
+        $location = Resolve-Location $team.Source
+        if ($location -eq $targetLocation -or $locations.ContainsKey($location)) { throw 'A/B 파일이 같거나 B 파일 경로가 중복됩니다. 설정을 확인하세요.' }
+        $locations[$location] = $true
+    }
+    Write-Host 'Excel을 엽니다. 로그인 창이 나오면 로그인하세요. 처리 중 해당 파일을 편집하지 마세요.'
+    # 각 온라인 링크가 열린 실제 Excel 인스턴스에 연결합니다.
+    if (Test-Path -LiteralPath $journal) {
+        $op = Read-JsonFile $journal
+        $a = Open-Book $excel $op.Target
+        $b = Open-Book $excel $op.Source
+        $b = Move-BookToApplication $b $a.Application
+        $result = Invoke-Operation $excel $a $b $op $journal
+        Close-ManagedBook $result.Source; Close-ManagedBook $result.Target
+        $selected=@($settings.Teams | Where-Object { (Resolve-Location $_.Source) -eq (Resolve-Location $op.Source) -and $_.TargetSheet -eq $op.TargetSheet })
+        if ($selected.Count -ne 1) {throw '복구는 완료했지만 이어 처리할 팀을 확정하지 못했습니다. 다시 실행해서 팀을 선택하세요.'}
+        Write-Host '[이어서 처리] 복구한 팀의 남은 상담사 탭을 계속 확인합니다.'
+    }
+    if ($selected.Count -gt 0) {
+        $a = Open-Book $excel $targetLocation
+        foreach ($team in $selected) {
+            $b = Open-Book $excel $team.Source
+            $b = Move-BookToApplication $b $a.Application
+            if ([string]$a.FullName -ieq [string]$b.FullName) { throw 'A와 B 링크가 같은 파일을 가리킵니다. 설정을 확인하세요.' }
+            $sheet = Get-Sheet $a $team.TargetSheet
+            # 보호는 실제 기록 순간에만 임시 해제하고 원래 옵션으로 복원합니다.
+            $headers = Get-Headers $sheet
+            $plans = @()
+            # 팀 내 모든 탭의 이름/범위를 먼저 검증한 뒤 실제 전송합니다.
+            foreach ($sourceSheet in $b.Worksheets) {
+                if (-not (Test-CounselorTab $sourceSheet $team $headers)) { continue }
+                $data = Get-SourceData $sourceSheet
+                if ($data.Rows.Count -eq 0) { continue }
+                $name = ([string]$sourceSheet.Name).Trim()
+                if (-not $headers.ContainsKey($name)) { throw "A '$($team.TargetSheet)' 2행 B/G/L...에서 '$name'을 찾지 못했습니다. 안내 탭은 설정의 ExcludedTabs에 넣으세요." }
+                # 읽기에는 시트 보호 여부로 제한하지 않습니다.
+                $row = Get-AppendRow $sheet $headers[$name]
+                if ($row + $data.Rows.Count - 1 -gt $sheet.Rows.Count) { throw 'A에 적재할 행이 부족합니다.' }
+                $plans += [pscustomobject]@{
+                    Id=([Guid]::NewGuid().ToString('N')); State='Prepared'; Created=(Get-Date -Format o)
+                    Team=$team.Name; Target=$targetLocation; Source=(Resolve-Location $team.Source)
+                    TargetSheet=$team.TargetSheet; SourceSheet=$sourceSheet.Name
+                    Column=[int]$headers[$name]; StartRow=$row; Rows=@($data.Rows); Constants=@($data.Constants)
+                }
+                $planned=$plans[-1]
+                Write-Host ("예정: {0} / B '{1}'!B5:E200 -> A '{2}'!{3} / 이름셀 {4}2 / {5}행" -f $team.Name,$name,$sheet.Name,(Get-TargetAddress $planned),(Get-ColumnLetter ([int]$planned.Column)),$data.Rows.Count)
+            }
+            if ($plans.Count -eq 0) { Write-Host '[적재 없음] A 이름과 일치하는 상담사 탭에 전송할 입력값이 없습니다.' }
+            if (-not $CheckOnly) {
+                foreach ($op in $plans) {
+                    Write-JsonFile $journal $op
+                    $result = Invoke-Operation $excel $a $b $op $journal
+                    $a = $result.Target; $b = $result.Source
+                }
+            }
+            Close-ManagedBook $b
+        }
+        Close-ManagedBook $a
+    }
+    if ($CheckOnly) { Write-Host '점검 완료. 파일 내용을 변경하지 않았습니다.' }
+    else { Write-Host '선택한 작업을 마쳤습니다.' }
+} catch {
+    Write-Host "`n중단: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host '미완료작업.json이 있으면 삭제하지 마세요. 다음 실행에서 해당 작업을 복구합니다.'
+    exit 1
+} finally {
+    Complete-ExcelCleanup
+    if ($null -ne $lock) { $lock.Dispose() }
+}

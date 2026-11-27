@@ -1,0 +1,77 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';connect-src 'none';base-uri 'none';form-action 'none'"><title>긴조웹 공유 저장 · 설정 도우미</title><style>body{font:14px/1.8 '맑은 고딕',system-ui;background:#f4f6f8;color:#20334b;max-width:940px;margin:35px auto;padding:20px}h1{font-size:27px;letter-spacing:-1px}h2{font-size:19px;margin:0 0 12px}section{background:white;border:1px solid #dfe6ed;border-radius:12px;padding:23px;margin:16px 0}p{margin:8px 0}.note{background:#fff3da;padding:14px;border-radius:9px}input,textarea{font:13px/1.7 inherit;width:100%;box-sizing:border-box;border:1px solid #ccd7e2;border-radius:7px;padding:10px;margin:5px 0}textarea{height:160px;font:12px/1.7 monospace}button,a.button{display:inline-block;cursor:pointer;background:#17334d;color:white;border:0;border-radius:7px;padding:9px 14px;font:13px inherit;text-decoration:none}label{display:block;font-size:12px;color:#64778b}.row{display:flex;align-items:center;gap:8px}.row input{flex:1}.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}pre{white-space:pre-wrap;word-break:break-word;font:12px/1.9 '맑은 고딕',system-ui}small{color:#6a7c90}#notice{color:#387550}@media(max-width:650px){.grid{grid-template-columns:1fr}}</style></head><body><h1>긴조웹 공유 저장 설정</h1><p>처음 한 번만 설정합니다. 기존 자동화에 작업 하나를 추가하고, 작성 식과 템플릿을 교체합니다.</p><p class="note"><b>저장 방식:</b> HTML에서 저장 내용을 복사한 뒤 SharePoint 입력창에 붙여넣고 저장합니다. 저장 후 기존 자동화의 다음 실행에 HTML로 반영됩니다. 실시간 동시 편집은 지원하지 않습니다.</p><section><h2>1. 저장 목록 만들기</h2><label>회사 사이트 주소<input id="site" value="" placeholder="https://회사.sharepoint.com/sites/사이트"></label><a id="site-link" class="button" target="_blank" rel="noopener noreferrer">회사 사이트 주소 입력 후 열기</a><ol><li>사이트 콘텐츠 → 새로 만들기 → 목록 → 빈 목록</li><li>목록 이름: <b>GinjoShared</b></li><li>열 추가 → <b>여러 줄 텍스트</b> → 이름 <b>Payload</b>, 일반 텍스트, 필수 입력 아니요</li><li>새 항목 → 제목 <b>현재 입력</b>, Payload는 비워두고 저장</li></ol><small>아래 항목 가져오기는 이 첫 항목의 ID 1을 읽습니다. 이후에는 새 항목을 만들지 않고 같은 항목을 편집합니다.</small></section><section><h2>2. 기존 흐름에 항목 가져오기 하나 추가</h2><p>기존 JSON 업데이트 다음, Read_template 앞의 ＋ → SharePoint → <b>항목 가져오기(Get item, 단수)</b></p><p>작업 이름 <b>Get_shared</b> / 사이트는 위 주소 / 목록 <b>GinjoShared</b> / ID <b>1</b></p><p>새 흐름이나 트리거는 만들지 않습니다.</p></section><section><h2>3. 작성의 fx 식 교체</h2><p>아래는 현재 작업 이름에 맞춰 준비했습니다. 실제 이름이 다를 때만 수정하세요.</p><div class="grid"><label>템플릿 읽기 작업<input id="template-action" value="Read_template"></label><label>데일리 스크립트 작업<input id="daily-action" value="SharePoint_라이브러리에서_스크립트_실행"></label><label>공유 항목 읽기 작업<input id="shared-action" value="Get_shared"></label></div><textarea id="expression" readonly aria-label="작성에 붙여넣을 식"></textarea><button data-copy="expression">식 복사</button><span id="notice" role="status"></span><p>작성 → 입력의 <b>fx(식)</b> → 기존 식 전체 삭제 → 붙여넣기 → 추가 또는 업데이트</p><p>마지막 HTML 파일 업데이트의 파일 콘텐츠는 기존처럼 <b>작성 작업의 출력</b>을 유지합니다.</p></section><section><h2>4. 템플릿만 교체하고 테스트</h2><ol><li>동봉한 <b>긴조웹_템플릿.txt</b>를 SharePoint 같은 파일에 덮어씁니다.</li><li>기존 HTML은 직접 덮어쓰지 않습니다. 기존 흐름이 실제 데이터를 넣어 갱신합니다.</li><li>흐름 저장 → 수동 테스트 → HTML 미리보기를 닫고 다시 열기</li><li>원문·제외인원 입력 → 계산 → ① 저장할 내용 복사 → ② 공유 저장창 열기 → Payload 전체 붙여넣기 → 저장</li><li>다음 흐름 실행 후 HTML을 다시 열어 복원되는지 확인합니다.</li></ol></section><details><summary>상세 안내와 오류 해결</summary><pre>긴조웹 공유 저장형 · 처음 한 번 설정
+
+중요한 차이
+계산만 누르면 현재 화면에서만 계산됩니다.
+① 저장할 내용 복사 → ② 공유 저장창 열기 → Payload 칸에 전체 붙여넣기 → SharePoint 저장을 눌러야 공동 저장됩니다.
+자동 복사가 차단되면 저장 내용 창에서 Ctrl+A → Ctrl+C로 복사합니다.
+공유 저장은 즉시 서버에 남지만 HTML 반영은 기존 Power Automate의 다음 실행 후입니다. 5분 주기면 최대 약 5분과 처리 시간이 걸립니다.
+기존 자동화가 HTML을 갱신한 뒤 같은 HTML 링크를 다시 열면 저장한 원문·제외인원·교육·일반 예외·상태 기준 시각을 복원하고 최신 데일리로 계산합니다.
+다시 열기 전 입력 중인 변경 사항은 먼저 공유 저장하세요. 페이지는 입력을 보호하기 위해 자동 새로고침하지 않습니다.
+엑셀 같은 동시 실시간 편집은 이 방식의 기능이 아닙니다. 동시에 저장하면 마지막 저장 내용이 공유됩니다.
+
+설정 1. 공유 목록 하나 만들기
+데일리.json이 저장된 SharePoint 사이트에서 사이트 콘텐츠 → 새로 만들기 → 목록 → 빈 목록을 누릅니다.
+이름은 GinjoShared 로 만듭니다. 회사 SharePoint 사이트에 만들고 개인 &#39;내 목록&#39;에 만들지 마세요.
+목록 만들기 메뉴가 없으면 해당 사이트에 목록을 만드는 권한이 필요합니다. 앱 설치와는 다른 권한이며 사이트 소유자에게 이 목록 한 개를 만들어 달라고 요청해야 할 수 있습니다.
+열 추가 → 여러 줄 텍스트를 선택하고 이름을 Payload 로 만듭니다.
+Payload는 일반 텍스트로 설정합니다. 서식 있는 텍스트, 변경 내용 추가 옵션은 사용하지 않습니다. 필수 입력은 아니요로 두세요.
+목록의 새 항목을 누릅니다. 기본 제목(Title)에 &#39;현재 입력&#39;을 적고 Payload는 비운 채 저장합니다.
+이 새 목록에서 처음 만든 항목이므로 ID는 1입니다. 이미 항목을 지운 적 있는 목록이면 실제 ID를 확인해서 아래 항목 가져오기에 사용하세요.
+팀장님들은 이후 이 &#39;현재 입력&#39; 항목 하나를 편집해서 사용합니다. 저장할 때마다 새 항목을 만들지 않습니다.
+필요하면 목록 설정 → 버전 관리에서 항목 버전 기록을 켜 이전 저장 내용으로 돌아갈 수 있게 하세요.
+
+설정 2. 기존 흐름에 작업 하나 추가
+기존 Power Automate 흐름을 편집합니다. 새 흐름을 만들 필요는 없습니다.
+현재 데일리 스크립트 실행·데일리.json 업데이트 다음, Read_template 앞에 작업을 추가합니다.
+SharePoint → 항목 가져오기(Get item, 단수)를 선택합니다. &#39;항목들 가져오기/Get items&#39;가 아닙니다.
+작업 이름을 Get_shared 로 바꿉니다. 같은 이름이 이미 있으면 기존 작업과 혼동하지 않게 확인하세요.
+  사이트 주소: 데일리.json이 있는 사이트 주소
+  목록 이름: GinjoShared
+  ID: 1 (설정 1에서 만든 항목의 실제 ID)
+기존 월별 파일 선택, 데일리 내보내기, JSON 업데이트, Read_template, HTML 파일 업데이트 작업은 삭제하지 마세요.
+
+설정 3. 작성 식 한 번 교체
+기존 작성(Compose) 작업을 열고 입력의 fx(식)를 엽니다.
+기존 식 전체를 지우고 동봉된 &#39;작성_교체할식.txt&#39; 내용을 붙여넣습니다.
+반드시 fx에서 추가 또는 업데이트를 눌러 식으로 적용합니다. 일반 텍스트로 넣으면 식 글자가 HTML에 저장됩니다.
+식의 실제 스크립트 작업 이름은 현재 사용 중인 SharePoint_라이브러리에서_스크립트_실행 입니다.
+Read_template는 기존 템플릿 읽기 작업, Get_shared는 방금 추가한 공유 항목 읽기 작업입니다.
+저장할 때 잘못된 참조 오류가 나면 해당 이름과 실제 작업 이름을 확인하세요. 설정 도우미에서 실제 이름을 넣어 식을 다시 만들 수도 있습니다.
+파일 업데이트의 파일 콘텐츠는 기존처럼 &#39;작성&#39; 작업의 출력으로 유지합니다. 결과나 원문 텍스트를 넣지 않습니다.
+
+설정 4. 템플릿 교체와 첫 테스트
+동봉한 긴조웹_템플릿.txt를 SharePoint 긴조웹 폴더의 같은 파일에 덮어씁니다.
+초기 HTML 파일을 따로 올릴 필요는 없습니다. 실제 데이터가 들어 있는 기존 HTML은 기존 흐름이 업데이트합니다.
+흐름을 저장하고 수동 테스트합니다. Get_shared, Read_template, 작성, HTML 파일 업데이트가 모두 성공해야 합니다.
+HTML 미리보기를 닫고 다시 열면 공유 입력 영역과 두 저장 버튼이 표시됩니다.
+처음에는 저장 내용이 비어 있으므로 원문을 입력하고 제외인원 1명을 넣어 계산해 보세요.
+① 저장할 내용 복사 → ② 공유 저장창 열기 → Payload 칸 전체 선택(Ctrl+A) → 붙여넣기(Ctrl+V) → 저장.
+Payload 칸에 붙여넣는 내용은 프로그램이 만든 저장 내용 전체입니다. 원문만 붙여넣거나 내용 일부를 수정하지 마세요.
+다음 자동화 실행을 기다리거나 기존 흐름을 수동으로 한 번 실행합니다.
+HTML을 다시 열어 원문과 제외인원, 계산 결과가 복원되는지 확인합니다.
+팀장님 한 분도 같은 링크로 열고 같은 저장 내용을 볼 수 있는지 확인합니다.
+
+팀장님들께 전달할 사용법
+원문 붙여넣기 → 제외인원 입력 → 웹에서 계산 → ① 저장할 내용 복사 → ② 공유 저장창 열기 → Payload에 전체 붙여넣고 저장.
+다음 자동화 실행 후 다시 열면 같은 내용을 봅니다. 원문을 새로 붙여넣으면 기준 시각을 현재 한국 시각으로 바꿉니다.
+저장된 원문을 다시 볼 때는 원문이 바뀌지 않았는데 시각만 현재로 이동하지 않도록 저장 당시의 상태 기준 시각을 유지합니다.
+이전 운영일 원문은 복원하되 새 운영일 데일리와 자동으로 섞어 계산하지 않고 경고합니다. 새 원문을 넣고 제외인원을 검토하세요.
+
+오류가 날 때
+Get_shared에서 File/Item not found: 사이트, 목록, ID를 확인합니다. 기본 제목 &#39;현재 입력&#39; 행이 실제로 있어야 합니다.
+Get_shared 목록이 안 보임: 회사 사이트에 만들었는지, 해당 SharePoint 연결 계정이 읽을 수 있는지 확인합니다.
+저장 열을 찾지 못함: 최신 템플릿은 내부 이름이 달라도 저장 내용의 형식을 확인해 자동으로 찾아 읽습니다. 항목 가져오기에 실제 저장 내용이 포함되는지 확인하세요. 열을 삭제하거나 목록을 다시 만들 필요는 없습니다.
+공유 저장 내용 손상: Payload를 여러 줄 &#39;일반 텍스트&#39;로 설정했는지, 복사 내용 전체를 넣었는지 확인합니다.
+아직 저장된 입력 없음: 첫 저장 전 정상 상태입니다. 저장 후 다음 흐름 실행과 HTML 재열기가 필요합니다.
+내장 데일리 대기 중: 작성 식이 템플릿 자리표시자를 바꿨는지 확인합니다. 출력에 GINJO_DAILY_BASE64가 남으면 식을 다시 확인하세요.
+공유 항목이 HTML에 포함되지 않음: 이번 공유형 템플릿인데 작성 식이 예전 상태입니다. 새 식으로 교체하세요.
+공유 저장창이 열리지 않음: 창에 표시된 주소를 회사 브라우저의 새 탭에 직접 복사합니다. 목록 URL이 다르면 목록에서 &#39;현재 입력&#39; 항목을 직접 편집할 수 있습니다.
+다른 팀장님에게 편집 권한 없음: 목록에서 팀장님들이 항목을 읽고 편집할 권한이 필요합니다. HTML 보기 권한과는 별개입니다.
+원문·제외 입력은 창을 닫기 전에 공유 저장창에서 저장을 눌러야 합니다. 복사만 한 상태는 저장이 아닙니다.
+
+검증 범위
+계산식, 10명 제외, 공유 저장 내용 생성·검증, 서로 다른 두 화면의 입력 복원과 재계산, 이전 운영일 차단, 복사 차단 시 수동 복사 안내를 로컬에서 검사했습니다.
+회사 SharePoint 실제 목록 생성·편집·Power Automate 실행은 이 PC에서 확인할 수 없었습니다. 회사 PC의 첫 테스트가 필요합니다.
+설치 파일과 공개 Gist에는 실제 직원 자료가 없습니다. 실제 저장 내용과 생성 HTML은 자료를 볼 권한이 있는 회사 사용자에게만 공유하세요.
+Microsoft 안내: https://support.microsoft.com/en-us/sharepoint/lists/add-or-edit-list-items
+</pre></details><script>const $=id=>document.getElementById(id);function regenerate(){const quote=v=>v.replaceAll("'","''");const template=quote($('template-action').value.trim()),daily=quote($('daily-action').value.trim()),shared=quote($('shared-action').value.trim());$('expression').value="replace(string(body('"+template+"')), decodeUriComponent('%5F%5FGINJO%5FDAILY%5FBASE64%5F%5F'), base64(string(setProperty(json(string(outputs('"+daily+"')?['body/result'])), 'sharedInput', body('"+shared+"')))))";}async function copy(id){const field=$(id);try{await navigator.clipboard.writeText(field.value);$('notice').textContent='복사했습니다.';}catch{field.focus();field.select();$('notice').textContent='자동 복사가 제한되어 있습니다. 선택된 내용을 Ctrl+C로 복사하세요.';}}function siteLink(){try{const site=new URL($('site').value);if(site.protocol!=='https:'||!site.hostname.endsWith('.sharepoint.com'))throw Error();site.pathname=site.pathname.replace(/\/$/,'')+'/_layouts/15/viewlsts.aspx';site.search='';$('site-link').href=site.href;$('site-link').textContent='회사 사이트 콘텐츠 열기 ↗';}catch{$('site-link').removeAttribute('href');}}for(const id of ['template-action','daily-action','shared-action'])$(id).addEventListener('input',regenerate);$('site').addEventListener('input',siteLink);document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',()=>copy(button.dataset.copy)));regenerate();siteLink();</script></body></html>

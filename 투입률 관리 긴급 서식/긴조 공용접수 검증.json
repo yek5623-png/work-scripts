@@ -1,0 +1,11 @@
+{
+  "checks": 241,
+  "nativeExcelTested": false,
+  "sharePointFlowTested": false,
+  "sourceReadOnly": true,
+  "cloudTimestampUsesCreated": true,
+  "retryAndOutOfOrderHandled": true,
+  "rollbackTested": true,
+  "autoDailyLinkRefreshNotUsed": true,
+  "scope": "긴조 시험용 복사본 전용. 인앱·귀책과 현재 추가 기능 코드는 변경하지 않음."
+}

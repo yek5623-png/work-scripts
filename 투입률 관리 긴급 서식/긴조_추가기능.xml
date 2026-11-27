@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xsi:type="TaskPaneApp">
+  <Id>460b9c54-cdb4-4c28-b64c-26b620f8b107</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>yek5623-png</ProviderName>
+  <DefaultLocale>ko-KR</DefaultLocale>
+  <DisplayName DefaultValue="긴조 자동 기록"/>
+  <Description DefaultValue="긴조 상태출력 A1 변경을 감지해 D5 작성 시각과 AA 시간대 최종 결과를 자동 기록합니다."/>
+  <IconUrl DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/icon32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/icon80.png"/>
+  <SupportUrl DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/"/>
+  <AppDomains><AppDomain>https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site</AppDomain></AppDomains>
+  <Hosts><Host Name="Workbook"/></Hosts>
+  <Requirements><Sets DefaultMinVersion="1.1"><Set Name="ExcelApi" MinVersion="1.12"/><Set Name="SharedRuntime" MinVersion="1.1"/></Sets></Requirements>
+  <DefaultSettings><SourceLocation DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/taskpane.html"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements><bt:Sets DefaultMinVersion="1.1"><bt:Set Name="ExcelApi" MinVersion="1.12"/><bt:Set Name="SharedRuntime" MinVersion="1.1"/></bt:Sets></Requirements>
+    <Hosts><Host xsi:type="Workbook">
+      <Runtimes><Runtime resid="Taskpane.Url" lifetime="long"/></Runtimes>
+      <DesktopFormFactor>
+        <GetStarted><Title resid="GetStarted.Title"/><Description resid="GetStarted.Description"/><LearnMoreUrl resid="GetStarted.Url"/></GetStarted>
+        <FunctionFile resid="Taskpane.Url"/>
+        <ExtensionPoint xsi:type="PrimaryCommandSurface"><OfficeTab id="TabHome"><Group id="Ginjo.Group">
+          <Label resid="Group.Label"/>
+          <Icon><bt:Image size="16" resid="Icon.16"/><bt:Image size="32" resid="Icon.32"/><bt:Image size="80" resid="Icon.80"/></Icon>
+          <Control xsi:type="Button" id="Ginjo.Open"><Label resid="Button.Label"/><Supertip><Title resid="Button.Label"/><Description resid="Button.Description"/></Supertip>
+            <Icon><bt:Image size="16" resid="Icon.16"/><bt:Image size="32" resid="Icon.32"/><bt:Image size="80" resid="Icon.80"/></Icon>
+            <Action xsi:type="ShowTaskpane"><SourceLocation resid="Taskpane.Url"/></Action>
+          </Control>
+        </Group></OfficeTab></ExtensionPoint>
+      </DesktopFormFactor>
+    </Host></Hosts>
+    <Resources>
+      <bt:Images><bt:Image id="Icon.16" DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/icon16.png"/><bt:Image id="Icon.32" DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/icon32.png"/><bt:Image id="Icon.80" DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/icon80.png"/></bt:Images>
+      <bt:Urls><bt:Url id="Taskpane.Url" DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/taskpane.html"/><bt:Url id="GetStarted.Url" DefaultValue="https://ginjo-auto-record-20261114-yek.yek5623.chatgpt.site/"/></bt:Urls>
+      <bt:ShortStrings><bt:String id="GetStarted.Title" DefaultValue="긴조 자동 기록"/><bt:String id="Group.Label" DefaultValue="긴조 자동 기록"/><bt:String id="Button.Label" DefaultValue="자동 기록"/></bt:ShortStrings>
+      <bt:LongStrings><bt:String id="GetStarted.Description" DefaultValue="처음 한 번 자동 기록을 켠 뒤 상태출력 A1에 붙여넣기만 하세요."/><bt:String id="Button.Description" DefaultValue="긴조 전용 자동 기록의 상태를 확인하거나 켜고 끕니다."/></bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

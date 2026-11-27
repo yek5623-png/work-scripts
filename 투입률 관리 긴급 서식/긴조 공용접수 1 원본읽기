@@ -1,0 +1,43 @@
+// 긴조 공용 접수 1단계. 원본 데일리 파일에서 읽기만 합니다.
+// Power Automate의 '스크립트 실행'에 연결합니다. Excel에서 직접 실행할 필요는 없습니다.
+function main(workbook: ExcelScript.Workbook, 접수시각: string, 원본연월: string): string {
+  const at = clock(접수시각);
+  if (!/^\d{4}-\d{2}$/.test(원본연월) || 원본연월 !== at.month) throw new Error("원본 데일리 파일의 월을 바꿔 주세요. 필요한 월: " + at.month + ". 첫 번째 스크립트 실행의 파일 선택과 원본연월을 함께 바꾸세요.");
+  const source = workbook.getWorksheet(at.tab);
+  if (!source) throw new Error("원본에 '" + at.tab + "' 탭이 없습니다. 긴급 뒤에 공백 하나, 월은 두 자리입니다.");
+  const blocks: Block[] = [];
+  for (const address of ADDRESSES) {
+    const range = source.getRange(address);
+    if (range.getValueTypes().some(row => row.some(t => t === ExcelScript.RangeValueType.error))) throw new Error("원본 데일리 " + address + "에 계산 오류가 있습니다. 결과를 기록하지 않았습니다.");
+    blocks.push({ address, values: range.getValues() });
+  }
+  const ids = blocks[1].values.some(row => String(row[1]).trim() !== "");
+  const people = blocks[2].values.some(row => String(row[0]).trim() !== "");
+  if (!ids || !people) throw new Error("원본 데일리의 사번(C열) 또는 이름(E열)이 비어 있습니다. 파일 선택을 확인하세요.");
+  const packet: Packet = { version: 1, submittedMs: at.ms, date: at.date, month: at.month, tab: at.tab, blocks };
+  return JSON.stringify(packet);
+}
+
+type Cell = string | number | boolean;
+interface Clock { ms: number; serial: number; daySerial: number; date: string; month: string; tab: string; hour: number; }
+interface Block { address: string; values: Cell[][]; }
+interface Packet { version: number; submittedMs: number; date: string; month: string; tab: string; blocks: Block[]; }
+const ADDRESSES = ["J4:J5", "B6:C140", "E6:G140", "I6:J140", "L6:M140", "R6:R140", "AY6:AY29", "BC6:BC29", "BP6:CD29"];
+function clock(value: string): Clock {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) throw new Error("접수시각에는 목록의 '만든 날짜(Created)'를 넣으세요. 현재 시각을 넣지 마세요.");
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) throw new Error("접수시각을 읽을 수 없습니다.");
+  const serial = ms / 86400000 + 25569 + 9 / 24;
+  if (serial < 45000 || serial > 100000) throw new Error("접수시각이 지원 범위를 벗어났습니다.");
+  const daySerial = Math.floor(serial - 5 / 24 + 1e-10);
+  const date = new Date(Date.UTC(1899, 11, 30) + daySerial * 86400000);
+  const year = date.getUTCFullYear(), month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const hour24 = new Date(ms + 9 * 3600000).getUTCHours();
+  return { ms, serial, daySerial, date: date.toISOString().slice(0, 10), month: String(year) + "-" + month, tab: "긴급 " + month + "(" + date.getUTCDate() + ")", hour: hour24 < 5 ? hour24 + 24 : hour24 };
+}
+function dimensions(address: string): { rows: number; cols: number } {
+  const match = address.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (!match) throw new Error("지원하지 않는 범위입니다.");
+  const col = (s: string): number => s.split("").reduce((sum, c) => sum * 26 + c.charCodeAt(0) - 64, 0);
+  return { rows: Number(match[4]) - Number(match[2]) + 1, cols: col(match[3]) - col(match[1]) + 1 };
+}

@@ -1,0 +1,409 @@
+// 기존 온라인 수식 파일에서 실행합니다. 새 파일이나 시트 복사는 필요 없습니다.
+// 처음/월 변경 시: 선택 월만 연결하도록 정리. 이후: 선택 월 원본 새로고침 요청.
+// 긴급 AA 시간대 누적과 05시 운영일 전환을 기록합니다. 상태출력 D5는 변경하지 않습니다. Office Script는 A1 편집 이벤트를 받지 못합니다.
+function main(workbook: ExcelScript.Workbook) {
+  const version = "20261115.kd3.긴급";
+  const markerName = "패치_당월경량화";
+  const daily = workbook.getWorksheet("데일리");
+  const status = workbook.getWorksheet("상태출력");
+  const config = workbook.getWorksheet("데일리연결");
+  const helperNames = ["수식설정", "수식근무", "수식OT", "수식원문", "수식판정", "수식명단", "수식검증"];
+  if (!daily || !status || !config || !workbook.getNamedItem("수식_원본날짜")) {
+    throw new Error("기존 온라인 자동연결 수식 파일에서 실행하세요. 처음 설치하는 코드는 아닙니다.");
+  }
+  for (const name of helperNames) {
+    if (!workbook.getWorksheet(name)) throw new Error(name + " 계산 탭이 없습니다. 변경하지 않았습니다.");
+  }
+  const addresses = ["J4:J5", "B6:C140", "E6:G140", "I6:K140", "L6:M140", "R6:R140", "AY6:AY29", "BC6:BC29", "BP6:CD29"];
+  for (let index = 0; index < addresses.length; index++) {
+    const first = addresses[index].split(":")[0];
+    if (!daily.getRange(first).getFormula().includes("연결_현재_" + pad(index + 1))) {
+      throw new Error("데일리 " + first + "의 기존 자동연결 수식을 확인하세요. 변경하지 않았습니다.");
+    }
+  }
+  const app = workbook.getApplication();
+  app.calculate(ExcelScript.CalculationType.recalculate);
+  const dateValue = config.getRange("B5").getValue();
+  if (typeof dateValue !== "number" || !Number.isFinite(dateValue) || dateValue < 60 || dateValue > 100000) {
+    throw new Error("데일리 A1에 올바른 날짜를 넣고, 데일리연결 B5의 날짜를 확인하세요.");
+  }
+  const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(dateValue) * 86400000);
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + 1;
+  const period = String(year) + pad(month);
+  const marker = workbook.getNamedItem(markerName);
+  const expectedMarker = '="' + version + "." + period + '"';
+  const mustPatch = !marker || marker.getFormula() !== expectedMarker;
+  let message = "";
+  if (mustPatch) {
+    console.log("선택 월 " + year + "년 " + month + "월로 연결 정리 중. 첫 실행은 시간이 걸릴 수 있습니다.");
+    message = applyMonthlyPatch(workbook, config, helperNames, addresses, year, month);
+    putName(workbook, markerName, expectedMarker);
+    console.log(message);
+  }
+  // 긴급 AA 누적은 현재 표시된 계산 결과로 저장합니다.
+  try { console.log("AA 누적 기록: " + recordAaReport(workbook)); }
+  catch (aaError) { console.log("AA 누적 기록 건너뜀: " + String(aaError)); }
+  applyDailyKAndD3(workbook);
+  // 자동 갱신 설정은 그대로 둡니다. 전체 연결/데이터/피벗을 새로고침하지 않습니다.
+  const links = workbook.getLinkedWorkbooks();
+  const targetFile = "긴급조치 DailySheet.(" + String(year).slice(-2) + "." + pad(month) + ")(NEW).xlsx";
+  const selected = links.filter(link => normalizeUrl(link.getId()).endsWith("/" + targetFile));
+  if (selected.length !== 1) {
+    const warning = "패치는 적용됐지만 선택 월 원본 링크를 하나로 확인하지 못했습니다. 데이터 → 통합 문서 링크에서 " + targetFile + "의 연결·신뢰를 확인하세요.";
+    config.getRange("B12").setValue(warning);
+    throw new Error(warning);
+  }
+  try {
+    selected[0].refreshLinks();
+  } catch (error) {
+    config.getRange("B12").setValue("새로고침 요청 실패. 데이터 → 통합 문서 링크에서 원본 접근·신뢰 확인 필요");
+    throw new Error("선택 월 링크 새로고침 요청이 실패했습니다. " + String(error));
+  }
+  // refreshLinks는 비동기 요청입니다. 완료/최신 데이터라고 표시하지 않습니다.
+  const requestedAt = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 19).replace("T", " ");
+  config.getRange("A12").setValue("수동 갱신 요청(KST)");
+  config.getRange("B12").setValue(requestedAt + " 요청됨 · 완료 시각은 통합 문서 링크에서 확인");
+  app.calculate(ExcelScript.CalculationType.recalculate);
+  console.log("선택 월 파일 1개에 새로고침을 요청했습니다. 서버 반영까지 지연될 수 있습니다. 자동 갱신 설정과 상태출력 D5는 유지했습니다.");
+}
+
+function applyMonthlyPatch(workbook: ExcelScript.Workbook, config: ExcelScript.Worksheet,
+  helperNames: string[], addresses: string[], year: number, month: number): string {
+  const period = String(year) + pad(month);
+  const names = workbook.getNames();
+  // 삭제할 과거 월 범위는 이름만 읽습니다. 약 3,000회의 불필요한 수식 조회를 줄입니다.
+  const definitions = names.map(item => {
+    const name = item.getName();
+    const dayName = name.match(/^연결_(\d{6})\d{2}_\d{2}$/);
+    return { item: item, name: name, formula: dayName && dayName[1] !== period ? "" : item.getFormula() };
+  });
+  const nameCache = new Map<string, ExcelScript.NamedItem>(definitions.map(entry => [entry.name, entry.item]));
+  const formulaCache = new Map<string, string>(definitions.map(entry => [entry.name, entry.formula]));
+  // 이름 삭제/링크 해제 후 기존 LinkedWorkbook 객체는 없어질 수 있습니다. 주소 문자열만 보관합니다.
+  const sourceIds = workbook.getLinkedWorkbooks().map(link => link.getId());
+  const knownSource = sourceIds.map(id => normalizeUrl(id)).find(url =>
+    /\/Eats Daily 출근시트 \d{2}\.\d{2}\/긴급조치 DailySheet\.\(\d{2}\.\d{2}\)\(NEW\)\.xlsx$/.test(url));
+  if (!knownSource) throw new Error("기존 월별 원본 주소를 확인하지 못했습니다. 원본 링크를 변경하지 않았습니다.");
+  const yyMm = String(year).slice(-2) + "." + pad(month);
+  const targetUrl = knownSource.replace(/Eats Daily 출근시트 \d{2}\.\d{2}\//, "Eats Daily 출근시트 " + yyMm + "/")
+    .replace(/긴급조치 DailySheet\.\(\d{2}\.\d{2}\)\(NEW\)\.xlsx$/, "긴급조치 DailySheet.(" + yyMm + ")(NEW).xlsx");
+  const slash = targetUrl.lastIndexOf("/");
+  const prefix = targetUrl.slice(0, slash + 1) + "[" + targetUrl.slice(slash + 1) + "]";
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const retired = definitions.filter(entry => {
+    const dayName = entry.name.match(/^연결_(\d{6})\d{2}_\d{2}$/);
+    const monthName = entry.name.match(/^연결_월(\d{2})_\d{2}$/);
+    return (dayName && dayName[1] !== period) || (monthName && Number(monthName[1]) !== month);
+  });
+  const retiredNames = new Set<string>(retired.map(entry => entry.name));
+  // 사용자 수식이 과거 월의 내부 이름을 직접 쓰면 삭제하지 않고 먼저 알려줍니다.
+  const referencesRetired = (formula: string): boolean => {
+    const matches = formula.match(/연결_(?:\d{8}|월\d{2})_\d{2}/g) || [];
+    return matches.some(name => retiredNames.has(name));
+  };
+  for (const entry of definitions) {
+    if (!retiredNames.has(entry.name) && !/^연결_현재_\d{2}$/.test(entry.name) && referencesRetired(entry.formula)) {
+      throw new Error("사용자 이름 " + entry.name + "에서 과거 월 연결을 사용 중이므로 정리를 중단했습니다.");
+    }
+  }
+  const worksheets = workbook.getWorksheets();
+  let canRetireLinks = true;
+  const edits: { sheet: ExcelScript.Worksheet; row: number; col: number; formula: string }[] = [];
+  for (const sheet of worksheets) {
+    const sheetName = sheet.getName();
+    const isHelper = helperNames.includes(sheetName);
+    // 차트/피벗의 외부 원본은 이 패치에서 완전히 판별할 수 없으므로 링크 해제를 생략합니다.
+    if (sheet.getCharts().length > 0 || sheet.getPivotTables().length > 0) canRetireLinks = false;
+    for (const localName of sheet.getNames()) {
+      const formula = localName.getFormula();
+      if (referencesRetired(formula)) throw new Error(sheetName + "의 시트 전용 이름에서 과거 월을 사용 중입니다. 변경하지 않았습니다.");
+      if (withoutStringConstants(formula).includes("[")) canRetireLinks = false;
+    }
+    const used = sheet.getUsedRange(true);
+    if (!used) continue;
+    const startRow = used.getRowIndex();
+    const startCol = used.getColumnIndex();
+    const columns = used.getColumnCount();
+    const rowCount = used.getRowCount();
+    const batchRows = Math.max(1, Math.min(200, Math.floor(10000 / columns)));
+    for (let offset = 0; offset < rowCount; offset += batchRows) {
+      const count = Math.min(batchRows, rowCount - offset);
+      const rows = sheet.getRangeByIndexes(startRow + offset, startCol, count, columns).getFormulas();
+      for (let rr = 0; rr < rows.length; rr++) for (let cc = 0; cc < rows[rr].length; cc++) {
+        const formula = rows[rr][cc];
+        if (typeof formula !== "string" || !formula.startsWith("=")) continue;
+        if (referencesRetired(formula)) throw new Error(sheetName + "의 사용자 수식에서 과거 월 이름을 사용 중입니다. 변경하지 않았습니다.");
+        // 외부 셀 수식이 하나라도 있으면 숫자형 [1] 링크까지 보호합니다.
+        if (withoutStringConstants(formula).includes("[")) canRetireLinks = false;
+        if (!isHelper) continue;
+        let updated = directSources(formula);
+        if (sheetName === "수식OT" && startRow + offset + rr === 1 && startCol + cc === 0) updated = cacheOtTimes(updated);
+        if (updated !== formula) edits.push({ sheet: sheet, row: startRow + offset + rr, col: startCol + cc, formula: updated });
+      }
+    }
+  }
+  // 외부 이름은 이번 패치가 소유하는 날짜 범위만 인정합니다. 사용자 이름은 보존합니다.
+  for (const entry of definitions) {
+    if (retiredNames.has(entry.name) || /^연결_\d{8}_\d{2}$/.test(entry.name)) continue;
+    if (withoutStringConstants(entry.formula).includes("[")) canRetireLinks = false;
+  }
+  // 날짜 이름도 사용자가 다른 파일로 바꿨으면 그 연결을 자동 해제하지 않습니다.
+  for (const entry of definitions.filter(entry => /^연결_\d{8}_\d{2}$/.test(entry.name))) {
+    if (retiredNames.has(entry.name)) continue;
+    const match = entry.name.match(/^연결_(\d{4})(\d{2})(\d{2})_(\d{2})$/);
+    if (!match) continue;
+    const expectedMonth = match[1].slice(-2) + "." + match[2];
+    const normalized = normalizeUrl(entry.formula);
+    if (!normalized.includes("긴급조치 DailySheet.(" + expectedMonth + ")(NEW).xlsx]")) canRetireLinks = false;
+  }
+  const app = workbook.getApplication();
+  const previousMode = app.getCalculationMode();
+  let removedLinks = 0;
+  let alreadyRemovedLinks = 0;
+  let cleanupWarning = "";
+  console.log("사전 검사 완료. 선택 월 연결과 직접 참조를 적용합니다.");
+  try {
+    app.setCalculationMode(ExcelScript.CalculationMode.manual);
+    for (let index = 0; index < addresses.length; index++) {
+      const dayNames: string[] = [];
+      for (let day = 1; day <= days; day++) {
+        const name = "연결_" + period + pad(day) + "_" + pad(index + 1);
+        const range = addresses[index].replace(/([A-Z]+)(\d+)/g, "$$$1$$$2");
+        const formula = "='" + (prefix + "긴급 " + pad(month) + "(" + day + ")").replace(/'/g, "''") + "'!" + range;
+        putCachedName(workbook, nameCache, formulaCache, name, formula);
+        dayNames.push(name);
+      }
+      const monthName = "연결_월" + pad(month) + "_" + pad(index + 1);
+      putCachedName(workbook, nameCache, formulaCache, monthName, "=CHOOSE('데일리연결'!$B$8," + dayNames.join(",") + ")");
+      putCachedName(workbook, nameCache, formulaCache, "연결_현재_" + pad(index + 1), "=IF(OR('데일리연결'!$B$7<>연결_고정연도,'데일리연결'!$B$6<>연결_고정월),NA()," + monthName + ")");
+    }
+    putCachedName(workbook, nameCache, formulaCache, "연결_고정연도", "=" + year);
+    putCachedName(workbook, nameCache, formulaCache, "연결_고정월", "=" + month);
+    for (const entry of definitions) {
+      if (!entry.name.startsWith("수식_")) continue;
+      const updated = directSources(entry.formula);
+      if (updated !== entry.formula) entry.item.setFormula(updated);
+    }
+    for (const edit of edits) edit.sheet.getCell(edit.row, edit.col).setFormula(edit.formula);
+    config.getRange("A2").setValue("연결 고정 월");
+    config.getRange("B2").setFormula("=연결_고정월");
+    config.getRange("B4").setFormula("='데일리'!A1");
+    config.getRange("B10").setFormula('=IFERROR(IF(AND(B7=연결_고정연도,B6=연결_고정월),"선택 날짜 확인됨","월이 바뀌었습니다: 최적화 패치 버튼을 한 번 실행하세요"),"데일리 A1 날짜 확인 필요")');
+    config.getRange("B17").setValue("당월 전용 패치 적용. 같은 월의 날짜는 자동 선택합니다. 월이 바뀌면 같은 스크립트를 한 번 실행하세요.");
+    config.getRange("A21:D32").clear(ExcelScript.ClearApplyTo.contents);
+    config.getRange("A21:D21").setValues([[month, targetUrl.slice(slash + 1), "긴급 " + pad(month) + "(1) ~ 긴급 " + pad(month) + "(" + days + ")", "9구간 · K열 포함"]]);
+    console.log("계산 수식 적용 완료. 과거 월 이름 " + retired.length + "개를 정리합니다.");
+    for (const entry of retired) entry.item.delete();
+    if (canRetireLinks) {
+      const obsoleteIds = sourceIds.filter(id => {
+        const url = normalizeUrl(id);
+        if (url === targetUrl) return false;
+        const normalizedTarget = url.replace(/Eats Daily 출근시트 \d{2}\.\d{2}\//, "Eats Daily 출근시트 " + yyMm + "/")
+          .replace(/긴급조치 DailySheet\.\(\d{2}\.\d{2}\)\(NEW\)\.xlsx$/, "긴급조치 DailySheet.(" + yyMm + ")(NEW).xlsx");
+        return normalizedTarget === targetUrl;
+      });
+      // 정리는 보조 단계입니다. 이미 사라진 링크 때문에 끝난 수식 패치를 실패시키지 않습니다.
+      try {
+        for (const id of obsoleteIds) {
+          const current = workbook.getLinkedWorkbookByUrl(id);
+          if (current) { current.breakLinks(); removedLinks++; }
+          else alreadyRemovedLinks++;
+        }
+      } catch (error) {
+        cleanupWarning = " · 수식 패치는 완료, 남은 링크 정리는 보류함: " + String(error);
+      }
+    }
+    config.getRange("A19").setValue("경량화 결과");
+    const result = "날짜 참조 " + (days * 9) + "개 · 과거 이름 " + retired.length + "개 정리 · 불필요 링크 " + removedLinks + "개 해제/" + alreadyRemovedLinks + "개 이미 없음 · 직접 참조 " + edits.length + "칸 적용";
+    config.getRange("B19").setValue(result + cleanupWarning + (canRetireLinks ? "" : " · 사용자 외부 수식/차트/숫자형 링크가 있어 남은 링크는 보존함. 데이터 메뉴에서 확인"));
+    return result;
+  } finally {
+    app.setCalculationMode(previousMode);
+  }
+}
+
+function directSources(formula: string): string {
+  return formula.replace(/INDIRECT\("'(데일리|상태출력)'!([A-Z$0-9:]+)"\)/g, "'$1'!$2");
+}
+
+function withoutStringConstants(formula: string): string {
+  return formula.replace(/"(?:[^"]|"")*"/g, "");
+}
+
+function cacheOtTimes(formula: string): string {
+  const oldPart = 'times,TOCOL(MAKEARRAY(24,15,LAMBDA(rownum,colnum,IF(INDEX(\'데일리\'!BL6:BL29,rownum)="","",INDEX(\'데일리\'!BL6:BL29,rownum)))),0)';
+  const newPart = 'timeCells,IF(\'데일리\'!BL6:BL29="","",\'데일리\'!BL6:BL29),times,TOCOL(MAKEARRAY(24,15,LAMBDA(rownum,colnum,INDEX(timeCells,rownum))),0)';
+  return formula.replace(oldPart, newPart);
+}
+
+function putName(workbook: ExcelScript.Workbook, name: string, formula: string) {
+  const existing = workbook.getNamedItem(name);
+  if (existing) { if (existing.getFormula() !== formula) existing.setFormula(formula); }
+  else workbook.addNamedItem(name, formula);
+}
+
+function putCachedName(workbook: ExcelScript.Workbook, names: Map<string, ExcelScript.NamedItem>,
+  formulas: Map<string, string>, name: string, formula: string) {
+  const existing = names.get(name);
+  if (existing) { if (formulas.get(name) !== formula) existing.setFormula(formula); }
+  else names.set(name, workbook.addNamedItem(name, formula));
+  formulas.set(name, formula);
+}
+
+function normalizeUrl(url: string): string {
+  let value = url;
+  for (let iteration = 0; iteration < 2; iteration++) {
+    try { const decoded = decodeURIComponent(value); if (decoded === value) break; value = decoded; } catch { break; }
+  }
+  return value;
+}
+
+function pad(value: number): string { return String(value).padStart(2, "0"); }
+
+// AA 누적 복구 20261114.1. 현재 파일에서 계산된 결과를 저장합니다.
+// 원본 링크의 비동기 새로고침 완료를 기다리거나 A1 편집을 자동 감지하지 않습니다.
+function recordAaReport(workbook: ExcelScript.Workbook): string {
+  const auto = workbook.getNamedItem("긴조_자동기록");
+  if (auto && /^=TRUE(?:\(\))?$/i.test(auto.getFormula().trim())) return "추가 기능이 자동 기록 중이므로 수동 AA 기록은 생략했습니다.";
+  const sheet = workbook.getWorksheet("상태출력");
+  const settings = workbook.getWorksheet("수식설정");
+  if (!sheet || !settings) throw new Error("상태출력과 수식설정 탭이 필요합니다.");
+  const raw = sheet.getRange("A1").getValue();
+  if (typeof raw !== "string" || !raw.trim()) throw new Error("A1 상태 원문이 비어 있어 AA 기록을 건너뜁니다.");
+  const clock = settings.getRange("B3").getValue();
+  if (typeof clock !== "number" || !Number.isFinite(clock) || clock < 60 || clock > 100000) {
+    throw new Error("수식설정 B3의 기준 시각을 확인하세요. 기존 AA 기록은 유지합니다.");
+  }
+  const parts = aaBusinessTime(clock);
+  const parsed = aaReadSpill(workbook, "수식원문", "D2");
+  if (!parsed.some(row => aaKey(row[1]) !== "")) throw new Error("A1에서 유효한 상담사 상태를 읽지 못했습니다. 기존 AA 기록은 유지합니다.");
+  const source = aaReadSpill(workbook, "수식근무", "A2");
+  const scheduledMask = aaReadSpill(workbook, "수식근무", "P2");
+  const activeOt = aaReadSpill(workbook, "수식OT", "G2");
+  const present = aaReadSpill(workbook, "수식판정", "P2");
+  const missing = aaReadSpill(workbook, "수식명단", "AB2");
+  if (source.length !== scheduledMask.length) throw new Error("근무표와 판정 행 수가 맞지 않습니다. 기존 AA 기록은 유지합니다.");
+  const scheduled = new Set<string>();
+  for (let index = 0; index < source.length; index++) {
+    if (scheduledMask[index][0] === true || scheduledMask[index][0] === 1) {
+      const key = aaKey(source[index][1]);
+      if (key) scheduled.add(key);
+    }
+  }
+  const ot = new Set<string>();
+  for (const row of activeOt) { const key = aaKey(row[0]); if (key && !scheduled.has(key)) ot.add(key); }
+  const presentKeys = new Set<string>();
+  for (const row of present) { const key = aaKey(row[1]); if (key) presentKeys.add(key); }
+  const missingKeys = new Set<string>();
+  for (const row of missing) { const key = aaKey(row[0]); if (key) missingKeys.add(key); }
+  const summary = aaSummary(parts.hour, scheduled, ot, presentKeys, missingKeys);
+  const dayName = "AA누적_운영일";
+  const installName = "AA누적_설치버전";
+  const savedDay = workbook.getNamedItem(dayName);
+  const storedDay = savedDay ? savedDay.getFormula().replace(/^="|"$/g, "") : "";
+  if (savedDay && !/^\d{4}-\d{2}-\d{2}$/.test(storedDay)) throw new Error("AA 운영일 저장값을 확인하세요. 기존 기록은 유지합니다.");
+  const installed = workbook.getNamedItem(installName);
+  const version = '="20261114.1"';
+  const needsInstall = !installed || installed.getFormula() !== version;
+  const oldHeader = sheet.getRange("AA3").getText().trim();
+  const sameDay = storedDay ? storedDay === parts.dateKey : oldHeader.startsWith(parts.dateText + " SM ");
+  // 24개 구간만 AA6:AA29에 두어 AA33 아래 데일리 결점과 겹치지 않습니다.
+  let rows: string[][];
+  if (!sameDay) rows = Array.from({ length: 24 }, () => [""]);
+  else if (needsInstall) rows = aaMigrateRows(sheet.getRange("AA6:AA32").getTexts());
+  else rows = sheet.getRange("AA6:AA29").getTexts();
+  rows[parts.hour - 5] = [summary];
+  // 모든 원본/판정 확인이 끝난 다음에만 AA 출력에 씁니다.
+  if (needsInstall) {
+    sheet.getRange("AA6:AA32").clear(ExcelScript.ClearApplyTo.contents);
+    sheet.getRange("AA34:AA2003").clear(ExcelScript.ClearApplyTo.contents);
+    sheet.getRange("AA34").setFormula('=LET(source,수식근무!A2#,names,CHOOSECOLS(source,3),starts,CHOOSECOLS(source,10),ends,CHOOSECOLS(source,11),reason,CHOOSECOLS(source,12),rows,HSTACK(names,starts,ends,reason),valid,(names<>"")*(starts>=0)*(ends>=0)*(starts<>ends),picked,UNIQUE(FILTER(rows,valid,HSTACK("",-1,-1,""))),MAP(CHOOSECOLS(picked,1),CHOOSECOLS(picked,2),CHOOSECOLS(picked,3),CHOOSECOLS(picked,4),LAMBDA(person,beginMin,endMin,note,IF(person="","",person&" "&TEXT(beginMin/1440,"hh:mm")&"~"&TEXT(endMin/1440,"hh:mm")&IF(note="","","("&note&")")))))');
+  }
+  sheet.getRange("AA6:AA29").setValues(rows);
+  sheet.getRange("AA3:AA5").setValues([[parts.dateText + " SM " + aaPad(parts.hour) + "시 투입률 공유드립니다."], [""], ["[긴급조치]"]]);
+  sheet.getRange("AA33").setValue("[데일리 결점]");
+  aaPutName(workbook, dayName, '="' + parts.dateKey + '"');
+  if (needsInstall) aaPutName(workbook, installName, version);
+  return summary;
+}
+
+function aaReadSpill(workbook: ExcelScript.Workbook, sheetName: string, address: string): (string | number | boolean)[][] {
+  const sheet = workbook.getWorksheet(sheetName);
+  if (!sheet) throw new Error(sheetName + " 탭이 없습니다. 기존 AA 기록은 유지합니다.");
+  const anchor = sheet.getRange(address);
+  if (!anchor.getFormula()) throw new Error(sheetName + "!" + address + "의 계산 수식이 없습니다.");
+  const range = anchor.getSpillingToRange() || anchor;
+  const types = range.getValueTypes();
+  if (types.some(row => row.some(type => type === ExcelScript.RangeValueType.error))) {
+    throw new Error(sheetName + "!" + address + " 계산 오류로 AA 기록을 건너뜁니다. 오류를 결점 없음으로 기록하지 않습니다.");
+  }
+  return range.getValues();
+}
+
+function aaBusinessTime(serial: number): { dateKey: string; dateText: string; hour: number } {
+  const whole = Math.floor(serial);
+  const hour24 = Math.min(23, Math.floor((serial - whole) * 24 + 0.0000001));
+  const businessDay = whole - (hour24 < 5 ? 1 : 0);
+  const day = new Date(Date.UTC(1899, 11, 30) + businessDay * 86400000);
+  return { dateKey: day.toISOString().slice(0, 10), dateText: (day.getUTCMonth() + 1) + "/" + day.getUTCDate(), hour: hour24 < 5 ? hour24 + 24 : hour24 };
+}
+
+function aaSummary(hour: number, scheduled: Set<string>, ot: Set<string>, present: Set<string>, missing: Set<string>): string {
+  const missingNormal = new Set<string>();
+  missing.forEach(key => { if (!ot.has(key)) missingNormal.add(key); });
+  let missingOt = 0;
+  let presentOt = 0;
+  ot.forEach(key => {
+    if (present.has(key)) presentOt++;
+    // 예외/예정 이탈로 미출근 대상에서 제외된 인원은 결점으로 다시 세지 않습니다.
+    else if (missing.has(key)) missingOt++;
+  });
+  // 누락 판정과 로그인 판정이 어긋나도 정상으로 숨기지 않습니다.
+  missing.forEach(key => { if (ot.has(key) && present.has(key)) throw new Error("OT 출근·미출근 판정이 충돌합니다. 기존 AA 기록은 유지합니다."); });
+  let verdict = "결점 없음";
+  if (missingNormal.size > 0) verdict = "미출근 " + missingNormal.size + "명";
+  else if (missingOt > 0) verdict = "OT 미출근 " + missingOt + "명";
+  let result = "(" + aaPad(hour) + "~" + aaPad(hour + 1) + ") " + verdict;
+  if (ot.size > 0) {
+    result += " / OT " + ot.size + "명";
+    if (missingOt > 0) result += presentOt > 0 ? " (출근 " + presentOt + "명, 미출근 " + missingOt + "명)" : " (미출근 " + missingOt + "명)";
+  }
+  return result;
+}
+
+function aaMigrateRows(previous: string[][]): string[][] {
+  const rows = Array.from({ length: 24 }, () => [""]);
+  for (const row of previous) {
+    const match = (row[0] || "").match(/^\(\s*(\d{1,2})\s*[-~～]\s*(\d{1,2})\s*\)/);
+    if (!match) continue;
+    const hour = Number(match[1]);
+    if (hour >= 5 && hour <= 28 && Number(match[2]) === hour + 1) {
+      rows[hour - 5] = ["(" + aaPad(hour) + "~" + aaPad(hour + 1) + ")" + row[0].slice(match[0].length)];
+    }
+  }
+  return rows;
+}
+
+function aaPutName(workbook: ExcelScript.Workbook, name: string, formula: string) {
+  const existing = workbook.getNamedItem(name);
+  if (existing) existing.setFormula(formula); else workbook.addNamedItem(name, formula);
+}
+function aaKey(value: string | number | boolean): string { return String(value === undefined ? "" : value).trim().toLowerCase(); }
+function aaPad(value: number): string { return String(value).padStart(2, "0"); }
+
+// K열은 4번 연결 범위의 세 번째 열입니다. 월 변경도 같은 이름을 사용합니다.
+function applyDailyKAndD3(workbook: ExcelScript.Workbook) {
+  const daily = workbook.getWorksheet("데일리");
+  const status = workbook.getWorksheet("상태출력");
+  if (!daily || !status) throw new Error("데일리·상태출력 탭이 필요합니다.");
+  const rows: string[][] = [];
+  for (let row = 1; row <= 135; row++) {
+    const ref = "INDEX(연결_현재_04," + row + ",3)";
+    rows.push(['=IF(ISBLANK(' + ref + '),"",' + ref + ')']);
+  }
+  daily.getRange("K6:K140").setFormulas(rows);
+  // 현재 시간대 BA행의 AY인원을 E5로 읽고, D3는 인원이 바뀔 때 수식으로 갱신됩니다.
+  status.getRange("E5").setFormula("=LET(hours,MAP('데일리'!BA6:BA29,LAMBDA(item,LET(mins,수식_시간계산(item),IF(OR(mins<0,MOD(mins,60)<>0),-1,LET(hrs,mins/60,IF(hrs<5,hrs+24,hrs)))))),XLOOKUP(수식설정!B4,hours,'데일리'!AY6:AY29,\"시간행 확인 필요\",0))");
+  status.getRange("D3").setFormula("=IFERROR(LET(raw,E5,val,IF(ISNUMBER(raw),raw,NUMBERVALUE(SUBSTITUTE(raw,\",\",\"\"))),limits,SEQUENCE(14),lows,VSTACK(53,69,77,82,85,87,89,82,84,85,87,89,82,84),highs,VSTACK(1000,182,143,130,122,118,115,130,125,122,118,115,130,125),idx,IFERROR(XMATCH(TRUE,val<=limits,0),15),IF(OR(raw=\"\",val<=0),\"AY열 목표 인원 확인 필요\",\"최소 ~ 최대 투입률 (\"&IFERROR(INDEX(lows,idx),95)&\"% ~ \"&IFERROR(INDEX(highs,idx),105)&\"%) 가능\")),\"AY열 목표 인원/시간행 확인 필요\")");
+}

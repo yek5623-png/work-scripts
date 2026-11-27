@@ -1,0 +1,1596 @@
+/**
+ * 뉴오티관리자2 — 누적DB 적재 / 서식 API 오류 수정 / 실패 시 값·수식 복구
+ *
+ * Excel 웹과 데스크톱 Excel에서 함께 실행되도록 온라인 전용 API를 쓰지 않는다.
+ * 시트 보호는 공통 지원되는 보호 해제/복원 API를 사용하고, 정렬 후 화면용
+ * 필터/틀 고정 API는 호출하지 않아 구버전 데스크톱의 API 검사도 피한다.
+ */
+
+const MAX_H = 48;
+
+const POW: number[] = (() => {
+  const out: number[] = [];
+  for (let i = 0; i < MAX_H; i++) out.push(Math.pow(2, i));
+  return out;
+})();
+
+const ORDER_H: number[] = (() => {
+  const out: number[] = [];
+  for (let h = 5; h <= 23; h++) out.push(h);
+  for (let h = 0; h <= 4; h++) out.push(h);
+  return out;
+})();
+
+const PROTECTED_SHEET_PASSWORD = "cp7806**";
+const OT_SHEET_NAME = "긴급조치OT";
+const ARCHIVE_SHEET_NAME = "누적DB";
+const WRITE_CHUNK_CELLS = 20000;
+
+const DEBUG_ROWS: (string | number | boolean)[][] = [];
+
+type DateMode = "KST_TODAY" | "SHEET_AUTO_ALIGN" | "FORM_ANCHOR";
+
+type Config = {
+  formsScanCols: number;
+  formsDefaultStartRow: number;
+
+  // 긴급조치OT 구조
+  // 1세트: 날짜 B3 / 시간 B6:B29 / 남은자리 D6:D29 / 출력 G6:U29
+  // 2세트: 날짜 B32 / 시간 B35:B58 / 남은자리 D35:D58 / 출력 G35:U58
+  // 이후 29행 간격 반복
+  otFirstTopRow: number;
+  otBodyRows: number;
+  otBlockGap: number;
+
+  colDateAndTime: number;
+  colCap: number;
+  colGridStart: number;
+  gridCols: number;
+  colSummary: number;
+
+  // 출력 세트 보정값. 0이면 읽은 세트와 같은 세트에 정방향 출력.
+  outputShiftBlocksUp: number;
+
+  // 날짜 블록 매칭 방식
+  // KST_TODAY       : 긴급조치OT 1세트 = 한국시간 오늘, 2세트 = 내일
+  // SHEET_AUTO_ALIGN: B3/B32 날짜를 읽되, 오늘 날짜가 아래 세트에 있으면 자동으로 위로 당겨 매칭
+  // FORM_ANCHOR     : 폼즈 신청 날짜를 기준으로 1세트 날짜를 잡음
+  dateMode: DateMode;
+
+  // 디버그 로그 출력 위치: 긴급조치OT AZ1부터 사용
+  debugStartCol: number;
+  debugMaxRows: number;
+  debugMaxCols: number;
+};
+
+type FormRow = {
+  sheetRow: number;
+  name: string;
+  dateKey: string;
+  active: number;
+  removed: number;
+  seedL: number;
+};
+
+type CancelRow = {
+  sheetRow: number;
+  name: string;
+  dateKey: string;
+  mask: number;
+};
+
+type FormState = {
+  startRow: number;
+  lastRow: number;
+  rowCount: number;
+  rows: FormRow[];
+  invalidRows: number;
+};
+
+type OtBlock = {
+  dateRow: number;     // 1-based. 예: 3, 32, 61
+  topRow: number;      // 1-based. 예: 6, 35, 64
+  dateText: string;
+  dateKey: string;
+  hours: number[];
+  hourToRow: { [hour: string]: number }; // 실제 시트 1-based row. 예: 5시 -> 6, 35, 64
+  caps: { [hour: string]: number };      // 실제 같은 행 D값
+};
+
+function main(workbook: ExcelScript.Workbook): void {
+  const cfg: Config = {
+    formsScanCols: 14,
+    formsDefaultStartRow: 5,
+
+    otFirstTopRow: 6,
+    otBodyRows: 24,
+    otBlockGap: 29,
+
+    colDateAndTime: 2, // B
+    colCap: 4,         // D
+    colGridStart: 7,   // G
+    gridCols: 15,      // G:U
+    colSummary: 49,    // AW
+
+    // 정방향 매칭: B3/B6:D29 -> G6:U29 / AW3:AX31
+    // 다음 세트: B32/B35:D58 -> G35:U58 / AW32:AX60
+    outputShiftBlocksUp: 0,
+
+    // 방법2 수정판: 시트 날짜를 읽고 오늘이 아래 세트에 있으면 날짜와 D열 남은자리 source를 같이 자동 당김
+    dateMode: "SHEET_AUTO_ALIGN",
+    debugStartCol: 52, // AZ
+    debugMaxRows: 120,
+    debugMaxCols: 20,
+  };
+
+  const F = workbook.getWorksheet("폼즈");
+  const T = workbook.getWorksheet(OT_SHEET_NAME);
+  if (!F || !T) throw new Error(`시트 이름 확인: 폼즈 / ${OT_SHEET_NAME}`);
+
+  const removedProtections: RemovedSheetProtection[] = [];
+  const backups: RangeBackup[] = [];
+  const started = Date.now();
+
+  try {
+    removeSheetProtection(F, "폼즈", PROTECTED_SHEET_PASSWORD, removedProtections);
+    removeSheetProtection(T, OT_SHEET_NAME, PROTECTED_SHEET_PASSWORD, removedProtections);
+
+    workbook.getApplication().calculate(ExcelScript.CalculationType.recalculate);
+
+    DEBUG_ROWS.length = 0;
+    debugLine("RUN", cfg.dateMode, "utc", new Date(Date.now()).toISOString(), "kstToday", kstMdFromTodayOffset(0));
+
+    // 폼즈를 먼저 읽어둔다. FORM_ANCHOR 방식에서는 이 날짜들이 기준이 된다.
+    const form = readForms(F, cfg);
+    debugFormDates(form.rows);
+    if (form.invalidRows > 0) {
+      throw new Error(`폼즈 이름/신청일 오류 ${form.invalidRows}행: 입력을 수정한 후 다시 실행하세요. I/N 값은 지우지 않았습니다.`);
+    }
+    const formUsed = F.getUsedRange(true);
+    if (formUsed && form.lastRow >= form.startRow) {
+      const lastCol = Math.max(14, formUsed.getColumnIndex() + formUsed.getColumnCount());
+      backups.push(backupRange(F.getRangeByIndexes(form.startRow - 1, 0, form.lastRow - form.startRow + 1, lastCol)));
+    }
+
+    // 날짜/시간 세트는 B3, B6부터 고정 간격으로 잡는다.
+    // 디버그 로그는 긴급조치OT AZ1부터 출력된다.
+    const blockSkeletons = detectOtBlocks(T, cfg, false, form.rows);
+    if (blockSkeletons.length === 0) {
+      debugLine("ERROR", "NO_BLOCK_SKELETON", `${OT_SHEET_NAME} 날짜/시간 블록을 찾지 못함`);
+      flushDebug(T, cfg);
+      throw new Error(`${OT_SHEET_NAME} 날짜 블록을 찾지 못했습니다. ${OT_SHEET_NAME} AZ1 로그 확인`);
+    }
+
+    // 기존 출력이 D열 남은자리 계산에 영향을 주므로 먼저 출력칸만 비운다.
+    for (let i = 0; i < blockSkeletons.length; i++) {
+      const b = blockSkeletons[i];
+      backups.push(backupRange(T.getRangeByIndexes(b.topRow - 1, cfg.colGridStart - 1, cfg.otBodyRows, cfg.gridCols)));
+      backups.push(backupRange(T.getRangeByIndexes(b.dateRow - 1, cfg.colSummary - 1, cfg.otBlockGap, 2)));
+    }
+    clearOtOutputs(T, cfg, blockSkeletons);
+    workbook.getApplication().calculate(ExcelScript.CalculationType.recalculate);
+
+    // 출력칸을 비운 뒤, 실제 같은 행의 D열 남은자리를 다시 읽는다.
+    const blocks = detectOtBlocks(T, cfg, true, form.rows);
+    if (blocks.length === 0) {
+      debugLine("ERROR", "NO_BLOCK_WITH_CAP", "남은자리 포함 블록을 찾지 못함");
+      flushDebug(T, cfg);
+      throw new Error(`${OT_SHEET_NAME} 날짜 블록을 찾지 못했습니다. ${OT_SHEET_NAME} AZ1 로그 확인`);
+    }
+
+    applyCapacityByRealRows(form.rows, blocks);
+    const hiddenByGrid = drawOtByRealRows(T, form.rows, blocks, cfg);
+    if (hiddenByGrid > 0) throw new Error(`출력칸이 부족합니다: ${hiddenByGrid}명. 기존 데이터로 복구합니다.`);
+
+    // 출력 계산이 성공한 뒤 원본 F/G/I를 적재하고 I/N을 비운다.
+    appendNewApplications(workbook, F, cfg, removedProtections, backups);
+    writeForms(F, form);
+
+    // 마지막에 폼즈 G열 날짜순 정리
+    // 엑셀 Sort 기능을 쓰지 않고 배열로 직접 정렬해서 더 확실하게 동작
+    organizeFormsSheet(F, form);
+
+    debugLine("DONE", "rows", String(form.rowCount), "blocks", String(blocks.length), "ms", Date.now() - started);
+    flushDebug(T, cfg);
+
+    workbook.getApplication().calculate(ExcelScript.CalculationType.recalculate);
+  } catch (error) {
+    const restoreFailures: string[] = [];
+    for (let i = backups.length - 1; i >= 0; i--) {
+      try { restoreRange(workbook, backups[i]); }
+      catch { restoreFailures.push(`${backups[i].sheetName}!R${backups[i].rowIndex + 1}C${backups[i].colIndex + 1}`); }
+    }
+    if (restoreFailures.length > 0) {
+      throw new Error(`${String(error)} / 원본 복구 실패: ${restoreFailures.join(", ")}. 재실행 전에 해당 범위를 확인하세요.`);
+    }
+    throw error;
+  } finally {
+    restoreSheetProtections(workbook, removedProtections);
+  }
+}
+
+type RemovedSheetProtection = {
+  sheetName: string;
+  password: string;
+  allowAutoFilter: boolean;
+  allowDeleteColumns: boolean;
+  allowDeleteRows: boolean;
+  allowEditObjects: boolean;
+  allowEditScenarios: boolean;
+  allowFormatCells: boolean;
+  allowFormatColumns: boolean;
+  allowFormatRows: boolean;
+  allowInsertColumns: boolean;
+  allowInsertHyperlinks: boolean;
+  allowInsertRows: boolean;
+  allowPivotTables: boolean;
+  allow정렬: boolean;
+  selectNone: boolean;
+  selectUnlocked: boolean;
+};
+
+function removeSheetProtection(
+  sheet: ExcelScript.Worksheet,
+  sheetName: string,
+  password: string,
+  removedProtections: RemovedSheetProtection[]
+): void {
+  const protection = sheet.getProtection();
+
+  if (!protection.getProtected()) return;
+  const options = protection.getOptions();
+  let restorePassword = "";
+
+  // 비밀번호가 없는 보호 시트를 먼저 처리한다.
+  // 실패하거나 보호가 그대로면 지정된 비밀번호로 다시 시도한다.
+  try {
+    protection.unprotect();
+  } catch {}
+
+  if (protection.getProtected()) {
+    try {
+      protection.unprotect(password);
+      restorePassword = password;
+    } catch {
+      throw new Error(`${sheetName} 시트 보호 비밀번호가 맞지 않거나 보호를 해제할 수 없습니다.`);
+    }
+  }
+
+  if (protection.getProtected()) {
+    throw new Error(`${sheetName} 시트 보호를 해제하지 못했습니다.`);
+  }
+
+  removedProtections.push({
+    sheetName,
+    password: restorePassword,
+    allowAutoFilter: options.allowAutoFilter === true,
+    allowDeleteColumns: options.allowDeleteColumns === true,
+    allowDeleteRows: options.allowDeleteRows === true,
+    allowEditObjects: options.allowEditObjects === true,
+    allowEditScenarios: options.allowEditScenarios === true,
+    allowFormatCells: options.allowFormatCells === true,
+    allowFormatColumns: options.allowFormatColumns === true,
+    allowFormatRows: options.allowFormatRows === true,
+    allowInsertColumns: options.allowInsertColumns === true,
+    allowInsertHyperlinks: options.allowInsertHyperlinks === true,
+    allowInsertRows: options.allowInsertRows === true,
+    allowPivotTables: options.allowPivotTables === true,
+    allowSort: options.allowSort === true,
+    selectNone: options.selectionMode === ExcelScript.ProtectionSelectionMode.none,
+    selectUnlocked: options.selectionMode === ExcelScript.ProtectionSelectionMode.unlocked,
+  });
+}
+
+function restoreSheetProtections(
+  workbook: ExcelScript.Workbook,
+  removedProtections: RemovedSheetProtection[]
+): void {
+  const failedSheets: string[] = [];
+
+  for (let i = removedProtections.length - 1; i >= 0; i--) {
+    const item = removedProtections[i];
+    const sheet = workbook.getWorksheet(item.sheetName);
+
+    if (!sheet) {
+      failedSheets.push(item.sheetName);
+      continue;
+    }
+
+    const protection = sheet.getProtection();
+    const restoreOptions: ExcelScript.WorksheetProtectionOptions = {
+      allowAutoFilter: item.allowAutoFilter,
+      allowDeleteColumns: item.allowDeleteColumns,
+      allowDeleteRows: item.allowDeleteRows,
+      allowEditObjects: item.allowEditObjects,
+      allowEditScenarios: item.allowEditScenarios,
+      allowFormatCells: item.allowFormatCells,
+      allowFormatColumns: item.allowFormatColumns,
+      allowFormatRows: item.allowFormatRows,
+      allowInsertColumns: item.allowInsertColumns,
+      allowInsertHyperlinks: item.allowInsertHyperlinks,
+      allowInsertRows: item.allowInsertRows,
+      allowPivotTables: item.allowPivotTables,
+      allowSort: item.allowSort,
+      selectionMode: item.selectNone
+        ? ExcelScript.ProtectionSelectionMode.none
+        : item.selectUnlocked
+          ? ExcelScript.ProtectionSelectionMode.unlocked
+          : ExcelScript.ProtectionSelectionMode.normal,
+    };
+
+    try {
+      if (!protection.getProtected()) {
+        if (item.password) {
+          protection.protect(restoreOptions, item.password);
+        } else {
+          protection.protect(restoreOptions);
+        }
+      }
+    } catch {
+      failedSheets.push(item.sheetName);
+    }
+  }
+
+  if (failedSheets.length > 0) {
+    throw new Error(`작업 후 시트 보호 복원 실패: ${failedSheets.join(", ")}`);
+  }
+}
+
+type RawOtBlock = {
+  dateRow: number;
+  topRow: number;
+  rawDateText: string;
+  rawDateKey: string;
+  firstHour: number | null;
+  hours: number[];
+  hourToRow: { [hour: string]: number };
+  caps: { [hour: string]: number };
+};
+
+function detectOtBlocks(
+  T: ExcelScript.Worksheet,
+  cfg: Config,
+  readCaps: boolean,
+  formRows: FormRow[]
+): OtBlock[] {
+  const used = T.getRange("B:B").getUsedRange(true);
+  if (!used) return [];
+
+  const totalRows = Math.min(1048576, Math.max(used.getRowIndex() + used.getRowCount(), cfg.otFirstTopRow + cfg.otBodyRows - 1));
+  const bTexts = T.getRangeByIndexes(0, cfg.colDateAndTime - 1, totalRows, 1).getTexts();
+  const bVals = T.getRangeByIndexes(0, cfg.colDateAndTime - 1, totalRows, 1).getValues();
+  const dVals = readCaps ? T.getRangeByIndexes(0, cfg.colCap - 1, totalRows, 1).getValues() : [];
+
+  assertMatrix(bTexts, totalRows, 1, "긴급조치OT B열 표시값");
+  assertMatrix(bVals, totalRows, 1, "긴급조치OT B열 값");
+  if (readCaps) assertMatrix(dVals, totalRows, 1, "긴급조치OT D열 값");
+  const rawBlocks: RawOtBlock[] = [];
+  let emptyAfterFound = 0;
+
+  for (let topRow = cfg.otFirstTopRow; topRow + cfg.otBodyRows - 1 <= totalRows; topRow += cfg.otBlockGap) {
+    const dateRow = topRow - 3;
+    if (dateRow < 1 || topRow < 1 || dateRow > totalRows || topRow > totalRows) continue;
+
+    const rawDateText = txt(bTexts[dateRow - 1][0]);
+    const dateVal = bVals[dateRow - 1][0];
+    const firstTimeText = txt(bTexts[topRow - 1][0]);
+
+    const rawDateKey = dateKeyFromCell(dateVal, rawDateText);
+    const firstHour = hour(firstTimeText);
+
+    // 시간 행 자체가 없으면 이 아래 세트는 의미 없는 영역으로 본다.
+    // 날짜는 자동화 UTC 문제 때문에 나중에 보정할 수 있으므로 여기서는 시간만 필수로 본다.
+    if (firstHour === null) {
+      if (rawBlocks.length > 0) {
+        emptyAfterFound++;
+        if (emptyAfterFound >= 2) break;
+      }
+      continue;
+    }
+
+    emptyAfterFound = 0;
+
+    const rawBlock: RawOtBlock = {
+      dateRow,
+      topRow,
+      rawDateText,
+      rawDateKey,
+      firstHour,
+      hours: [],
+      hourToRow: {},
+      caps: {},
+    };
+
+    for (let r = 0; r < cfg.otBodyRows; r++) {
+      const row1 = topRow + r;
+      if (row1 < 1 || row1 > totalRows) continue;
+
+      const h = hour(txt(bTexts[row1 - 1][0]));
+      if (h === null || h < 0 || h >= MAX_H) continue;
+
+      rawBlock.hours.push(h);
+      rawBlock.hourToRow[String(h)] = row1;
+
+      if (readCaps) {
+        const rawCap = dVals[row1 - 1][0];
+        if (typeof rawCap === "string" && rawCap.trim() && !Number.isFinite(Number(rawCap))) {
+          throw new Error(`긴급조치OT D${row1} 남은자리 값 오류: ${rawCap}`);
+        }
+        const cap = toInt(rawCap);
+        rawBlock.caps[String(h)] = Math.max(0, cap);
+      } else {
+        rawBlock.caps[String(h)] = 0;
+      }
+    }
+
+    if (rawBlock.hours.length === 0) {
+      if (rawBlocks.length > 0) {
+        emptyAfterFound++;
+        if (emptyAfterFound >= 2) break;
+      }
+      continue;
+    }
+
+    rawBlocks.push(rawBlock);
+  }
+
+  if (!readCaps) {
+    return rawBlocks.map(b => ({ dateRow: b.dateRow, topRow: b.topRow,
+      dateText: b.rawDateText, dateKey: b.rawDateKey, hours: b.hours,
+      hourToRow: b.hourToRow, caps: b.caps }));
+  }
+  const refs = buildEffectiveOtBlockRefs(rawBlocks, cfg, formRows);
+
+  const blocks: OtBlock[] = [];
+  for (let i = 0; i < refs.length; i++) {
+    const ref = refs[i];
+    const target = rawBlocks[ref.targetIndex];
+    const source = ref.sourceIndex >= 0 && ref.sourceIndex < rawBlocks.length ? rawBlocks[ref.sourceIndex] : target;
+    const effectiveDateKey = ref.dateKey;
+
+    if (!target || !source) continue;
+
+    debugLine(
+      readCaps ? "BLOCK_CAP" : "BLOCK_SKEL",
+      "targetIdx", String(ref.targetIndex),
+      "sourceIdx", String(ref.sourceIndex),
+      "targetTop", String(target.topRow),
+      "sourceTop", String(source.topRow),
+      "targetRaw", target.rawDateKey,
+      "sourceRaw", source.rawDateKey,
+      "effKey", effectiveDateKey,
+      "sourceText", source.rawDateText,
+      "hours", String(target.hours.length)
+    );
+
+    if (!effectiveDateKey) continue;
+
+    // 중요:
+    // topRow/dateRow/hourToRow는 '출력될 위치'인 target 세트를 사용한다.
+    // caps는 '실제 해당 날짜 남은자리'가 들어있는 source 세트를 사용한다.
+    // 자동화가 UTC 기준으로 돌아 B3=전날, B32=오늘이 되는 경우:
+    //   target 0행(G6)에 6/26을 출력하되, 남은자리는 source 1행(D35:D58)을 읽는다.
+    blocks.push({
+      dateRow: target.dateRow,
+      topRow: target.topRow,
+      dateText: effectiveDateKey,
+      dateKey: effectiveDateKey,
+      hours: target.hours,
+      hourToRow: target.hourToRow,
+      caps: source.caps,
+    });
+  }
+
+  return blocks;
+}
+
+type EffectiveOtBlockRef = {
+  targetIndex: number;
+  sourceIndex: number;
+  dateKey: string;
+};
+
+function buildEffectiveOtBlockRefs(rawBlocks: RawOtBlock[], cfg: Config, formRows: FormRow[]): EffectiveOtBlockRef[] {
+  const refs: EffectiveOtBlockRef[] = [];
+  const kstToday = kstMdFromTodayOffset(0);
+
+  if (cfg.dateMode === "KST_TODAY") {
+    debugLine("DATE_MODE", "KST_TODAY", "top", kstToday, "desc", "1세트=한국시간 오늘, caps는 같은 세트 사용");
+    for (let i = 0; i < rawBlocks.length; i++) {
+      refs.push({ targetIndex: i, sourceIndex: i, dateKey: kstMdFromTodayOffset(i) });
+    }
+    return refs;
+  }
+
+  if (cfg.dateMode === "SHEET_AUTO_ALIGN") {
+    let todayIndex = -1;
+    for (let i = 0; i < rawBlocks.length; i++) {
+      if (rawBlocks[i].rawDateKey === kstToday) {
+        todayIndex = i;
+        break;
+      }
+    }
+
+    debugLine(
+      "DATE_MODE",
+      "SHEET_AUTO_ALIGN_V2",
+      "kstToday",
+      kstToday,
+      "todayIndexInSheet",
+      String(todayIndex),
+      "desc",
+      "오늘 날짜가 아래 세트에 있으면 날짜와 D열 남은자리 source를 같이 위로 당김"
+    );
+
+    if (todayIndex >= 0) {
+      for (let targetIndex = 0; targetIndex + todayIndex < rawBlocks.length; targetIndex++) {
+        const sourceIndex = targetIndex + todayIndex;
+        const sourceKey = sourceIndex < rawBlocks.length ? rawBlocks[sourceIndex].rawDateKey : "";
+        refs.push({
+          targetIndex,
+          sourceIndex: sourceIndex < rawBlocks.length ? sourceIndex : targetIndex,
+          dateKey: sourceKey || kstMdFromTodayOffset(targetIndex),
+        });
+      }
+      return refs;
+    }
+
+    // 오늘 날짜를 못 찾으면 원본 세트 그대로 사용한다.
+    for (let i = 0; i < rawBlocks.length; i++) {
+      refs.push({ targetIndex: i, sourceIndex: i, dateKey: rawBlocks[i].rawDateKey || kstMdFromTodayOffset(i) });
+    }
+    return refs;
+  }
+
+  // FORM_ANCHOR
+  const anchor = pickFormAnchorDate(formRows);
+  debugLine("DATE_MODE", "FORM_ANCHOR", "anchor", anchor, "desc", "폼즈 신청 날짜 기준으로 1세트 날짜 결정, caps는 같은 세트 사용");
+  for (let i = 0; i < rawBlocks.length; i++) {
+    refs.push({ targetIndex: i, sourceIndex: i, dateKey: dateKeyAddDays(anchor, i) });
+  }
+  return refs;
+}
+
+function clearOtOutputs(T: ExcelScript.Worksheet, cfg: Config, blocks: OtBlock[]): void {
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    setValuesSafe(T, block.topRow - 1, cfg.colGridStart - 1, blank(cfg.otBodyRows, cfg.gridCols));
+
+    // AW:AX 요약 제거. 날짜행 기준으로 29행 사용.
+    const summaryTop = block.dateRow;
+    setValuesSafe(T, summaryTop - 1, cfg.colSummary - 1, blank(cfg.otBlockGap, 2));
+  }
+}
+
+function appendNewApplications(
+  workbook: ExcelScript.Workbook,
+  F: ExcelScript.Worksheet,
+  cfg: Config,
+  removedProtections: RemovedSheetProtection[],
+  backups: RangeBackup[]
+): void {
+  let archive = workbook.getWorksheet(ARCHIVE_SHEET_NAME);
+  if (!archive) {
+    const legacy = workbook.getWorksheet("누적");
+    if (legacy) {
+      removeSheetProtection(legacy, "누적", PROTECTED_SHEET_PASSWORD, removedProtections);
+      legacy.setName(ARCHIVE_SHEET_NAME);
+      for (let i = 0; i < removedProtections.length; i++) {
+        if (removedProtections[i].sheetName === "누적") removedProtections[i].sheetName = ARCHIVE_SHEET_NAME;
+      }
+      archive = legacy;
+    } else { archive = workbook.addWorksheet(ARCHIVE_SHEET_NAME); }
+  }
+  removeSheetProtection(archive, ARCHIVE_SHEET_NAME, PROTECTED_SHEET_PASSWORD, removedProtections);
+  const archiveUsed = archive.getUsedRange(true);
+  if (!archiveUsed) {
+    backups.push(backupRange(archive.getRange("F4:I4")));
+    archive.getRange("F4:G4").setValues([["이름", "신청일"]]);
+    archive.getRange("I4").setValues([["신청시간"]]);
+  }
+
+  const used = F.getUsedRange(true);
+  if (!used) return;
+  const count = used.getRowIndex() + used.getRowCount() - cfg.formsDefaultStartRow + 1;
+  if (count <= 0) return;
+  const source = F.getRangeByIndexes(cfg.formsDefaultStartRow - 1, 5, count, 4);
+  const values = source.getValues();
+  const texts = source.getTexts();
+  const formats = source.getNumberFormats();
+  assertMatrix(values, count, 4, "폼즈 F:I 값");
+  assertMatrix(texts, count, 4, "폼즈 F:I 표시값");
+  assertMatrix(formats, count, 4, "폼즈 F:I 서식");
+  const rows: (string | number | boolean)[][] = [];
+  const rowFormats: string[][] = [];
+  for (let r = 0; r < count; r++) {
+    if (!txt(texts[r][0]) || !txt(texts[r][1]) || !txt(texts[r][3])) continue;
+    // H는 적재하지 않는다. 날짜를 포함한 F/G/I의 값과 표시 형식을 보존한다.
+    rows.push([values[r][0], values[r][1], "", values[r][3]]);
+    rowFormats.push([formats[r][0], formats[r][1], "General", formats[r][3]]);
+  }
+  if (rows.length === 0) return;
+  const nextRow = archiveUsed
+    ? Math.max(4, archiveUsed.getRowIndex() + archiveUsed.getRowCount())
+    : 4;
+  if (nextRow + rows.length > 1048576) throw new Error("누적DB의 최대 행 수를 초과합니다.");
+  const target = archive.getRangeByIndexes(nextRow, 5, rows.length, 4);
+  backups.push(backupRange(target));
+  target.setNumberFormats(rowFormats);
+  setValuesSafe(archive, nextRow, 5, rows);
+  debugLine("ARCHIVE", ARCHIVE_SHEET_NAME, "rows", String(rows.length));
+}
+
+function readForms(F: ExcelScript.Worksheet, cfg: Config): FormState {
+  const used = F.getUsedRange(true);
+  if (!used) {
+    return {
+      startRow: cfg.formsDefaultStartRow,
+      lastRow: cfg.formsDefaultStartRow - 1,
+      rowCount: 0,
+      rows: [],
+      invalidRows: 0,
+    };
+  }
+
+  const usedRows = used.getRowIndex() + used.getRowCount();
+  const scanCols = cfg.formsScanCols;
+  const allTexts = F.getRangeByIndexes(0, 0, usedRows, scanCols).getTexts();
+  const allVals = F.getRangeByIndexes(0, 0, usedRows, scanCols).getValues();
+
+  assertMatrix(allTexts, usedRows, scanCols, "폼즈 표시값");
+  assertMatrix(allVals, usedRows, scanCols, "폼즈 값");
+
+  // 폼즈는 1~4행 건드리지 않고 5행부터 데이터.
+  const startRow = cfg.formsDefaultStartRow;
+  const lastRow = detectFormsLastRow(allTexts, startRow, scanCols);
+  if (lastRow < startRow) return { startRow, lastRow, rowCount: 0, rows: [], invalidRows: 0 };
+
+  const rows: FormRow[] = [];
+  let invalidRows = 0;
+
+  for (let row1 = startRow; row1 <= lastRow; row1++) {
+    const r = row1 - 1;
+
+    // 신규 폼즈 구조
+    // F = 이름
+    // G = 신청일
+    // I = 신청시간 신규 입력값. 예: 3;4;5; / 3,4,5 / 3 4 5
+    // J = 자리 없어서 잘린 시간
+    // K = 가능한 자리로 확정된 시간
+    // L = 최초 신청시간 저장값. 저장용이며 계산에는 절대 사용하지 않음.
+    // N = 수기 삭제 명령. 예: 11;12;13 입력 시 현재 J+K에서만 해당 시간을 빼고, 처리 후 N은 비움.
+    const fText = txt(allTexts[r][5]);
+    const gVal = allVals[r][6] as string | number | boolean;
+    const gText = txt(allTexts[r][6]);
+    const iText = txt(allTexts[r][8]);
+    const jText = txt(allTexts[r][9]);
+    const kText = txt(allTexts[r][10]);
+    const lText = txt(allTexts[r][11]);
+    const nText = txt(allTexts[r][13]);
+
+    const name = normalizeName(fText);
+    const dateKey = dateKeyFromCell(gVal, gText);
+
+    const inputMask = maskFromTexts(iText);
+    const prevRemoved = maskFromTexts(jText);
+    const prevActive = maskFromTexts(kText);
+    const prevStored = maskFromTexts(lText);
+    const manualDelete = maskFromTexts(nText);
+
+    if (!name && !dateKey && !inputMask && !prevRemoved && !prevActive && !prevStored && !manualDelete) continue;
+    if (!name || !dateKey) invalidRows++;
+
+    // 재실행 기준은 L이 아니라 현재 J+K다.
+    // L은 최초 신청시간 저장용이며, J/K를 비운 시간을 되살리는 데 절대 사용하지 않는다.
+    // I에 새로 들어온 값은 이번 실행에서 J+K 원본에 합치고, 처리 후 I는 비운다.
+    // N은 1회성 수기 삭제 명령이다. 현재 J+K에서만 뺀 뒤 처리 후 N을 비운다.
+    // 같은 시간이 N과 I에 동시에 있으면, 삭제 후 I를 다시 더하므로 최종적으로 남는다.
+    const currentMask = unionMask(prevRemoved, prevActive);
+    const baseMask = subtractMask(currentMask, manualDelete);
+    const originalMask = unionMask(baseMask, inputMask);
+
+    rows.push({
+      sheetRow: row1,
+      name,
+      dateKey,
+      active: originalMask,
+      removed: 0,
+      seedL: prevStored || inputMask || currentMask || originalMask,
+    });
+  }
+
+  return { startRow, lastRow, rowCount: rows.length, rows, invalidRows };
+}
+
+function detectFormsLastRow(allTexts: string[][], startRow: number, scanCols: number): number {
+  const importantCols = [5, 6, 8, 9, 10, 11, 13];
+
+  for (let r = allTexts.length - 1; r >= startRow - 1; r--) {
+    for (let i = 0; i < importantCols.length; i++) {
+      const c = importantCols[i];
+      if (c < scanCols && txt(allTexts[r][c])) return r + 1;
+    }
+  }
+
+  return startRow - 1;
+}
+
+function applyCapacityByRealRows(rows: FormRow[], blocks: OtBlock[]): void {
+  const byDate = buildDateRowsForCut(rows);
+
+  for (let b = 0; b < blocks.length; b++) {
+    const block = blocks[b];
+    if (!block.dateKey) continue;
+
+    const rowIdx = byDate[block.dateKey];
+    if (!rowIdx || rowIdx.length === 0) continue;
+
+    for (let hi = 0; hi < block.hours.length; hi++) {
+      const h = block.hours[hi];
+      const row1 = block.hourToRow[String(h)];
+      if (!row1) continue;
+
+      // 핵심: 남은자리는 반드시 실제 출력 행과 같은 행 D열 값만 사용한다.
+      const cap = Math.max(0, block.caps[String(h)] ?? 0);
+      const candidates: number[] = [];
+
+      for (let i = 0; i < rowIdx.length; i++) {
+        const idx = rowIdx[i];
+        const fr = rows[idx];
+        if (fr.name && hasHour(fr.active, h)) candidates.push(idx);
+      }
+
+      if (candidates.length === 0) continue;
+
+      const nameCount: { [name: string]: number } = {};
+      let uniqueCount = 0;
+
+      for (let i = 0; i < candidates.length; i++) {
+        const fr = rows[candidates[i]];
+        const prev = nameCount[fr.name];
+        if (typeof prev === "number") {
+          nameCount[fr.name] = prev + 1;
+        } else {
+          nameCount[fr.name] = 1;
+          uniqueCount++;
+        }
+      }
+
+      if (uniqueCount <= cap) continue;
+
+      // 기존 코드 흐름과 맞춰 최신행부터 잘림 처리.
+      candidates.sort((a, b2) => rows[b2].sheetRow - rows[a].sheetRow);
+
+      for (let i = 0; i < candidates.length && uniqueCount > cap; i++) {
+        const fr = rows[candidates[i]];
+        if (!hasHour(fr.active, h)) continue;
+
+        fr.active = removeHour(fr.active, h);
+        fr.removed = addHour(fr.removed, h);
+
+        const prev = nameCount[fr.name];
+        if (typeof prev === "number") {
+          if (prev <= 1) {
+            delete nameCount[fr.name];
+            uniqueCount--;
+          } else {
+            nameCount[fr.name] = prev - 1;
+          }
+        }
+      }
+    }
+  }
+}
+
+function drawOtByRealRows(
+  T: ExcelScript.Worksheet,
+  rows: FormRow[],
+  blocks: OtBlock[],
+  cfg: Config
+): number {
+  const byDate = buildDateRowsForOutput(rows);
+  let hiddenByGrid = 0;
+
+  for (let b = 0; b < blocks.length; b++) {
+    const block = blocks[b];
+    const grid = blank(cfg.otBodyRows, cfg.gridCols);
+    const sum = blank(cfg.otBlockGap, 2);
+    if (block.dateText) sum[0][0] = block.dateText;
+
+    if (block.dateKey) {
+      const rowIdx = byDate[block.dateKey];
+
+      if (rowIdx && rowIdx.length > 0) {
+        const byName: { [name: string]: number } = {};
+
+        for (let i = 0; i < rowIdx.length; i++) {
+          const fr = rows[rowIdx[i]];
+          if (!fr.name || !fr.active) continue;
+          byName[fr.name] = unionMask(byName[fr.name] || 0, fr.active);
+        }
+
+        const names = Object.keys(byName).sort((a, c) => a.localeCompare(c, "ko"));
+        const entries: { name: string; mask: number; hours: number[]; first: number; last: number }[] = [];
+
+        for (let i = 0; i < names.length; i++) {
+          const name = names[i];
+          const mask = byName[name];
+          const hours = maskToHours(mask).filter(h => !!block.hourToRow[String(h)]);
+
+          if (i + 1 < cfg.otBlockGap) {
+            sum[i + 1][0] = name;
+            sum[i + 1][1] = packMask(mask);
+          }
+
+          if (hours.length > 0) {
+            entries.push({
+              name,
+              mask,
+              hours,
+              first: firstHourForSort(hours),
+              last: lastHourForSort(hours),
+            });
+          }
+        }
+
+        if (names.length >= cfg.otBlockGap) {
+          const extra = names.length - (cfg.otBlockGap - 2);
+          sum[cfg.otBlockGap - 1][0] = `외 ${extra}명`;
+          sum[cfg.otBlockGap - 1][1] = "요약칸 초과";
+        }
+
+        entries.sort((a, c) =>
+          a.first - c.first ||
+          a.last - c.last ||
+          a.name.localeCompare(c.name, "ko")
+        );
+
+        const laneMasks = fillArray(cfg.gridCols, 0);
+
+        for (let e = 0; e < entries.length; e++) {
+          const item = entries[e];
+          let lane = -1;
+
+          for (let c = 0; c < cfg.gridCols; c++) {
+            if (!overlapMask(laneMasks[c], item.mask)) {
+              lane = c;
+              break;
+            }
+          }
+
+          if (lane < 0) {
+            let missing = false;
+            for (let hi = 0; hi < item.hours.length; hi++) {
+              const h = item.hours[hi];
+              const rr = block.hourToRow[String(h)] - block.topRow;
+              let free = -1;
+              for (let c = 0; c < cfg.gridCols; c++) if (!hasHour(laneMasks[c], h)) { free = c; break; }
+              if (free < 0 || rr < 0 || rr >= cfg.otBodyRows) { missing = true; continue; }
+              grid[rr][free] = item.name;
+              laneMasks[free] = addHour(laneMasks[free], h);
+            }
+            if (missing) hiddenByGrid++;
+            continue;
+          }
+
+          laneMasks[lane] = unionMask(laneMasks[lane], item.mask);
+
+          for (let hIndex = 0; hIndex < item.hours.length; hIndex++) {
+            const h = item.hours[hIndex];
+            const actualRow1 = block.hourToRow[String(h)];
+            if (!actualRow1) continue;
+
+            // 핵심: 실제 시간행 - 해당 블록 시작행. 여기에는 보정값/블록 이동값이 절대 없다.
+            // 예: B6이면 actualRow1=6, topRow=6, rr=0 → G6
+            // 예: B35이면 actualRow1=35, topRow=35, rr=0 → G35
+            const rr = actualRow1 - block.topRow;
+            if (rr < 0 || rr >= cfg.otBodyRows) continue;
+
+            grid[rr][lane] = item.name;
+          }
+        }
+      }
+    }
+
+    // 정방향 출력:
+    // 예: B3/B6:D29 -> G6:U29 / AW3:AX31
+    //     B32/B35:D58 -> G35:U58 / AW32:AX60
+    const outputRowShift = cfg.otBlockGap * cfg.outputShiftBlocksUp;
+    const targetSummaryRow = block.dateRow - outputRowShift;
+    const targetGridTopRow = block.topRow - outputRowShift;
+
+    if (targetSummaryRow >= 1) {
+      setValuesSafe(T, targetSummaryRow - 1, cfg.colSummary - 1, sum);
+    }
+    if (targetGridTopRow >= 1) {
+      setValuesSafe(T, targetGridTopRow - 1, cfg.colGridStart - 1, grid);
+    }
+  }
+
+  return hiddenByGrid;
+}
+
+function writeForms(F: ExcelScript.Worksheet, form: FormState): void {
+  if (form.lastRow < form.startRow) return;
+
+  const span = form.lastRow - form.startRow + 1;
+  if (span <= 0) return;
+
+  const iOut = makeCol(span, "");
+  const jOut = makeCol(span, "");
+  const kOut = makeCol(span, "");
+  const lOut = makeCol(span, "");
+  const nOut = makeCol(span, "");
+
+  for (let i = 0; i < form.rowCount; i++) {
+    const r = form.rows[i];
+    const rel = r.sheetRow - form.startRow;
+    if (rel < 0 || rel >= span) continue;
+
+    // I 신청시간은 처리 후 비운다.
+    iOut[rel][0] = "";
+    // J = 자리 없어서 잘린 시간, K = 가능한 자리, L = 최초 신청시간 저장값.
+    jOut[rel][0] = packMask(r.removed);
+    kOut[rel][0] = packMask(r.active);
+    lOut[rel][0] = packMask(r.seedL);
+    // N 수기 삭제 명령은 1회 적용 후 비운다.
+    nOut[rel][0] = "";
+  }
+
+  const ijkl = blank(span, 4);
+  for (let i = 0; i < span; i++) ijkl[i] = [iOut[i][0], jOut[i][0], kOut[i][0], lOut[i][0]];
+  setValuesSafe(F, form.startRow - 1, 8, ijkl);
+  setValuesSafe(F, form.startRow - 1, 13, nOut);
+
+}
+
+function organizeFormsSheet(F: ExcelScript.Worksheet, form: FormState): void {
+  const used = F.getUsedRange(true);
+  if (!used) return;
+
+  const firstCol = used.getColumnIndex();
+  const colCount = used.getColumnCount();
+
+  // 폼즈 실제 데이터 영역만 정렬
+  // 5행부터 form.lastRow까지만 정리한다.
+  sortFormsByGKeepOriginalOrderDirect(F, form.startRow, form.lastRow, firstCol, colCount);
+}
+
+function sortFormsByGKeepOriginalOrderDirect(
+  F: ExcelScript.Worksheet,
+  formStartRow: number,
+  formLastRow: number,
+  firstCol: number,
+  colCount: number
+): void {
+  if (formLastRow < formStartRow) return;
+
+  const dataTopRow = formStartRow - 1;
+  const dataRowCount = formLastRow - formStartRow + 1;
+  if (dataRowCount <= 1 || colCount <= 0) return;
+
+  // G열 신청일 기준
+  const gAbsCol = 6; // 0-based G
+  const gOffset = gAbsCol - firstCol;
+  if (gOffset < 0 || gOffset >= colCount) return;
+
+  const range = F.getRangeByIndexes(dataTopRow, firstCol, dataRowCount, colCount);
+  const values = range.getValues();
+  const texts = range.getTexts();
+  const formulas = range.getFormulasR1C1();
+  const formats = range.getNumberFormats();
+  assertMatrix(values, dataRowCount, colCount, "폼즈 정렬 값");
+  assertMatrix(texts, dataRowCount, colCount, "폼즈 정렬 표시값");
+  assertMatrix(formulas, dataRowCount, colCount, "폼즈 정렬 수식");
+  assertMatrix(formats, dataRowCount, colCount, "폼즈 정렬 서식");
+
+  type SortItem = {
+    values: (string | number | boolean)[],
+    sortDate: number,
+    originalOrder: number
+  };
+
+  const items: SortItem[] = [];
+
+  for (let r = 0; r < dataRowCount; r++) {
+    const gVal = values[r][gOffset];
+    const gText = texts[r][gOffset];
+
+    const dateKey = dateKeyFromCell(gVal, gText);
+    const ms = dateKey ? dateKeyToMsNearThisYear(dateKey) : Number.POSITIVE_INFINITY;
+
+    // 날짜 없는 행은 아래로 보냄
+    const sortDate =
+      Number.isFinite(ms) && ms !== Number.POSITIVE_INFINITY
+        ? ms
+        : 9999999999999;
+
+    items.push({
+      values: values[r],
+      sortDate,
+      originalOrder: r
+    });
+  }
+
+  items.sort((a, b) => {
+    if (a.sortDate !== b.sortDate) return a.sortDate - b.sortDate;
+    return a.originalOrder - b.originalOrder;
+  });
+
+  const sortedValues: (string | number | boolean)[][] = [];
+  for (let i = 0; i < items.length; i++) {
+    sortedValues.push(items[i].values);
+  }
+
+  if (items.every((item, i) => item.originalOrder === i)) return;
+  const sortedFormats: string[][] = [];
+  const sortedFormulas: string[][] = [];
+  for (let i = 0; i < items.length; i++) {
+    sortedFormats.push(formats[items[i].originalOrder]);
+    sortedFormulas.push(formulas[items[i].originalOrder]);
+  }
+  range.setNumberFormats(sortedFormats);
+  setValuesSafe(F, dataTopRow, firstCol, sortedValues);
+  restoreFormulas(range, sortedFormulas);
+}
+
+type CellValue = string | number | boolean;
+type RangeBackup = {
+  sheetName: string;
+  rowIndex: number;
+  colIndex: number;
+  values: CellValue[][];
+  formulas: string[][];
+  formats: string[][];
+};
+
+function assertMatrix(values: CellValue[][], rows: number, cols: number, label: string): void {
+  if (!values || values.length !== rows) throw new Error(`${label}: 행 수가 예상과 다릅니다. (${rows}행 필요)`);
+  for (let r = 0; r < rows; r++) {
+    if (!values[r] || values[r].length !== cols) throw new Error(`${label}: ${r + 1}행 열 수 오류 (${cols}열 필요)`);
+  }
+}
+
+function backupRange(range: ExcelScript.Range): RangeBackup {
+  return {
+    sheetName: range.getWorksheet().getName(),
+    rowIndex: range.getRowIndex(),
+    colIndex: range.getColumnIndex(),
+    values: range.getValues(),
+    formulas: range.getFormulasR1C1(),
+    formats: range.getNumberFormats()
+  };
+}
+
+function restoreRange(workbook: ExcelScript.Workbook, saved: RangeBackup): void {
+  const sheet = workbook.getWorksheet(saved.sheetName);
+  if (!sheet) throw new Error(`${saved.sheetName} 시트를 찾을 수 없습니다.`);
+  sheet.getRangeByIndexes(saved.rowIndex, saved.colIndex, saved.values.length, saved.values[0].length)
+    .setNumberFormats(saved.formats);
+  setValuesSafe(sheet, saved.rowIndex, saved.colIndex, saved.values);
+  restoreFormulas(
+    sheet.getRangeByIndexes(saved.rowIndex, saved.colIndex, saved.values.length, saved.values[0].length),
+    saved.formulas
+  );
+}
+
+function restoreFormulas(range: ExcelScript.Range, formulas: string[][]): void {
+  // 연속된 수식 셀을 열 단위로 묶어서 복원한다. 일반 값은 숫자/날짜 형식을 유지한다.
+  const rows = formulas.length;
+  const cols = rows > 0 ? formulas[0].length : 0;
+  const top = range.getRowIndex();
+  const left = range.getColumnIndex();
+  for (let c = 0; c < cols; c++) {
+    let r = 0;
+    while (r < rows) {
+      if (typeof formulas[r][c] !== "string" || formulas[r][c].charAt(0) !== "=") { r++; continue; }
+      const start = r;
+      const run: string[][] = [];
+      while (r < rows && typeof formulas[r][c] === "string" && formulas[r][c].charAt(0) === "=") {
+        run.push([formulas[r][c]]); r++;
+      }
+      range.getWorksheet().getRangeByIndexes(top + start, left + c, run.length, 1).setFormulasR1C1(run);
+    }
+  }
+}
+
+function setValuesSafe(sheet: ExcelScript.Worksheet, rowIndex: number, colIndex: number, values: CellValue[][]): void {
+  const rows = values.length;
+  if (rows === 0) return;
+  const cols = values[0].length;
+  if (rowIndex < 0 || colIndex < 0 || cols <= 0 || rowIndex + rows > 1048576 || colIndex + cols > 16384) {
+    throw new Error("출력 범위가 Excel 시트 제한을 벗어났습니다.");
+  }
+  assertMatrix(values, rows, cols, "출력 배열");
+  const chunkRows = Math.max(1, Math.floor(WRITE_CHUNK_CELLS / cols));
+  for (let start = 0; start < rows; start += chunkRows) {
+    const chunk = values.slice(start, Math.min(rows, start + chunkRows));
+    // setValues의 =,+,- 시작 문자열 자동 수식 해석을 방지한다.
+    const safe = chunk.map(row => row.map(v => typeof v === "string" && /^[=+\-]/.test(v) ? "'" + v : v));
+    sheet.getRangeByIndexes(rowIndex + start, colIndex, safe.length, cols).setValues(safe);
+  }
+}
+
+function buildDateRowsForCut(rows: FormRow[]): { [dateKey: string]: number[] } {
+  const map: { [dateKey: string]: number[] } = {};
+
+  for (let i = 0; i < rows.length; i++) {
+    const key = rows[i].dateKey;
+    if (!key) continue;
+    if (!map[key]) map[key] = [];
+    map[key].push(i);
+  }
+
+  const keys = Object.keys(map);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    map[k].sort((a, b) => rows[b].sheetRow - rows[a].sheetRow);
+  }
+
+  return map;
+}
+
+function buildDateRowsForOutput(rows: FormRow[]): { [dateKey: string]: number[] } {
+  const map: { [dateKey: string]: number[] } = {};
+
+  for (let i = 0; i < rows.length; i++) {
+    const key = rows[i].dateKey;
+    if (!key) continue;
+    if (!map[key]) map[key] = [];
+    map[key].push(i);
+  }
+
+  const keys = Object.keys(map);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    map[k].sort((a, b) => rows[a].sheetRow - rows[b].sheetRow);
+  }
+
+  return map;
+}
+
+function applyCancels(rows: FormRow[], cancels: CancelRow[]): void {
+  if (cancels.length === 0 || rows.length === 0) return;
+
+  for (let c = 0; c < cancels.length; c++) {
+    const cancel = cancels[c];
+    if (!cancel.name || !cancel.dateKey) continue;
+
+    const candidates: number[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row.name === cancel.name && row.dateKey === cancel.dateKey && row.sheetRow < cancel.sheetRow) {
+        candidates.push(i);
+      }
+    }
+
+    if (candidates.length === 0) {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.name === cancel.name && row.dateKey === cancel.dateKey) candidates.push(i);
+      }
+    }
+
+    if (candidates.length === 0) continue;
+
+    let cancelMask = cancel.mask;
+    if (!cancelMask) {
+      for (let i = 0; i < candidates.length; i++) {
+        const row = rows[candidates[i]];
+        cancelMask = unionMask(cancelMask, unionMask(row.active, unionMask(row.removed, row.seedL)));
+      }
+    }
+
+    if (!cancelMask) continue;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const row = rows[candidates[i]];
+      row.active = subtractMask(row.active, cancelMask);
+      row.removed = subtractMask(row.removed, cancelMask);
+      row.seedL = subtractMask(row.seedL, cancelMask);
+    }
+  }
+}
+
+function makeStatusText(info: {
+  requestRows: number;
+  activeHours: number;
+  removedHours: number;
+  invalidRows: number;
+  hiddenByGrid: number;
+}): string {
+  const parts: string[] = [];
+  if (info.invalidRows > 0) parts.push(`날짜/이름 확인필요 ${info.invalidRows}행`);
+  if (info.hiddenByGrid > 0) parts.push(`출력칸 초과 ${info.hiddenByGrid}명`);
+  return parts.join(" | ");
+}
+
+function sumMaskHours(rows: FormRow[], key: "active" | "removed"): number {
+  let out = 0;
+  for (let i = 0; i < rows.length; i++) out += countMaskHours(rows[i][key]);
+  return out;
+}
+
+function maskFromTexts(...parts: string[]): number {
+  let mask = 0;
+
+  for (let p = 0; p < parts.length; p++) {
+    const rawText = txt(parts[p]);
+    if (!rawText) continue;
+
+    const rangeMatches = rawText.match(/\d{1,2}\s*(?:~|-|–|—)\s*\d{1,2}/g);
+    let textWithoutRanges = rawText;
+
+    if (rangeMatches) {
+      for (let i = 0; i < rangeMatches.length; i++) {
+        const nums = rangeMatches[i].match(/\d{1,2}/g);
+        if (!nums || nums.length < 2) continue;
+
+        const startRaw = Number(nums[0]);
+        const endRaw = Number(nums[1]);
+        mask = addRangeToMask(mask, startRaw, endRaw);
+      }
+
+      textWithoutRanges = rawText.replace(/\d{1,2}\s*(?:~|-|–|—)\s*\d{1,2}/g, " ");
+    }
+
+    const nums = textWithoutRanges.match(/\d+/g);
+    if (!nums) continue;
+
+    for (let i = 0; i < nums.length; i++) {
+      const h = slotFromNumber(Number(nums[i]));
+      if (h !== null && h >= 0 && h < MAX_H && !hasHour(mask, h)) mask += POW[h];
+    }
+  }
+
+  return mask;
+}
+
+function addRangeToMask(mask: number, startRaw: number, endRaw: number): number {
+  const start = slotFromNumber(startRaw);
+  const end = slotFromNumber(endRaw);
+  if (start === null || end === null) return mask;
+
+  const startIdx = indexOfHour(start);
+  const endIdx = indexOfHour(end);
+  if (startIdx < 0 || endIdx < 0) return mask;
+
+  if (startIdx <= endIdx) {
+    for (let i = startIdx; i <= endIdx; i++) mask = addHour(mask, ORDER_H[i]);
+  } else {
+    for (let i = startIdx; i < ORDER_H.length; i++) mask = addHour(mask, ORDER_H[i]);
+    for (let i = 0; i <= endIdx; i++) mask = addHour(mask, ORDER_H[i]);
+  }
+
+  return mask;
+}
+
+function indexOfHour(h: number): number {
+  for (let i = 0; i < ORDER_H.length; i++) {
+    if (ORDER_H[i] === h) return i;
+  }
+  return -1;
+}
+
+function maskToHours(mask: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < ORDER_H.length; i++) {
+    const h = ORDER_H[i];
+    if (hasHour(mask, h)) out.push(h);
+  }
+  return out;
+}
+
+function hasHour(mask: number, h: number): boolean {
+  return h >= 0 && h < MAX_H && Math.floor(mask / POW[h]) % 2 === 1;
+}
+
+function addHour(mask: number, h: number): number {
+  return hasHour(mask, h) ? mask : mask + POW[h];
+}
+
+function removeHour(mask: number, h: number): number {
+  return hasHour(mask, h) ? mask - POW[h] : mask;
+}
+
+function unionMask(a: number, b: number): number {
+  let out = a;
+  if (!b) return out;
+
+  for (let h = 0; h < MAX_H; h++) {
+    if (hasHour(b, h) && !hasHour(out, h)) out += POW[h];
+  }
+  return out;
+}
+
+function subtractMask(mask: number, removeMask: number): number {
+  let out = mask;
+  if (!out || !removeMask) return out;
+
+  for (let h = 0; h < MAX_H; h++) {
+    if (hasHour(removeMask, h)) out = removeHour(out, h);
+  }
+  return out;
+}
+
+function overlapMask(a: number, b: number): boolean {
+  if (!a || !b) return false;
+
+  for (let h = 0; h < MAX_H; h++) {
+    if (hasHour(a, h) && hasHour(b, h)) return true;
+  }
+  return false;
+}
+
+function countMaskHours(mask: number): number {
+  let count = 0;
+  for (let h = 0; h < MAX_H; h++) if (hasHour(mask, h)) count++;
+  return count;
+}
+
+function packMask(mask: number): string {
+  if (!mask) return "";
+
+  const out: string[] = [];
+  for (let i = 0; i < ORDER_H.length; i++) {
+    const h = ORDER_H[i];
+    if (hasHour(mask, h)) out.push(String(h));
+  }
+  return out.length ? `,${out.join(",")},` : "";
+}
+
+function slotFromNumber(n: number): number | null {
+  if (!Number.isFinite(n)) return null;
+  const v = Math.trunc(n);
+
+  // 24 -> 0, 25 -> 1, 26 -> 2, 27 -> 3, 28 -> 4
+  if (v >= 24 && v <= 28) return v - 24;
+  if (v >= 0 && v <= 23) return v;
+  return null;
+}
+
+function firstHourForSort(hours: number[]): number {
+  if (hours.length === 0) return 999;
+  let best = 999;
+  for (let i = 0; i < hours.length; i++) {
+    const score = hourSortScore(hours[i]);
+    if (score < best) best = score;
+  }
+  return best;
+}
+
+function lastHourForSort(hours: number[]): number {
+  if (hours.length === 0) return -1;
+  let best = -1;
+  for (let i = 0; i < hours.length; i++) {
+    const score = hourSortScore(hours[i]);
+    if (score > best) best = score;
+  }
+  return best;
+}
+
+function hourSortScore(h: number): number {
+  if (h >= 5) return h;
+  return h + 24;
+}
+
+function txt(v: unknown): string {
+  return String(v ?? "").trim();
+}
+
+function normalizeName(s: string): string {
+  return txt(s).replace(/\s+/g, " ").trim();
+}
+
+function normalizeAction(s: string): string {
+  const v = txt(s).replace(/\s+/g, "");
+  if (v.indexOf("취소") >= 0) return "취소";
+  if (v.indexOf("추가") >= 0) return "추가";
+  return "";
+}
+
+function toInt(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v)) return Math.trunc(v);
+  const n = Number(String(v ?? "").trim());
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+function hour(s: string): number | null {
+  const m = txt(s).match(/^(\d{1,2})/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return slotFromNumber(n);
+}
+
+function dateKeyFromCell(v: unknown, displayedText: string): string {
+  // 최우선: 화면에 보이는 텍스트.
+  const byText = md(displayedText);
+  if (byText) return byText;
+
+  if (typeof v === "string") {
+    const byString = md(v);
+    if (byString) return byString;
+
+    const n = Number(v.trim());
+    if (Number.isFinite(n) && n > 0) return serialMd(n);
+  }
+
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+    return serialMd(v);
+  }
+
+  return "";
+}
+
+function md(s: string): string {
+  const p = txt(s)
+    .replace(/년|월/g, "/")
+    .replace(/일/g, "")
+    .replace(/[.\-]/g, "/")
+    .match(/\d+/g);
+
+  if (!p || p.length < 2) return "";
+
+  const isYmd = p.length >= 3 && (p[0].length === 4 || Number(p[0]) > 31);
+  const m = Number(isYmd ? p[1] : p[0]);
+  const d = Number(isYmd ? p[2] : p[1]);
+
+  return m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${m}/${d}` : "";
+}
+
+function serialMd(x: number): string {
+  // 시간 소수점이 섞여도 날짜는 반올림하지 않고 날짜 부분만 사용.
+  const serialDay = Math.floor(x + 0.0000001);
+  const base = new Date(Date.UTC(1899, 11, 30));
+  const dt = new Date(base.getTime() + serialDay * 86400000);
+  return `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
+}
+
+function kstMdFromTodayOffset(offsetDays: number): string {
+  // Power Automate는 UTC 기준으로 돌 수 있으므로,
+  // Date의 로컬 타임존을 믿지 않고 UTC 현재시각 + 9시간으로 한국 날짜를 만든다.
+  const nowUtcMs = Date.now();
+  const kstMs = nowUtcMs + 9 * 60 * 60 * 1000 + offsetDays * 24 * 60 * 60 * 1000;
+  const dt = new Date(kstMs);
+
+  const m = dt.getUTCMonth() + 1;
+  const d = dt.getUTCDate();
+
+  return `${m}/${d}`;
+}
+
+function kstYear(): number {
+  const dt = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return dt.getUTCFullYear();
+}
+
+function dateKeyAddDays(dateKey: string, offsetDays: number): string {
+  const p = parseDateKey(dateKey);
+  if (!p) return kstMdFromTodayOffset(offsetDays);
+
+  const dt = new Date(Date.UTC(kstYear(), p.m - 1, p.d));
+  dt.setUTCDate(dt.getUTCDate() + offsetDays);
+
+  return `${dt.getUTCMonth() + 1}/${dt.getUTCDate()}`;
+}
+
+function parseDateKey(dateKey: string): { m: number; d: number } | null {
+  const m = txt(dateKey).match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (!m) return null;
+
+  const month = Number(m[1]);
+  const day = Number(m[2]);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { m: month, d: day };
+}
+
+function dateKeyToMsNearThisYear(dateKey: string): number {
+  const p = parseDateKey(dateKey);
+  if (!p) return Number.POSITIVE_INFINITY;
+
+  const year = kstYear();
+  const dt = new Date(Date.UTC(year, p.m - 1, p.d));
+  return dt.getTime();
+}
+
+function pickFormAnchorDate(rows: FormRow[]): string {
+  const today = kstMdFromTodayOffset(0);
+  const todayMs = dateKeyToMsNearThisYear(today);
+
+  let bestFutureKey = "";
+  let bestFutureMs = Number.POSITIVE_INFINITY;
+  let bestAnyKey = "";
+  let bestAnyMs = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r.dateKey) continue;
+
+    // 시간 요청 흔적이 있는 행만 기준으로 사용한다.
+    if (!r.active && !r.removed && !r.seedL) continue;
+
+    if (r.dateKey === today) return today;
+
+    const score = dateKeyToMsNearThisYear(r.dateKey);
+    if (!Number.isFinite(score)) continue;
+
+    if (score >= todayMs && score < bestFutureMs) {
+      bestFutureMs = score;
+      bestFutureKey = r.dateKey;
+    }
+
+    if (score < bestAnyMs) {
+      bestAnyMs = score;
+      bestAnyKey = r.dateKey;
+    }
+  }
+
+  return bestFutureKey || bestAnyKey || today;
+}
+
+function debugLine(...parts: (string | number | boolean | null | undefined)[]): void {
+  const row: (string | number | boolean)[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const v = parts[i];
+    row.push(v === null || typeof v === "undefined" ? "" : String(v));
+  }
+  DEBUG_ROWS.push(row);
+}
+
+function debugFormDates(rows: FormRow[]): void {
+  const counts: { [dateKey: string]: number } = {};
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r.dateKey) continue;
+    if (!r.active && !r.removed && !r.seedL) continue;
+
+    counts[r.dateKey] = (counts[r.dateKey] || 0) + 1;
+  }
+
+  const keys = Object.keys(counts).sort((a, b) => dateKeyToMsNearThisYear(a) - dateKeyToMsNearThisYear(b));
+  for (let i = 0; i < keys.length; i++) {
+    debugLine("FORM_DATE", keys[i], String(counts[keys[i]]));
+  }
+}
+
+function flushDebug(T: ExcelScript.Worksheet, cfg: Config): void {
+  const clearValues = blank(cfg.debugMaxRows, cfg.debugMaxCols);
+  setValuesSafe(T, 0, cfg.debugStartCol - 1, clearValues);
+
+  if (DEBUG_ROWS.length === 0) return;
+
+  const rowCount = Math.min(DEBUG_ROWS.length, cfg.debugMaxRows);
+  const out = blank(rowCount, cfg.debugMaxCols);
+
+  for (let r = 0; r < rowCount; r++) {
+    const srcRow = DEBUG_ROWS[r];
+    for (let c = 0; c < cfg.debugMaxCols && c < srcRow.length; c++) {
+      out[r][c] = srcRow[c];
+    }
+  }
+
+  setValuesSafe(T, 0, cfg.debugStartCol - 1, out);
+}
+
+function blank(rows: number, cols: number): (string | number | boolean)[][] {
+  const out: (string | number | boolean)[][] = [];
+  for (let r = 0; r < rows; r++) {
+    const row: (string | number | boolean)[] = [];
+    for (let c = 0; c < cols; c++) row.push("");
+    out.push(row);
+  }
+  return out;
+}
+
+function makeCol(rows: number, value: string | number | boolean): (string | number | boolean)[][] {
+  const out: (string | number | boolean)[][] = [];
+  for (let i = 0; i < rows; i++) out.push([value]);
+  return out;
+}
+
+function fillArray(length: number, value: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < length; i++) out.push(value);
+  return out;
+}

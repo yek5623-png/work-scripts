@@ -1,0 +1,356 @@
+// 긴조 투입률 업데이트 · 20261116.6 · 허용률 기준표 통일·현재시간 필요 조정분
+// Excel 웹 > 자동화 > 새 스크립트에 전체 붙여넣고 한 번 실행합니다.
+// 기존 새로고침 스크립트를 교체하지 않습니다. 설치 뒤 입력 수정은 수식으로 반영됩니다.
+// 상태출력 T32 제목 / T33:Y33 항목 / T34:V38, W34:Y38: 이름·제외 시작·제외 종료. 총 10명.
+// 이미 .1~.5를 설치한 파일에서도 실행할 수 있습니다. .5의 입력 10건은 그대로 보존합니다.
+// 허용률은 댓글 기준표를 D3·현재·다음시간이 함께 사용합니다. 11.4명=87~118%, 14명 초과=95~105%.
+// 예전 새로고침 코드가 D3를 이전 수식으로 덮어쓰면 이 스크립트를 다시 실행하세요. 최신 설치에서는 D3만 재적용하고 입력은 유지합니다.
+// 예: 12:30~13:00 제외 -> 12시 구간 30분 인정. 제외 시간에 회의 상태여도 재차감하지 않습니다.
+// 원문 누락·오프라인·교육·반차휴무는 자동 복귀시키지 않습니다. 실제 근무이력을 측정하는 기능은 아닙니다.
+// 제외 시간은 당일 운영일(05시~다음날05시) 기준. 다음 운영일 첫 사용 때 입력을 비우거나 새로 입력하세요.
+// 다음시간 예상은 근무표·OT·교육·예정이탈·등록 제외를 반영하며 실제 출근을 보장하지 않습니다.
+// 이전 A13:B27은 백업 후 비우고 더 이상 차감에 사용하지 않습니다.
+// 이전 배치/I5는 '긴조업데이트백업' 탭, 인원별 계산은 '긴조분계산', 새 화면은 '테스트' 탭입니다.
+// T3:Y31은 지각 확인필요 12행 / 퇴근·휴무 11행. 넘는 인원도 테스트 탭 전체 명단에서 확인합니다.
+interface UpdateFormula { sheet: string; address: string; formula: string; }
+interface UpdateDefinition { name: string; formula: string; }
+interface UpdateErrorInfo { name?: string; message?: string; code?: string; errorLocation?: string; debugInfo?: unknown; innerError?: unknown; }
+const updateDefinitions: UpdateDefinition[] = [{"name":"긴조_시각","formula":"=LAMBDA(value,LET(txt,수식_공백정리(value),mins,IF(txt=\"\",-1,IF(ISNUMBER(value),IF(AND(value>=0,value<2),ROUND(value*1440,0),-1),IF(REGEXTEST(txt,\"^[0-2]?[0-9]:[0-5][0-9]$\"),LET(parts,TEXTSPLIT(txt,\":\"),--INDEX(parts,1,1)*60+--INDEX(parts,1,2)),-1))),IF(OR(mins<0,mins>1740),-1,IF(mins<300,mins+1440,mins))))"},{"name":"긴조_인원사전","formula":"=LET(roster,수식근무!$A$2#,raw,수식판정!$A$2#,allRows,VSTACK(CHOOSECOLS(roster,2,3),CHOOSECOLS(raw,2,3)),picked,UNIQUE(FILTER(allRows,CHOOSECOLS(allRows,1)<>\"\",HSTACK(\"\",\"\"))),HSTACK(CHOOSECOLS(picked,1),CHOOSECOLS(picked,2),MAP(CHOOSECOLS(picked,2),LAMBDA(person,수식_비교글자(person)))))"},{"name":"긴조_제외중","formula":"=LAMBDA(personKey,minute,LET(inputs,긴조분계산!$A$3:$H$12,ids,CHOOSECOLS(inputs,5),valid,CHOOSECOLS(inputs,6)=\"정상\",starts,CHOOSECOLS(inputs,3),ends,CHOOSECOLS(inputs,4),SUM((ids=personKey)*(ids<>\"\")*valid*(((minute>=starts)*(minute<ends)+(minute+1440>=starts)*(minute+1440<ends)+(minute-1440>=starts)*(minute-1440<ends))>0))>0))"},{"name":"긴조_제외분","formula":"=LAMBDA(personKey,hourStart,SUM(--MAP(SEQUENCE(60,1,hourStart),LAMBDA(minute,긴조_제외중(personKey,minute)))))"},{"name":"긴조_예정분","formula":"=LAMBDA(personKey,hourStart,includeOT,LET(roster,수식근무!$A$2#,ids,CHOOSECOLS(roster,2),starts,CHOOSECOLS(roster,7),ends,CHOOSECOLS(roster,8),flags,CHOOSECOLS(roster,6),people,CHOOSECOLS(roster,4),who,XLOOKUP(personKey,ids,people,\"\",0),excluded,OR(ISNUMBER(XMATCH(who,수식설정!$E$2#,0)),ISNUMBER(XMATCH(who,수식설정!$G$2#,0))),target,MAP(flags,LAMBDA(flag,OR(수식_비교글자(flag)=\"교육\",수식_비교글자(flag)=\"반차1\",수식_비교글자(flag)=\"반차2\",IFERROR(AND(REGEXTEST(flag,\"^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)$\"),--flag>0),FALSE)))),ot,수식OT!$A$2#,otIds,CHOOSECOLS(ot,4),otStarts,CHOOSECOLS(ot,1),leaveStarts,CHOOSECOLS(roster,10),leaveEnds,CHOOSECOLS(roster,11),IF(OR(personKey=\"\",excluded),0,SUM(--MAP(SEQUENCE(60,1,hourStart),LAMBDA(minute,LET(clock,MOD(minute,1440),scheduled,SUM((ids=personKey)*(starts>=0)*(ends>starts)*target*(((clock>=starts)*(clock<ends)+(clock+1440>=starts)*(clock+1440<ends))>0))>0,overtime,SUM((otIds=personKey)*(otStarts>=0)*(MOD(clock-otStarts,1440)<60))>0,leave,SUM((ids=personKey)*(leaveStarts>=0)*(leaveEnds>=0)*(leaveStarts<>leaveEnds)*IF(leaveEnds>leaveStarts,(clock>=leaveStarts)*(clock<leaveEnds),((clock>=leaveStarts)+(clock<leaveEnds))>0))>0,AND(OR(scheduled,AND(includeOT,overtime)),NOT(leave),NOT(긴조_제외중(personKey,minute))))))))))"},{"name":"긴조_허용률","formula":"=LAMBDA(value,LET(goal,IF(ISNUMBER(value),value,IFERROR(NUMBERVALUE(SUBSTITUTE(value,\",\",\"\")),-1)),IF(OR(value=\"\",goal<=0),HSTACK(\"목표 인원 확인 필요\",\"목표 인원 확인 필요\"),LET(idx,IFERROR(XMATCH(TRUE,goal<=SEQUENCE(14),0),15),lows,VSTACK(53,69,77,82,85,87,89,82,84,85,86,87,88,89),highs,VSTACK(1000,182,143,130,122,118,115,130,125,122,120,118,117,115),HSTACK(IFERROR(INDEX(lows,idx),95)/100,IFERROR(INDEX(highs,idx),105)/100)))))"}];
+const updateFormulas: UpdateFormula[] = [{"sheet":"긴조분계산","address":"A3","formula":"=IF('상태출력'!T34=\"\",\"\",'상태출력'!T34)"},{"sheet":"긴조분계산","address":"B3","formula":"=LOWER(수식_비교글자(A3))"},{"sheet":"긴조분계산","address":"C3","formula":"=긴조_시각('상태출력'!U34)"},{"sheet":"긴조분계산","address":"D3","formula":"=LET(finish,긴조_시각('상태출력'!V34),IF(OR(C3<0,finish<0),-1,finish+IF(finish<C3,1440,0)))"},{"sheet":"긴조분계산","address":"E3","formula":"=IF(B3=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B3)+(people=B3),\"\")),IF(AND(B3<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F3","formula":"=IF(AND(A3=\"\",'상태출력'!U34=\"\",'상태출력'!V34=\"\"),\"\",IF(A3=\"\",\"이름 필요\",IF(E3=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!U34=\"\",'상태출력'!V34=\"\",C3<0,D3<0,C3=D3,D3-C3>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G3","formula":"=IF(F3=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C3,minute<D3),AND(minute+1440>=C3,minute+1440<D3),AND(minute-1440>=C3,minute-1440<D3))))),0)"},{"sheet":"긴조분계산","address":"H3","formula":"=IF(F3=\"\",\"\",IF(F3<>\"정상\",F3,IF(G3=0,\"현재 시간대 제외 없음\",G3&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A4","formula":"=IF('상태출력'!W34=\"\",\"\",'상태출력'!W34)"},{"sheet":"긴조분계산","address":"B4","formula":"=LOWER(수식_비교글자(A4))"},{"sheet":"긴조분계산","address":"C4","formula":"=긴조_시각('상태출력'!X34)"},{"sheet":"긴조분계산","address":"D4","formula":"=LET(finish,긴조_시각('상태출력'!Y34),IF(OR(C4<0,finish<0),-1,finish+IF(finish<C4,1440,0)))"},{"sheet":"긴조분계산","address":"E4","formula":"=IF(B4=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B4)+(people=B4),\"\")),IF(AND(B4<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F4","formula":"=IF(AND(A4=\"\",'상태출력'!X34=\"\",'상태출력'!Y34=\"\"),\"\",IF(A4=\"\",\"이름 필요\",IF(E4=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!X34=\"\",'상태출력'!Y34=\"\",C4<0,D4<0,C4=D4,D4-C4>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G4","formula":"=IF(F4=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C4,minute<D4),AND(minute+1440>=C4,minute+1440<D4),AND(minute-1440>=C4,minute-1440<D4))))),0)"},{"sheet":"긴조분계산","address":"H4","formula":"=IF(F4=\"\",\"\",IF(F4<>\"정상\",F4,IF(G4=0,\"현재 시간대 제외 없음\",G4&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A5","formula":"=IF('상태출력'!T35=\"\",\"\",'상태출력'!T35)"},{"sheet":"긴조분계산","address":"B5","formula":"=LOWER(수식_비교글자(A5))"},{"sheet":"긴조분계산","address":"C5","formula":"=긴조_시각('상태출력'!U35)"},{"sheet":"긴조분계산","address":"D5","formula":"=LET(finish,긴조_시각('상태출력'!V35),IF(OR(C5<0,finish<0),-1,finish+IF(finish<C5,1440,0)))"},{"sheet":"긴조분계산","address":"E5","formula":"=IF(B5=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B5)+(people=B5),\"\")),IF(AND(B5<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F5","formula":"=IF(AND(A5=\"\",'상태출력'!U35=\"\",'상태출력'!V35=\"\"),\"\",IF(A5=\"\",\"이름 필요\",IF(E5=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!U35=\"\",'상태출력'!V35=\"\",C5<0,D5<0,C5=D5,D5-C5>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G5","formula":"=IF(F5=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C5,minute<D5),AND(minute+1440>=C5,minute+1440<D5),AND(minute-1440>=C5,minute-1440<D5))))),0)"},{"sheet":"긴조분계산","address":"H5","formula":"=IF(F5=\"\",\"\",IF(F5<>\"정상\",F5,IF(G5=0,\"현재 시간대 제외 없음\",G5&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A6","formula":"=IF('상태출력'!W35=\"\",\"\",'상태출력'!W35)"},{"sheet":"긴조분계산","address":"B6","formula":"=LOWER(수식_비교글자(A6))"},{"sheet":"긴조분계산","address":"C6","formula":"=긴조_시각('상태출력'!X35)"},{"sheet":"긴조분계산","address":"D6","formula":"=LET(finish,긴조_시각('상태출력'!Y35),IF(OR(C6<0,finish<0),-1,finish+IF(finish<C6,1440,0)))"},{"sheet":"긴조분계산","address":"E6","formula":"=IF(B6=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B6)+(people=B6),\"\")),IF(AND(B6<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F6","formula":"=IF(AND(A6=\"\",'상태출력'!X35=\"\",'상태출력'!Y35=\"\"),\"\",IF(A6=\"\",\"이름 필요\",IF(E6=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!X35=\"\",'상태출력'!Y35=\"\",C6<0,D6<0,C6=D6,D6-C6>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G6","formula":"=IF(F6=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C6,minute<D6),AND(minute+1440>=C6,minute+1440<D6),AND(minute-1440>=C6,minute-1440<D6))))),0)"},{"sheet":"긴조분계산","address":"H6","formula":"=IF(F6=\"\",\"\",IF(F6<>\"정상\",F6,IF(G6=0,\"현재 시간대 제외 없음\",G6&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A7","formula":"=IF('상태출력'!T36=\"\",\"\",'상태출력'!T36)"},{"sheet":"긴조분계산","address":"B7","formula":"=LOWER(수식_비교글자(A7))"},{"sheet":"긴조분계산","address":"C7","formula":"=긴조_시각('상태출력'!U36)"},{"sheet":"긴조분계산","address":"D7","formula":"=LET(finish,긴조_시각('상태출력'!V36),IF(OR(C7<0,finish<0),-1,finish+IF(finish<C7,1440,0)))"},{"sheet":"긴조분계산","address":"E7","formula":"=IF(B7=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B7)+(people=B7),\"\")),IF(AND(B7<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F7","formula":"=IF(AND(A7=\"\",'상태출력'!U36=\"\",'상태출력'!V36=\"\"),\"\",IF(A7=\"\",\"이름 필요\",IF(E7=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!U36=\"\",'상태출력'!V36=\"\",C7<0,D7<0,C7=D7,D7-C7>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G7","formula":"=IF(F7=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C7,minute<D7),AND(minute+1440>=C7,minute+1440<D7),AND(minute-1440>=C7,minute-1440<D7))))),0)"},{"sheet":"긴조분계산","address":"H7","formula":"=IF(F7=\"\",\"\",IF(F7<>\"정상\",F7,IF(G7=0,\"현재 시간대 제외 없음\",G7&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A8","formula":"=IF('상태출력'!W36=\"\",\"\",'상태출력'!W36)"},{"sheet":"긴조분계산","address":"B8","formula":"=LOWER(수식_비교글자(A8))"},{"sheet":"긴조분계산","address":"C8","formula":"=긴조_시각('상태출력'!X36)"},{"sheet":"긴조분계산","address":"D8","formula":"=LET(finish,긴조_시각('상태출력'!Y36),IF(OR(C8<0,finish<0),-1,finish+IF(finish<C8,1440,0)))"},{"sheet":"긴조분계산","address":"E8","formula":"=IF(B8=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B8)+(people=B8),\"\")),IF(AND(B8<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F8","formula":"=IF(AND(A8=\"\",'상태출력'!X36=\"\",'상태출력'!Y36=\"\"),\"\",IF(A8=\"\",\"이름 필요\",IF(E8=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!X36=\"\",'상태출력'!Y36=\"\",C8<0,D8<0,C8=D8,D8-C8>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G8","formula":"=IF(F8=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C8,minute<D8),AND(minute+1440>=C8,minute+1440<D8),AND(minute-1440>=C8,minute-1440<D8))))),0)"},{"sheet":"긴조분계산","address":"H8","formula":"=IF(F8=\"\",\"\",IF(F8<>\"정상\",F8,IF(G8=0,\"현재 시간대 제외 없음\",G8&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A9","formula":"=IF('상태출력'!T37=\"\",\"\",'상태출력'!T37)"},{"sheet":"긴조분계산","address":"B9","formula":"=LOWER(수식_비교글자(A9))"},{"sheet":"긴조분계산","address":"C9","formula":"=긴조_시각('상태출력'!U37)"},{"sheet":"긴조분계산","address":"D9","formula":"=LET(finish,긴조_시각('상태출력'!V37),IF(OR(C9<0,finish<0),-1,finish+IF(finish<C9,1440,0)))"},{"sheet":"긴조분계산","address":"E9","formula":"=IF(B9=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B9)+(people=B9),\"\")),IF(AND(B9<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F9","formula":"=IF(AND(A9=\"\",'상태출력'!U37=\"\",'상태출력'!V37=\"\"),\"\",IF(A9=\"\",\"이름 필요\",IF(E9=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!U37=\"\",'상태출력'!V37=\"\",C9<0,D9<0,C9=D9,D9-C9>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G9","formula":"=IF(F9=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C9,minute<D9),AND(minute+1440>=C9,minute+1440<D9),AND(minute-1440>=C9,minute-1440<D9))))),0)"},{"sheet":"긴조분계산","address":"H9","formula":"=IF(F9=\"\",\"\",IF(F9<>\"정상\",F9,IF(G9=0,\"현재 시간대 제외 없음\",G9&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A10","formula":"=IF('상태출력'!W37=\"\",\"\",'상태출력'!W37)"},{"sheet":"긴조분계산","address":"B10","formula":"=LOWER(수식_비교글자(A10))"},{"sheet":"긴조분계산","address":"C10","formula":"=긴조_시각('상태출력'!X37)"},{"sheet":"긴조분계산","address":"D10","formula":"=LET(finish,긴조_시각('상태출력'!Y37),IF(OR(C10<0,finish<0),-1,finish+IF(finish<C10,1440,0)))"},{"sheet":"긴조분계산","address":"E10","formula":"=IF(B10=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B10)+(people=B10),\"\")),IF(AND(B10<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F10","formula":"=IF(AND(A10=\"\",'상태출력'!X37=\"\",'상태출력'!Y37=\"\"),\"\",IF(A10=\"\",\"이름 필요\",IF(E10=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!X37=\"\",'상태출력'!Y37=\"\",C10<0,D10<0,C10=D10,D10-C10>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G10","formula":"=IF(F10=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C10,minute<D10),AND(minute+1440>=C10,minute+1440<D10),AND(minute-1440>=C10,minute-1440<D10))))),0)"},{"sheet":"긴조분계산","address":"H10","formula":"=IF(F10=\"\",\"\",IF(F10<>\"정상\",F10,IF(G10=0,\"현재 시간대 제외 없음\",G10&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A11","formula":"=IF('상태출력'!T38=\"\",\"\",'상태출력'!T38)"},{"sheet":"긴조분계산","address":"B11","formula":"=LOWER(수식_비교글자(A11))"},{"sheet":"긴조분계산","address":"C11","formula":"=긴조_시각('상태출력'!U38)"},{"sheet":"긴조분계산","address":"D11","formula":"=LET(finish,긴조_시각('상태출력'!V38),IF(OR(C11<0,finish<0),-1,finish+IF(finish<C11,1440,0)))"},{"sheet":"긴조분계산","address":"E11","formula":"=IF(B11=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B11)+(people=B11),\"\")),IF(AND(B11<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F11","formula":"=IF(AND(A11=\"\",'상태출력'!U38=\"\",'상태출력'!V38=\"\"),\"\",IF(A11=\"\",\"이름 필요\",IF(E11=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!U38=\"\",'상태출력'!V38=\"\",C11<0,D11<0,C11=D11,D11-C11>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G11","formula":"=IF(F11=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C11,minute<D11),AND(minute+1440>=C11,minute+1440<D11),AND(minute-1440>=C11,minute-1440<D11))))),0)"},{"sheet":"긴조분계산","address":"H11","formula":"=IF(F11=\"\",\"\",IF(F11<>\"정상\",F11,IF(G11=0,\"현재 시간대 제외 없음\",G11&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A12","formula":"=IF('상태출력'!W38=\"\",\"\",'상태출력'!W38)"},{"sheet":"긴조분계산","address":"B12","formula":"=LOWER(수식_비교글자(A12))"},{"sheet":"긴조분계산","address":"C12","formula":"=긴조_시각('상태출력'!X38)"},{"sheet":"긴조분계산","address":"D12","formula":"=LET(finish,긴조_시각('상태출력'!Y38),IF(OR(C12<0,finish<0),-1,finish+IF(finish<C12,1440,0)))"},{"sheet":"긴조분계산","address":"E12","formula":"=IF(B12=\"\",\"\",LET(dict,긴조_인원사전(),ids,CHOOSECOLS(dict,1),people,CHOOSECOLS(dict,3),matches,UNIQUE(FILTER(ids,(ids=B12)+(people=B12),\"\")),IF(AND(B12<>\"\",ROWS(matches)=1),INDEX(matches,1,1),\"\")))"},{"sheet":"긴조분계산","address":"F12","formula":"=IF(AND(A12=\"\",'상태출력'!X38=\"\",'상태출력'!Y38=\"\"),\"\",IF(A12=\"\",\"이름 필요\",IF(E12=\"\",\"이름/사번 확인(동명이인은 사번)\",IF(OR('상태출력'!X38=\"\",'상태출력'!Y38=\"\",C12<0,D12<0,C12=D12,D12-C12>1440),\"시작·종료 확인\",\"정상\"))))"},{"sheet":"긴조분계산","address":"G12","formula":"=IF(F12=\"정상\",SUM(--MAP(SEQUENCE(60,1,수식설정!B4*60),LAMBDA(minute,OR(AND(minute>=C12,minute<D12),AND(minute+1440>=C12,minute+1440<D12),AND(minute-1440>=C12,minute-1440<D12))))),0)"},{"sheet":"긴조분계산","address":"H12","formula":"=IF(F12=\"\",\"\",IF(F12<>\"정상\",F12,IF(G12=0,\"현재 시간대 제외 없음\",G12&\"분 제외 등록\")))"},{"sheet":"긴조분계산","address":"A20","formula":"=LET(live,수식판정!P2#,raw,수식판정!A2#,both,VSTACK(live,raw),source,수식_첫번째만(FILTER(both,CHOOSECOLS(both,2)<>\"\",MAKEARRAY(1,14,LAMBDA(rownum,colnum,\"\"))),2),ids,CHOOSECOLS(source,2),people,CHOOSECOLS(source,3),states,CHOOSECOLS(source,5),half,CHOOSECOLS(source,7),education,CHOOSECOLS(source,10),base,MAP(ids,LAMBDA(personKey,IF(personKey=\"\",0,IF(ISNUMBER(XMATCH(personKey,CHOOSECOLS(live,2),0)),60*(1-XLOOKUP(personKey,CHOOSECOLS(live,2),CHOOSECOLS(live,10),0,0)),0)))),deduct,MAP(ids,LAMBDA(personKey,IF(personKey=\"\",0,긴조_제외분(personKey,수식설정!B4*60)))),inside,MAP(ids,LAMBDA(personKey,IF(personKey=\"\",FALSE,긴조_제외중(personKey,수식설정!B4*60+MINUTE(수식설정!B3))))),restore,(ids<>\"\")*(base=0)*(states=\"회의\")*(1-half)*(1-education)*((CHOOSECOLS(source,8)+CHOOSECOLS(source,9))>0)*inside,credit,IF(base>0,base-deduct,IF(restore,60-deduct,0)),HSTACK(ids,people,states,base,deduct,--inside,--restore,credit,base-credit,education,half,IF(restore,\"등록한 제외 시간의 회의: 이중 차감 방지\",\"\")))"},{"sheet":"긴조분계산","address":"N20","formula":"=LET(dict,긴조_인원사전(),roster,수식근무!A2#,ot,수식OT!A2#,allIds,VSTACK(CHOOSECOLS(roster,2),CHOOSECOLS(ot,4)),ids,UNIQUE(FILTER(allIds,allIds<>\"\",\"\")),people,XLOOKUP(ids,CHOOSECOLS(dict,1),CHOOSECOLS(dict,2),\"\",0),minutes,MAP(ids,LAMBDA(personKey,IF(수식설정!B4=28,0,긴조_예정분(personKey,(수식설정!B4+1)*60,TRUE)))),regular,MAP(ids,LAMBDA(personKey,IF(수식설정!B4=28,0,긴조_예정분(personKey,(수식설정!B4+1)*60,FALSE)))),HSTACK(ids,people,minutes,minutes/60,regular,minutes-regular))"},{"sheet":"긴조분계산","address":"K2","formula":"='상태출력'!E5*60"},{"sheet":"긴조분계산","address":"K3","formula":"='상태출력'!G5*60"},{"sheet":"긴조분계산","address":"K4","formula":"=SUM(CHOOSECOLS(A20#,4))"},{"sheet":"긴조분계산","address":"K5","formula":"=SUM(CHOOSECOLS(A20#,8))"},{"sheet":"긴조분계산","address":"K6","formula":"=SUM(--(F3:F12<>\"\")*--(F3:F12<>\"정상\"))"},{"sheet":"긴조분계산","address":"K7","formula":"=SUM(CHOOSECOLS(A20#,4))-SUM(CHOOSECOLS(A20#,8))+SUM(CHOOSECOLS(A20#,7)*(60-CHOOSECOLS(A20#,5)))"},{"sheet":"긴조분계산","address":"K8","formula":"=SUM(CHOOSECOLS(A20#,7)*(60-CHOOSECOLS(A20#,5)))"},{"sheet":"긴조분계산","address":"K9","formula":"=K5-K2"},{"sheet":"긴조분계산","address":"K10","formula":"=SUM(CHOOSECOLS(N20#,3))"},{"sheet":"긴조분계산","address":"K11","formula":"=IF(수식설정!B4=28,\"다음 운영일 근무표 필요\",LET(hours,MAP(데일리!BA6:BA29,LAMBDA(value,긴조_시각(value))),hits,SUM(--(hours=(수식설정!B4+1)*60)),raw,XLOOKUP((수식설정!B4+1)*60,hours,IF(데일리!AY6:AY29=\"\",\"\",데일리!AY6:AY29),\"시간행 없음\",0),IF(hits<>1,\"다음 시간행 확인\",IF(AND(ISNUMBER(raw),raw>0),raw*60,\"다음 목표 인원 확인\"))))"},{"sheet":"긴조분계산","address":"K12","formula":"=IF(ISNUMBER(K11),ROUND(K10-K11*K16,8),K11)"},{"sheet":"긴조분계산","address":"K13","formula":"=IF(ISNUMBER(K11),ROUND(K11*L16-K10,8),K11)"},{"sheet":"긴조분계산","address":"K14","formula":"=IF(ISNUMBER(K11),K10/K11,K11)"},{"sheet":"긴조분계산","address":"K15","formula":"=SUM(--(CHOOSECOLS(U20#,1)<>\"\"))"},{"sheet":"긴조분계산","address":"U20","formula":"=LET(roster,수식근무!A2#,raw,수식원문!D2#,rid,CHOOSECOLS(roster,2),rname,CHOOSECOLS(roster,3),pid,CHOOSECOLS(raw,2),pname,CHOOSECOLS(raw,3),state,CHOOSECOLS(raw,4),blank,HSTACK(\"\",\"\",\"\",\"\"),make,LAMBDA(kind,ids,people,mask,message,LET(rows,HSTACK(MAP(ids,LAMBDA(personKey,kind)),ids,people,MAP(ids,LAMBDA(personKey,message))),FILTER(rows,(ids<>\"\")*mask,blank))),unknown,make(\"원문만 존재\",pid,pname,ISNA(XMATCH(pid,rid,0)),\"근무표에 없는 사번\"),duplicates,make(\"근무표 중복\",rid,rname,MAP(rid,LAMBDA(personKey,SUM(--(rid=personKey))>1)),\"동일 사번이 여러 행: 시프트·사번 확인\"),badshift,make(\"시프트 오류\",rid,rname,CHOOSECOLS(roster,7)<0,\"근무시간을 해석하지 못함\"),rawdups,make(\"원문 중복\",pid,pname,MAP(pid,LAMBDA(personKey,SUM(--(pid=personKey))>1)),\"같은 사번이 원문에 여러 번 있음\"),unknownstate,make(\"상태 확인\",pid,pname,ISNA(XMATCH(state,TEXTSPLIT(\"대화 가능|식사|휴식|교육|회의|자리에 없음|출근|정상출근|오프라인|온라인|인터랙션|커뮤니케이션\",,\"|\"),0)),\"해석되지 않은 상태 확인\"),scheduled,make(\"원문 누락\",rid,rname,수식근무!P2#*ISNA(XMATCH(rid,pid,0)),\"현재 근무 대상이나 원문에 없음\"),manual,HSTACK(MAP(A3:A12,LAMBDA(person,\"제외 입력\")),E3:E12,A3:A12,F3:F12),badmanual,FILTER(manual,(F3:F12<>\"\")*(F3:F12<>\"정상\"),blank),namedmissing,make(\"제외 인원 확인\",E3:E12,A3:A12,(F3:F12=\"정상\")*(G3:G12>0)*ISNA(XMATCH(E3:E12,pid,0)),\"원문에 없어 인정분 0: 출근 여부 확인\"),allRows,VSTACK(unknown,duplicates,badshift,rawdups,unknownstate,scheduled,badmanual,namedmissing),UNIQUE(FILTER(allRows,CHOOSECOLS(allRows,1)<>\"\",blank)))"},{"sheet":"상태출력","address":"I5","formula":"=IF(긴조분계산!K6>0,\"제외 입력 확인\",IF(NOT(ISNUMBER(E5)),\"목표 인원 확인\",IF(E5<=0,\"목표 인원 확인\",IF(ABS(긴조분계산!K3-긴조분계산!K4)>0.000001,\"로그인 집계 확인\",긴조분계산!K5/(E5*60)))))"},{"sheet":"상태출력","address":"T5","formula":"=IFERROR(INDEX(LET(source,수식명단!AB2#,HSTACK(CHOOSECOLS(source,1,2,3,4),SUBSTITUTE(CHOOSECOLS(source,5),\"미출근\",\"지각 확인필요\"),CHOOSECOLS(source,6))),SEQUENCE(12),SEQUENCE(1,6)),\"\")"},{"sheet":"상태출력","address":"T21","formula":"=IFERROR(INDEX(수식명단!O2#,SEQUENCE(11),SEQUENCE(1,6)),\"\")"},{"sheet":"상태출력","address":"T3","formula":"=LET(source,수식명단!AB2#,total,SUM(--(CHOOSECOLS(source,1)<>\"\")),\"지각 확인필요 \"&total&\"명\"&IF(total>12,\" / 전체 명단은 테스트 탭\",\"\"))"},{"sheet":"상태출력","address":"T19","formula":"=LET(source,수식명단!O2#,total,SUM(--(CHOOSECOLS(source,1)<>\"\")),\"퇴근·휴무 \"&total&\"명\"&IF(total>11,\" / 전체 명단은 테스트 탭\",\"\"))"},{"sheet":"테스트","address":"A6","formula":"=IF(수식설정!B4=28,\"다음 운영일\",MOD(수식설정!B4+1,24)&\"시 구간\")"},{"sheet":"테스트","address":"A8","formula":"=IF(ISNUMBER(긴조분계산!K14),\"예상 \"&ROUND(긴조분계산!K14*100,1)&\"% / OT \"&긴조분계산!K18&\"명·\"&ROUND(긴조분계산!K17,1)&\"분 포함\",긴조분계산!K14)"},{"sheet":"테스트","address":"F6","formula":"=IF(ISNUMBER(긴조분계산!K12),IF(긴조분계산!K12<0,\"미달 · \"&-INT(긴조분계산!K12)&\"분 확보 필요\",INT(긴조분계산!K12)+1&\"분 비면 미달\"),긴조분계산!K12)"},{"sheet":"테스트","address":"F8","formula":"=IF(ISNUMBER(긴조분계산!K13),IF(긴조분계산!K13<0,\"과투입 · \"&-INT(긴조분계산!K13)&\"분 제외 필요\",INT(긴조분계산!K13)+1&\"분 더하면 과투입\"),긴조분계산!K13)"},{"sheet":"테스트","address":"K6","formula":"='상태출력'!I5"},{"sheet":"테스트","address":"K8","formula":"=긴조분계산!AI10"},{"sheet":"테스트","address":"E15","formula":"=긴조분계산!K2"},{"sheet":"테스트","address":"E16","formula":"=긴조분계산!K3"},{"sheet":"테스트","address":"E17","formula":"=긴조분계산!K7"},{"sheet":"테스트","address":"E18","formula":"=긴조분계산!K8"},{"sheet":"테스트","address":"E19","formula":"=긴조분계산!K5"},{"sheet":"테스트","address":"E20","formula":"=긴조분계산!K9"},{"sheet":"테스트","address":"N15","formula":"=SUM(--(CHOOSECOLS(수식판정!AE2#,2)<>\"\"))"},{"sheet":"테스트","address":"N16","formula":"=SUM(--(CHOOSECOLS(수식판정!P2#,2)<>\"\")*CHOOSECOLS(수식판정!P2#,10))"},{"sheet":"테스트","address":"N17","formula":"=SUM(--(CHOOSECOLS(수식명단!AB2#,1)<>\"\"))"},{"sheet":"테스트","address":"N18","formula":"=SUM(CHOOSECOLS(긴조분계산!A20#,7))"},{"sheet":"테스트","address":"N19","formula":"=SUM(--(긴조분계산!F3:F12=\"정상\"))"},{"sheet":"테스트","address":"N20","formula":"=긴조분계산!K15"},{"sheet":"테스트","address":"A22","formula":"=IF(긴조분계산!K6>0,\"제외 입력의 이름·시작·종료를 확인하세요.\",IF(ISNUMBER(긴조분계산!K11),\"다음시간 허용률 \"&ROUND(긴조분계산!K16*100,1)&\"%~\"&ROUND(긴조분계산!L16*100,1)&\"% / 경계와 같으면 정상, 1분 단위로 경계를 넘는 시점을 표시합니다.\",긴조분계산!K11))"},{"sheet":"테스트","address":"A26","formula":"=긴조분계산!K15&\"건 / 아래 16건 표시 · 전체는 긴조분계산 U:X열\""},{"sheet":"테스트","address":"A28","formula":"=IFERROR(INDEX(긴조분계산!U20#,1,1),\"\")"},{"sheet":"테스트","address":"D28","formula":"=IFERROR(INDEX(긴조분계산!U20#,1,2),\"\")"},{"sheet":"테스트","address":"G28","formula":"=IFERROR(INDEX(긴조분계산!U20#,1,3),\"\")"},{"sheet":"테스트","address":"J28","formula":"=IFERROR(INDEX(긴조분계산!U20#,1,4),\"\")"},{"sheet":"테스트","address":"A29","formula":"=IFERROR(INDEX(긴조분계산!U20#,2,1),\"\")"},{"sheet":"테스트","address":"D29","formula":"=IFERROR(INDEX(긴조분계산!U20#,2,2),\"\")"},{"sheet":"테스트","address":"G29","formula":"=IFERROR(INDEX(긴조분계산!U20#,2,3),\"\")"},{"sheet":"테스트","address":"J29","formula":"=IFERROR(INDEX(긴조분계산!U20#,2,4),\"\")"},{"sheet":"테스트","address":"A30","formula":"=IFERROR(INDEX(긴조분계산!U20#,3,1),\"\")"},{"sheet":"테스트","address":"D30","formula":"=IFERROR(INDEX(긴조분계산!U20#,3,2),\"\")"},{"sheet":"테스트","address":"G30","formula":"=IFERROR(INDEX(긴조분계산!U20#,3,3),\"\")"},{"sheet":"테스트","address":"J30","formula":"=IFERROR(INDEX(긴조분계산!U20#,3,4),\"\")"},{"sheet":"테스트","address":"A31","formula":"=IFERROR(INDEX(긴조분계산!U20#,4,1),\"\")"},{"sheet":"테스트","address":"D31","formula":"=IFERROR(INDEX(긴조분계산!U20#,4,2),\"\")"},{"sheet":"테스트","address":"G31","formula":"=IFERROR(INDEX(긴조분계산!U20#,4,3),\"\")"},{"sheet":"테스트","address":"J31","formula":"=IFERROR(INDEX(긴조분계산!U20#,4,4),\"\")"},{"sheet":"테스트","address":"A32","formula":"=IFERROR(INDEX(긴조분계산!U20#,5,1),\"\")"},{"sheet":"테스트","address":"D32","formula":"=IFERROR(INDEX(긴조분계산!U20#,5,2),\"\")"},{"sheet":"테스트","address":"G32","formula":"=IFERROR(INDEX(긴조분계산!U20#,5,3),\"\")"},{"sheet":"테스트","address":"J32","formula":"=IFERROR(INDEX(긴조분계산!U20#,5,4),\"\")"},{"sheet":"테스트","address":"A33","formula":"=IFERROR(INDEX(긴조분계산!U20#,6,1),\"\")"},{"sheet":"테스트","address":"D33","formula":"=IFERROR(INDEX(긴조분계산!U20#,6,2),\"\")"},{"sheet":"테스트","address":"G33","formula":"=IFERROR(INDEX(긴조분계산!U20#,6,3),\"\")"},{"sheet":"테스트","address":"J33","formula":"=IFERROR(INDEX(긴조분계산!U20#,6,4),\"\")"},{"sheet":"테스트","address":"A34","formula":"=IFERROR(INDEX(긴조분계산!U20#,7,1),\"\")"},{"sheet":"테스트","address":"D34","formula":"=IFERROR(INDEX(긴조분계산!U20#,7,2),\"\")"},{"sheet":"테스트","address":"G34","formula":"=IFERROR(INDEX(긴조분계산!U20#,7,3),\"\")"},{"sheet":"테스트","address":"J34","formula":"=IFERROR(INDEX(긴조분계산!U20#,7,4),\"\")"},{"sheet":"테스트","address":"A35","formula":"=IFERROR(INDEX(긴조분계산!U20#,8,1),\"\")"},{"sheet":"테스트","address":"D35","formula":"=IFERROR(INDEX(긴조분계산!U20#,8,2),\"\")"},{"sheet":"테스트","address":"G35","formula":"=IFERROR(INDEX(긴조분계산!U20#,8,3),\"\")"},{"sheet":"테스트","address":"J35","formula":"=IFERROR(INDEX(긴조분계산!U20#,8,4),\"\")"},{"sheet":"테스트","address":"A36","formula":"=IFERROR(INDEX(긴조분계산!U20#,9,1),\"\")"},{"sheet":"테스트","address":"D36","formula":"=IFERROR(INDEX(긴조분계산!U20#,9,2),\"\")"},{"sheet":"테스트","address":"G36","formula":"=IFERROR(INDEX(긴조분계산!U20#,9,3),\"\")"},{"sheet":"테스트","address":"J36","formula":"=IFERROR(INDEX(긴조분계산!U20#,9,4),\"\")"},{"sheet":"테스트","address":"A37","formula":"=IFERROR(INDEX(긴조분계산!U20#,10,1),\"\")"},{"sheet":"테스트","address":"D37","formula":"=IFERROR(INDEX(긴조분계산!U20#,10,2),\"\")"},{"sheet":"테스트","address":"G37","formula":"=IFERROR(INDEX(긴조분계산!U20#,10,3),\"\")"},{"sheet":"테스트","address":"J37","formula":"=IFERROR(INDEX(긴조분계산!U20#,10,4),\"\")"},{"sheet":"테스트","address":"A38","formula":"=IFERROR(INDEX(긴조분계산!U20#,11,1),\"\")"},{"sheet":"테스트","address":"D38","formula":"=IFERROR(INDEX(긴조분계산!U20#,11,2),\"\")"},{"sheet":"테스트","address":"G38","formula":"=IFERROR(INDEX(긴조분계산!U20#,11,3),\"\")"},{"sheet":"테스트","address":"J38","formula":"=IFERROR(INDEX(긴조분계산!U20#,11,4),\"\")"},{"sheet":"테스트","address":"A39","formula":"=IFERROR(INDEX(긴조분계산!U20#,12,1),\"\")"},{"sheet":"테스트","address":"D39","formula":"=IFERROR(INDEX(긴조분계산!U20#,12,2),\"\")"},{"sheet":"테스트","address":"G39","formula":"=IFERROR(INDEX(긴조분계산!U20#,12,3),\"\")"},{"sheet":"테스트","address":"J39","formula":"=IFERROR(INDEX(긴조분계산!U20#,12,4),\"\")"},{"sheet":"테스트","address":"A40","formula":"=IFERROR(INDEX(긴조분계산!U20#,13,1),\"\")"},{"sheet":"테스트","address":"D40","formula":"=IFERROR(INDEX(긴조분계산!U20#,13,2),\"\")"},{"sheet":"테스트","address":"G40","formula":"=IFERROR(INDEX(긴조분계산!U20#,13,3),\"\")"},{"sheet":"테스트","address":"J40","formula":"=IFERROR(INDEX(긴조분계산!U20#,13,4),\"\")"},{"sheet":"테스트","address":"A41","formula":"=IFERROR(INDEX(긴조분계산!U20#,14,1),\"\")"},{"sheet":"테스트","address":"D41","formula":"=IFERROR(INDEX(긴조분계산!U20#,14,2),\"\")"},{"sheet":"테스트","address":"G41","formula":"=IFERROR(INDEX(긴조분계산!U20#,14,3),\"\")"},{"sheet":"테스트","address":"J41","formula":"=IFERROR(INDEX(긴조분계산!U20#,14,4),\"\")"},{"sheet":"테스트","address":"A42","formula":"=IFERROR(INDEX(긴조분계산!U20#,15,1),\"\")"},{"sheet":"테스트","address":"D42","formula":"=IFERROR(INDEX(긴조분계산!U20#,15,2),\"\")"},{"sheet":"테스트","address":"G42","formula":"=IFERROR(INDEX(긴조분계산!U20#,15,3),\"\")"},{"sheet":"테스트","address":"J42","formula":"=IFERROR(INDEX(긴조분계산!U20#,15,4),\"\")"},{"sheet":"테스트","address":"A43","formula":"=IFERROR(INDEX(긴조분계산!U20#,16,1),\"\")"},{"sheet":"테스트","address":"D43","formula":"=IFERROR(INDEX(긴조분계산!U20#,16,2),\"\")"},{"sheet":"테스트","address":"G43","formula":"=IFERROR(INDEX(긴조분계산!U20#,16,3),\"\")"},{"sheet":"테스트","address":"J43","formula":"=IFERROR(INDEX(긴조분계산!U20#,16,4),\"\")"},{"sheet":"테스트","address":"A66","formula":"=LET(source,수식명단!AB2#,HSTACK(CHOOSECOLS(source,1,2,3,4),SUBSTITUTE(CHOOSECOLS(source,5),\"미출근\",\"지각 확인필요\"),CHOOSECOLS(source,6)))"},{"sheet":"테스트","address":"H66","formula":"=수식명단!O2#"},{"sheet":"긴조분계산","address":"K16","formula":"=IF(ISNUMBER(K11),긴조_허용률(K11/60),HSTACK(K11,K11))"},{"sheet":"긴조분계산","address":"AI2","formula":"=INDEX(긴조_허용률('상태출력'!E5),1,1)"},{"sheet":"긴조분계산","address":"AI3","formula":"=INDEX(긴조_허용률('상태출력'!E5),1,2)"},{"sheet":"긴조분계산","address":"AI4","formula":"=IF(ISNUMBER(AI2),K2*AI2,AI2)"},{"sheet":"긴조분계산","address":"AI5","formula":"=IF(ISNUMBER(AI3),K2*AI3,AI3)"},{"sheet":"긴조분계산","address":"AI6","formula":"=IF(ISNUMBER(AI4),MAX(0,ROUND(AI4-K5,8)),AI4)"},{"sheet":"긴조분계산","address":"AI7","formula":"=IF(ISNUMBER(AI5),MAX(0,ROUND(K5-AI5,8)),AI5)"},{"sheet":"긴조분계산","address":"AI8","formula":"=IF(ISNUMBER(AI6),-INT(-AI6),AI6)"},{"sheet":"긴조분계산","address":"AI9","formula":"=IF(ISNUMBER(AI7),-INT(-AI7),AI7)"},{"sheet":"긴조분계산","address":"AI10","formula":"=IF(K6>0,\"제외 입력 확인\",IF(ABS(K3-K4)>0.000001,\"로그인 집계 확인\",IF(NOT(ISNUMBER(AI8)),AI8,IF(AI8>0,\"미달 · 최소 \"&AI8&\"분 추가 확보 필요\",IF(AI9>0,\"과투입 · 최소 \"&AI9&\"분 제외 필요\",\"정상 범위 · 추가 조치 없음\")))))"},{"sheet":"상태출력","address":"D3","formula":"=LET(bounds,긴조_허용률(E5),low,INDEX(bounds,1,1),high,INDEX(bounds,1,2),IF(ISNUMBER(low),\"최소 ~ 최대 투입률 (\"&ROUND(low*100,1)&\"% ~ \"&ROUND(high*100,1)&\"%) 가능 / \"&긴조분계산!AI10,low))"},{"sheet":"긴조분계산","address":"K17","formula":"=SUM(CHOOSECOLS(N20#,6))"},{"sheet":"긴조분계산","address":"K18","formula":"=SUM(--(CHOOSECOLS(N20#,6)>0))"},{"sheet":"긴조분계산","address":"AA20","formula":"=LET(roster,수식근무!A2#,raw,수식판정!A2#,live,A20#,dict,긴조_인원사전(),ids,UNIQUE(FILTER(CHOOSECOLS(dict,1),CHOOSECOLS(dict,1)<>\"\",\"\")),people,XLOOKUP(ids,CHOOSECOLS(dict,1),CHOOSECOLS(dict,2),\"\",0),states,XLOOKUP(ids,CHOOSECOLS(raw,2),CHOOSECOLS(raw,5),\"원문 없음\",0),normalKeys,FILTER(CHOOSECOLS(roster,2),수식근무!P2#,\"\"),scheduled,--ISNUMBER(XMATCH(ids,normalKeys,0)),actual,--(XLOOKUP(ids,CHOOSECOLS(live,1),CHOOSECOLS(live,4),0,0)>0),education,XLOOKUP(ids,CHOOSECOLS(raw,2),CHOOSECOLS(raw,10),0,0),ot,--ISNUMBER(XMATCH(ids,수식OT!G2#,0)),effect,actual-scheduled,gap,상태출력!G5-상태출력!F5,reasons,MAP(scheduled,actual,states,education,ot,LAMBDA(expect,present,state,training,isOT,IF(present>expect,IF(isOT,\"정규근무 외 OT 로그인: 데일리 OT 반영 확인\",\"정규근무 대상 외 로그인: 시프트·예외 확인\"),IF(state=\"원문 없음\",\"정규근무 대상이나 원문에 없음\",IF(state=\"회의\",\"회의 상태로 로그인 집계 제외\",IF(training,\"교육 인원으로 로그인 집계 제외\",IF(state=\"오프라인\",\"오프라인 상태로 로그인 집계 제외\",\"반차·근무구분과 현재 상태 확인\"))))))),scores,MAP(effect,states,education,ot,LAMBDA(delta,state,training,isOT,IF(delta>0,IF(isOT,100,90),IF(state=\"원문 없음\",100,IF(state=\"회의\",95,IF(training,90,85)))))),rows,HSTACK(scores,ids,people,states,effect,reasons),picked,FILTER(rows,(ids<>\"\")*(effect*gap>0),HSTACK(0,\"\",\"\", \"\",0,\"\")),SORTBY(picked,CHOOSECOLS(picked,1),-1))"},{"sheet":"테스트","address":"A48","formula":"=IF(AND(ISNUMBER(상태출력!F5),ISNUMBER(상태출력!G5)),\"이번시간 Daily(F5) \"&상태출력!F5&\"명 / 로그인(G5) \"&상태출력!G5&\"명 / \"&IF(상태출력!F5=상태출력!G5,\"인원 일치\",IF(상태출력!G5>상태출력!F5,\"로그인 \"&(상태출력!G5-상태출력!F5)&\"명 많음\",\"로그인 \"&(상태출력!F5-상태출력!G5)&\"명 부족\"))&\" · 아래는 우선 확인 후보이며 확정 원인이 아닙니다.\",\"F5·G5 숫자 확인 필요\")"},{"sheet":"테스트","address":"A51","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,1,2),\"\")=\"\",\"\",1)"},{"sheet":"테스트","address":"C51","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,1,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,1,3),\"\"))"},{"sheet":"테스트","address":"F51","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,1,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,1,4),\"\"))"},{"sheet":"테스트","address":"H51","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,1,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,1,5),\"\"))"},{"sheet":"테스트","address":"J51","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,1,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,1,6),\"\"))"},{"sheet":"테스트","address":"A52","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,2,2),\"\")=\"\",\"\",2)"},{"sheet":"테스트","address":"C52","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,2,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,2,3),\"\"))"},{"sheet":"테스트","address":"F52","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,2,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,2,4),\"\"))"},{"sheet":"테스트","address":"H52","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,2,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,2,5),\"\"))"},{"sheet":"테스트","address":"J52","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,2,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,2,6),\"\"))"},{"sheet":"테스트","address":"A53","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,3,2),\"\")=\"\",\"\",3)"},{"sheet":"테스트","address":"C53","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,3,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,3,3),\"\"))"},{"sheet":"테스트","address":"F53","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,3,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,3,4),\"\"))"},{"sheet":"테스트","address":"H53","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,3,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,3,5),\"\"))"},{"sheet":"테스트","address":"J53","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,3,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,3,6),\"\"))"},{"sheet":"테스트","address":"A54","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,4,2),\"\")=\"\",\"\",4)"},{"sheet":"테스트","address":"C54","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,4,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,4,3),\"\"))"},{"sheet":"테스트","address":"F54","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,4,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,4,4),\"\"))"},{"sheet":"테스트","address":"H54","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,4,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,4,5),\"\"))"},{"sheet":"테스트","address":"J54","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,4,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,4,6),\"\"))"},{"sheet":"테스트","address":"A55","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,5,2),\"\")=\"\",\"\",5)"},{"sheet":"테스트","address":"C55","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,5,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,5,3),\"\"))"},{"sheet":"테스트","address":"F55","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,5,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,5,4),\"\"))"},{"sheet":"테스트","address":"H55","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,5,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,5,5),\"\"))"},{"sheet":"테스트","address":"J55","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,5,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,5,6),\"\"))"},{"sheet":"테스트","address":"A56","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,6,2),\"\")=\"\",\"\",6)"},{"sheet":"테스트","address":"C56","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,6,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,6,3),\"\"))"},{"sheet":"테스트","address":"F56","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,6,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,6,4),\"\"))"},{"sheet":"테스트","address":"H56","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,6,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,6,5),\"\"))"},{"sheet":"테스트","address":"J56","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,6,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,6,6),\"\"))"},{"sheet":"테스트","address":"A57","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,7,2),\"\")=\"\",\"\",7)"},{"sheet":"테스트","address":"C57","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,7,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,7,3),\"\"))"},{"sheet":"테스트","address":"F57","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,7,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,7,4),\"\"))"},{"sheet":"테스트","address":"H57","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,7,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,7,5),\"\"))"},{"sheet":"테스트","address":"J57","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,7,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,7,6),\"\"))"},{"sheet":"테스트","address":"A58","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,8,2),\"\")=\"\",\"\",8)"},{"sheet":"테스트","address":"C58","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,8,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,8,3),\"\"))"},{"sheet":"테스트","address":"F58","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,8,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,8,4),\"\"))"},{"sheet":"테스트","address":"H58","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,8,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,8,5),\"\"))"},{"sheet":"테스트","address":"J58","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,8,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,8,6),\"\"))"},{"sheet":"테스트","address":"A59","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,9,2),\"\")=\"\",\"\",9)"},{"sheet":"테스트","address":"C59","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,9,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,9,3),\"\"))"},{"sheet":"테스트","address":"F59","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,9,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,9,4),\"\"))"},{"sheet":"테스트","address":"H59","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,9,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,9,5),\"\"))"},{"sheet":"테스트","address":"J59","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,9,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,9,6),\"\"))"},{"sheet":"테스트","address":"A60","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,10,2),\"\")=\"\",\"\",10)"},{"sheet":"테스트","address":"C60","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,10,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,10,3),\"\"))"},{"sheet":"테스트","address":"F60","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,10,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,10,4),\"\"))"},{"sheet":"테스트","address":"H60","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,10,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,10,5),\"\"))"},{"sheet":"테스트","address":"J60","formula":"=IF(IFERROR(INDEX(긴조분계산!AA20#,10,2),\"\")=\"\",\"\",IFERROR(INDEX(긴조분계산!AA20#,10,6),\"\"))"}];
+let updateStage = "시작";
+let updateLocation = "";
+let updateExpression = "";
+let updateErrorPrinted = false;
+function main(workbook: ExcelScript.Workbook) {
+  updateStep("사전 확인"); updateErrorPrinted = false;
+  console.log("[긴조 투입률 업데이트 20261116.6] 기존 원본 링크는 그대로 사용합니다.");
+  try { installUpdate(workbook); }
+  catch (error) {
+    if (!updateErrorPrinted) printUpdateError(error);
+    throw new Error(describeUpdateError(error));
+  }
+}
+function installUpdate(workbook: ExcelScript.Workbook) {
+  const markerName = "긴조_분단위업데이트";
+  const marker = workbook.getNamedItem(markerName);
+  if (marker) {
+    const version = marker.getFormula().replace(/[="]/g, "").trim();
+    if (version === "20261116.6") {
+      if(!workbook.getNamedItem("긴조_허용률"))throw new Error("허용률 이름 수식이 없어 확인이 필요합니다. 입력은 변경하지 않았습니다.");
+      const d3 = updateFormulas.find(item => item.sheet === "상태출력" && item.address === "D3");
+      updateStep("D3 기준표 재적용", "상태출력!D3", d3.formula);
+      workbook.getWorksheet("상태출력").getRange("D3").setFormula(d3.formula);
+      console.log("이미 최신 버전입니다. D3에 최신 기준표를 다시 적용했습니다. 10명 입력값과 기존 계산은 유지했습니다."); return;
+    }
+    if (!/^20261116\.[1-5]$/.test(version)) throw new Error("설치 버전을 확인할 수 없습니다. 기존 내용은 변경하지 않았습니다.");
+    upgradeInstalled(workbook); return;
+  }
+  const required = ["상태출력", "데일리", "데일리연결", "수식설정", "수식근무", "수식원문", "수식판정", "수식OT", "수식명단"];
+  for (const name of required) if (!workbook.getWorksheet(name)) throw new Error(name + " 탭이 없습니다. 기존 긴조 수식 파일에서 실행하세요.");
+  const status = workbook.getWorksheet("상태출력");
+  const link = workbook.getWorksheet("데일리연결");
+  if (!String(link.getRange("B9").getValue()).startsWith("긴급 ") || !String(link.getRange("B21").getValue()).includes("긴급조치 DailySheet.")) throw new Error("긴조 전용입니다. 인앱·귀책 파일에는 적용하지 않습니다.");
+  for (const spec of [["수식판정", "A2"], ["수식판정", "P2"], ["수식근무", "A2"], ["수식OT", "A2"], ["상태출력", "G5"]]) {
+    if (!workbook.getWorksheet(spec[0]).getRange(spec[1]).getFormula().startsWith("=")) throw new Error(spec[0] + "!" + spec[1] + " 수식이 없습니다. 수정하지 않았습니다.");
+  }
+  for (const name of ["테스트", "긴조분계산", "긴조업데이트백업"]) if (workbook.getWorksheet(name)) throw new Error(name + " 탭이 이미 있습니다. 기존 내용을 덮어쓰지 않았습니다. 이름을 바꾼 뒤 다시 실행하세요.");
+  for (const name of ["긴조_시각","긴조_인원사전","긴조_제외중","긴조_제외분","긴조_예정분","긴조_허용률"]) if (workbook.getNamedItem(name)) throw new Error(name + " 이름이 이미 있습니다. 기존 내용을 덮어쓰지 않았습니다.");
+  updateStep("기존 배치 백업", "긴조업데이트백업");
+  const backup = workbook.addWorksheet("긴조업데이트백업");
+  const saved = ["T3:Y43", "A13:B27", "I5", "D3"];
+  // Keep original addresses, formulas and formatting. Actual employee data stays in this workbook.
+  for (const address of saved) { updateStep("기존 배치 백업", "상태출력!" + address); copySavedBlock(backup, status, address); }
+  backup.getRange("A1:H2").merge(); backup.getRange("A1").setValue("업데이트 전 배치와 수식 백업. 복원이 필요하면 원래 주소로 복사하세요.");
+  updateStep("계산·테스트 화면 준비");
+  const calc = workbook.addWorksheet("긴조분계산");
+  const test = workbook.addWorksheet("테스트");
+  const app = workbook.getApplication();
+  const oldMode = app.getCalculationMode();
+  try {
+    updateStep("계산 일시 정지");
+    app.setCalculationMode(ExcelScript.CalculationMode.manual);
+    // Copy formatting from saved original, then re-anchor formulas to prevent spill/input collisions.
+    updateStep("기존 T영역 병합 해제", "상태출력!T3:Y43");
+    status.getRange("T3:Y43").unmerge();
+    updateStep("기존 T영역 내용 정리", "상태출력!T3:Y43");
+    status.getRange("T3:Y43").clear(ExcelScript.ClearApplyTo.contents);
+    updateStep("T영역 서식 이동", "상태출력!T3:Y31 ← 백업!T8:Y36");
+    status.getRange("T3:Y31").copyFrom(backup.getRange("T8:Y36"), ExcelScript.RangeCopyType.formats);
+    status.getRange("T3:Y31").unmerge();
+    updateStep("기존 조건부 서식 정리", "상태출력!T3:Y43");
+    // Deleting an individual rule can invalidate the other ConditionalFormat objects.
+    // Clear the specified block directly, without retrieving stale rules or their ranges.
+    status.getRange("T3:Y43").clearAllConditionalFormats();
+    status.getRange("T3:Y3").merge(); status.getRange("T19:Y19").merge();
+    updateStep("기존 분 차감표 비우기", "상태출력!A13:B27");
+    status.getRange("A13:B27").clear(ExcelScript.ClearApplyTo.contents);
+    updateStep("제외 입력란·명단 제목 구성", "상태출력!T3:Y36");
+    status.getRange("T4:Y4").setValues([["사번", "이름", "시프트", "상태값", "OT여부", "출근상태"]]);
+    status.getRange("T20:Y20").setValues([["사번", "이름", "시프트", "상태값", "OT여부", "출근상태"]]);
+    buildExclusionInputs(status);
+    for (const address of ["T3:Y3", "T19:Y19", "T32:Y32"]) { status.getRange(address).getFormat().getFill().setColor("#16324F"); status.getRange(address).getFormat().getFont().setColor("#FFFFFF"); }
+    updateStep("이동한 명단 조건부 서식", "상태출력!T5:Y16 / T21:Y31");
+    for (const address of ["T5:Y16", "T21:Y31"]) {
+      const first = address.startsWith("T5") ? 5 : 21;
+      for (const spec of [["회의", "#E9DDF3"], ["자리에 없음", "#FBE5D6"], ["대화 가능", "#E2F0D9"], ["식사", "#FFF2CC"], ["휴식", "#DDEBF7"], ["교육", "#E4DFEC"]]) {
+        const rule = status.getRange(address).addConditionalFormat(ExcelScript.ConditionalFormatType.custom);
+        rule.getCustom().getRule().setFormula('=$W' + first + '="' + spec[0] + '"'); rule.getCustom().getFormat().getFill().setColor(spec[1]);
+      }
+    }
+    updateStep("계산 탭 제목 구성", "긴조분계산!A1:X19");
+    calc.getRange("A1:H1").merge(); calc.getRange("A1").setValue("긴조 분 단위 계산 · 입력 원본은 상태출력 T34:Y38");
+    calc.getRange("A2:H2").setValues([["이름/사번", "검색키", "시작분", "종료분", "사번키", "입력 점검", "현재 제외분", "설명"]]);
+    calc.getRange("J2:J18").setValues([["목표분"],["기존 로그인분"],["인원별 기존분"],["인정분"],["제외 입력 오류"],["로그인 중 제외분"],["회의 이중차감 복원분"],["목표 대비 차이분"],["다음 예정분"],["다음 목표분"],["미달까지 여유분"],["과투입까지 여유분"],["다음 예상 투입률"],["점검 건수"],["다음 최소·최대 허용률"],["다음 OT 순증분"],["다음 OT 순증인원"]]);
+    calc.getRange("A19:L19").setValues([["사번", "이름", "현재 상태", "기존 로그인분", "등록 제외분", "현재 제외중", "회의 복원", "최종 인정분", "기존 대비 감소분", "교육 제외", "반차 휴무", "설명"]]);
+    calc.getRange("N19:S19").setValues([["사번", "이름", "다음 예정분", "60분 환산인원", "정규 근무분", "OT 순증분"]]);
+    calc.getRange("U19:X19").setValues([["구분", "사번", "이름", "확인 내용"]]);
+    calc.getRange("AA19:AF19").setValues([["확인 우선순위", "사번", "이름", "현재 상태", "인원 차이", "확인 이유"]]);
+    buildCurrentHeadings(calc);
+    const definitions = updateDefinitions;
+    for (const item of definitions) {
+      const expression = item.formula.startsWith("=LAMBDA(") ? item.formula : "=LAMBDA(" + item.formula.slice(1) + ")";
+      updateStep("이름 수식 등록", item.name, expression);
+      if (workbook.getNamedItem(item.name)) throw new Error(item.name + " 이름이 이미 있습니다.");
+      workbook.addNamedItem(item.name, expression);
+    }
+    updateStep("테스트 화면 배치", "테스트");
+    buildTestLayout(test);
+    const formulas = updateFormulas;
+    for (const item of formulas) {
+      updateStep("셀 수식 적용", item.sheet + "!" + item.address, item.formula);
+      workbook.getWorksheet(item.sheet).getRange(item.address).setFormula(item.formula);
+    }
+    updateStep("숫자 표시 형식 적용", "상태출력!I5 / 테스트!K6 / 긴조분계산!K14");
+    status.getRange("I5").setNumberFormat("0.0%");
+    test.getRange("K6").setNumberFormat("0.0%");
+    calc.getRange("K14").setNumberFormat("0.0%");
+    updateStep("전체 수식 계산");
+    app.calculate(ExcelScript.CalculationType.full);
+    const bad = ["#REF!", "#VALUE!", "#NAME?", "#SPILL!", "#CALC!", "#NUM!", "#DIV/0!", "#N/A"];
+    for (const address of ["A3:H12", "K2:L18", "A20:L20", "N20:S20", "U20:X20", "AA20:AF20", "AI2:AI10"]) {
+      updateStep("계산 결과 오류 확인", "긴조분계산!" + address);
+      const texts = calc.getRange(address).getTexts();
+      for (let rr = 0; rr < texts.length; rr++) for (let cc = 0; cc < texts[rr].length; cc++) {
+        if (bad.indexOf(texts[rr][cc]) < 0) continue;
+        const failed = calc.getRange(address).getCell(rr, cc);
+        updateStep("계산 결과 오류 확인", failed.getAddress(), failed.getFormula());
+        throw new Error("수식 계산 결과 " + texts[rr][cc] + ". 적용을 복원합니다.");
+      }
+    }
+    updateStep("설치 완료 표시", markerName);
+    workbook.addNamedItem(markerName, '="20261116.6"');
+    test.activate();
+    console.log("설치 완료. T34:V38 / W34:Y38에서 10명까지 입력하세요. 테스트 탭에서 OT 포함 예상·미달/과투입 경계·F5/G5 차이 후보를 확인하세요.");
+  } catch (error) {
+    // Print the original failure before attempting recovery; recovery errors must not hide it.
+    printUpdateError(error);
+    const failures: string[] = [];
+    try { status.getRange("T3:Y43").unmerge(); status.getRange("T3:Y43").clear(ExcelScript.ClearApplyTo.contents); status.getRange("T3:Y43").clearAllConditionalFormats(); }
+    catch (restoreError) { failures.push("T영역 복원 준비: " + describeUpdateError(restoreError)); }
+    for (const address of saved) {
+      try { copySavedBlock(status, backup, address); }
+      catch (restoreError) { failures.push("상태출력!" + address + " 복원: " + describeUpdateError(restoreError)); }
+    }
+    try { const failedMarker = workbook.getNamedItem(markerName); if (failedMarker) failedMarker.delete(); }
+    catch (restoreError) { failures.push("완료 표시 정리: " + describeUpdateError(restoreError)); }
+    if (failures.length === 0) {
+      for (const name of ["긴조_시각","긴조_인원사전","긴조_제외중","긴조_제외분","긴조_예정분","긴조_허용률"]) {
+        try { const item = workbook.getNamedItem(name); if (item) item.delete(); }
+        catch (restoreError) { failures.push("이름 정리 " + name + ": " + describeUpdateError(restoreError)); }
+      }
+      for (const sheet of [calc, test]) {
+        try { sheet.delete(); } catch (restoreError) { failures.push("설치 중 탭 정리: " + describeUpdateError(restoreError)); }
+      }
+      if (failures.length === 0) {
+        try { backup.delete(); } catch (restoreError) { failures.push("백업 정리: " + describeUpdateError(restoreError)); }
+      }
+    }
+    if (failures.length > 0) {
+      for (const failure of failures) console.log("[복원 확인 필요] " + failure);
+      throw new Error("업데이트 실패. 복원 일부를 완료하지 못해 백업을 보존했습니다. 실행 출력의 디버그와 복원 확인 내용을 확인하세요. 최초 오류: " + describeUpdateError(error));
+    }
+    console.log("[복원 완료] 원래 배치와 I5를 복원했습니다. 디버그는 이 실행의 출력에만 표시했습니다.");
+    throw new Error("업데이트 실패로 원래 배치와 I5를 복원했습니다. 실행 출력의 디버그를 확인하세요. 최초 오류: " + describeUpdateError(error));
+  } finally {
+    try { app.setCalculationMode(oldMode); }
+    catch (modeError) { console.log("[계산 모드 복원 확인 필요] " + describeUpdateError(modeError)); }
+  }
+}
+
+function updateStep(stage: string, location: string = "", expression: string = "") {
+  updateStage = stage; updateLocation = location; updateExpression = expression;
+}
+function describeUpdateError(error: unknown): string {
+  if (error === null || error === undefined) return "오류 상세가 비어 있습니다.";
+  if (typeof error !== "object") return String(error);
+  const parts: string[] = [];
+  const info = error as UpdateErrorInfo;
+  try { if (info.name) parts.push("name=" + String(info.name)); } catch { }
+  try { if (info.message) parts.push("message=" + String(info.message)); } catch { }
+  try { if (info.code) parts.push("code=" + String(info.code)); } catch { }
+  try { if (info.errorLocation) parts.push("errorLocation=" + String(info.errorLocation)); } catch { }
+  try { if (info.debugInfo) parts.push("debugInfo=" + JSON.stringify(info.debugInfo)); } catch { }
+  try { if (info.innerError) parts.push("innerError=" + JSON.stringify(info.innerError)); } catch { }
+  try { const json = JSON.stringify(error); if (json && json !== "{}") parts.push("detail=" + json); } catch { }
+  return parts.length > 0 ? parts.join(" / ") : "호스트가 오류 세부정보를 제공하지 않았습니다. 아래 실패 단계와 위치를 확인하세요.";
+}
+function printUpdateError(error: unknown) {
+  updateErrorPrinted = true;
+  console.log("[긴조 업데이트 디버그 20261116.6]");
+  console.log("실패 단계: " + updateStage);
+  if (updateLocation) console.log("실패 위치: " + updateLocation);
+  if (updateExpression) console.log("적용 수식: " + updateExpression);
+  console.log("원본 오류: " + describeUpdateError(error));
+  console.log("이 디버그는 실행 출력에만 표시하며 원문·직원 명단은 출력하지 않습니다.");
+}
+
+function buildExclusionInputs(status: ExcelScript.Worksheet) {
+  updateStep("10명 제외 입력란 구성", "상태출력!T32:Y40");
+  status.getRange("T32:Y40").unmerge(); status.getRange("T32:Y40").clear(ExcelScript.ClearApplyTo.contents);
+  status.getRange("T32:Y40").clearAllConditionalFormats();
+  status.getRange("T32:Y32").merge(); status.getRange("T32").setValue("과투입 제외인원 명단");
+  status.getRange("T33:Y33").setValues([["이름 / 사번", "제외 시작", "제외 종료", "이름 / 사번", "제외 시작", "제외 종료"]]);
+  for (const address of ["U34:V38", "X34:Y38"]) status.getRange(address).setNumberFormat("hh:mm");
+  status.getRange("T34:Y38").getFormat().getFill().setColor("#EAF4FF");
+  status.getRange("T34:Y38").getFormat().getFont().setColor("#145DA0");
+  status.getRange("T32:Y38").getFormat().setRowHeight(24);
+  status.getRange("T33:Y33").getFormat().setRowHeight(32);
+  status.getRange("T32:Y33").getFormat().setWrapText(true);
+  status.getRange("T32:Y33").getFormat().getFill().setColor("#16324F");
+  status.getRange("T32:Y33").getFormat().getFont().setColor("#FFFFFF");
+  status.getRange("T39:Y40").merge(); status.getRange("T39").setValue("총 10명 · 이름이 같으면 사번 입력 · 시작~종료는 제외 시간입니다.");
+  status.getRange("T39:Y40").getFormat().setWrapText(true);
+}
+interface UpgradeBackup { original: ExcelScript.Worksheet; backup: ExcelScript.Worksheet; addresses: string[]; }
+function copySavedBlock(target: ExcelScript.Worksheet, source: ExcelScript.Worksheet, address: string) {
+  // D3 may be the anchor of a merged heading. Only its contents change in this patch;
+  // copying a partial merged range can fail, so preserve its formula/value directly.
+  if (address === "D3") {
+    const expression=source.getRange(address).getFormula();
+    if(expression.startsWith("="))target.getRange(address).setFormula(expression);
+    else target.getRange(address).setValue(source.getRange(address).getValue());
+  } else target.getRange(address).copyFrom(source.getRange(address),ExcelScript.RangeCopyType.all);
+}
+function buildCurrentHeadings(calc: ExcelScript.Worksheet) {
+  calc.getRange("AH2:AH10").setValues([["현재 최소 허용률"],["현재 최대 허용률"],["현재 최소 필요분"],["현재 최대 허용분"],["현재 부족분"],["현재 초과분"],["현재 추가 확보분(1분 단위)"],["현재 제외 필요분(1분 단위)"],["현재 조치 안내"]]);
+}
+function upgradeInstalled(workbook: ExcelScript.Workbook) {
+  const status = workbook.getWorksheet("상태출력"), calc = workbook.getWorksheet("긴조분계산"), test = workbook.getWorksheet("테스트");
+  if (!status || !calc || !test) throw new Error("이전 설치의 상태출력·긴조분계산·테스트 탭이 필요합니다. 기존 내용은 변경하지 않았습니다.");
+  const marker = workbook.getNamedItem("긴조_분단위업데이트"), oldMarker = marker.getFormula();
+  const oldNames = updateDefinitions.map(item => { const found = workbook.getNamedItem(item.name); return { name: item.name, formula: found ? found.getFormula() : "" }; });
+  const oldVersion = oldMarker.replace(/[="]/g, "").trim();
+  const newSlots = ["T34:V34","W34:Y34","T35:V35","W35:Y35","T36:V36","W36:Y36","T37:V37","W37:Y37","T38:V38","W38:Y38"];
+  const oldSlots = oldVersion === "20261116.5" ? newSlots : ["T33:V33", "W33:Y33", "T34:V34", "W34:Y34"];
+  const inputValues = oldSlots.map(address => status.getRange(address).getValues());
+  const targets = [status, calc, test];
+  const backupNames = ["긴조수정백업1", "긴조수정백업2", "긴조수정백업3"];
+  for (const name of backupNames) if (workbook.getWorksheet(name)) throw new Error(name + " 탭이 남아 있습니다. 앞선 복원 상태 확인이 필요해 변경하지 않았습니다.");
+  const saved: UpgradeBackup[] = [];
+  for (let index = 0; index < targets.length; index++) {
+    updateStep("기존 업데이트 내용 임시 백업", targets[index].getName());
+    const used = targets[index].getUsedRange();
+    const usedAddress = used ? used.getAddress().slice(used.getAddress().lastIndexOf("!") + 1) : "A1";
+    const addresses = index === 0 ? ["T3:Y43", "I5", "D3"] : [usedAddress];
+    const backup = workbook.addWorksheet(backupNames[index]);
+    for (const address of addresses) copySavedBlock(backup, targets[index], address);
+    saved.push({ original: targets[index], backup: backup, addresses: addresses });
+  }
+  const app = workbook.getApplication(), oldMode = app.getCalculationMode();
+  try {
+    app.setCalculationMode(ExcelScript.CalculationMode.manual);
+    for (const sheet of [calc, test]) { const used = sheet.getUsedRange(); if (used) { used.unmerge(); used.clear(ExcelScript.ClearApplyTo.contents); } }
+    buildExclusionInputs(status);
+    for (let index=0;index<inputValues.length;index++) status.getRange(newSlots[index]).setValues(inputValues[index]);
+    calc.getRange("A1:H1").merge(); calc.getRange("A1").setValue("긴조 분 단위 계산 · 입력 원본은 상태출력 T34:Y38");
+    calc.getRange("A2:H2").setValues([["이름/사번", "검색키", "시작분", "종료분", "사번키", "입력 점검", "현재 제외분", "설명"]]);
+    calc.getRange("J2:J18").setValues([["목표분"],["기존 로그인분"],["인원별 기존분"],["인정분"],["제외 입력 오류"],["로그인 중 제외분"],["회의 이중차감 복원분"],["목표 대비 차이분"],["다음 예정분"],["다음 목표분"],["미달까지 여유분"],["과투입까지 여유분"],["다음 예상 투입률"],["점검 건수"],["다음 최소·최대 허용률"],["다음 OT 순증분"],["다음 OT 순증인원"]]);
+    calc.getRange("A19:L19").setValues([["사번", "이름", "현재 상태", "기존 로그인분", "등록 제외분", "현재 제외중", "회의 복원", "최종 인정분", "기존 대비 감소분", "교육 제외", "반차 휴무", "설명"]]);
+    calc.getRange("N19:S19").setValues([["사번", "이름", "다음 예정분", "60분 환산인원", "정규 근무분", "OT 순증분"]]);
+    calc.getRange("U19:X19").setValues([["구분", "사번", "이름", "확인 내용"]]);
+    calc.getRange("AA19:AF19").setValues([["확인 우선순위", "사번", "이름", "현재 상태", "인원 차이", "확인 이유"]]);
+    buildCurrentHeadings(calc);
+    for (const item of updateDefinitions) {
+      const expression = item.formula.startsWith("=LAMBDA(") ? item.formula : "=LAMBDA(" + item.formula.slice(1) + ")";
+      updateStep("이름 수식 갱신", item.name, expression);
+      const found = workbook.getNamedItem(item.name); if (found) found.setFormula(expression); else workbook.addNamedItem(item.name, expression);
+    }
+    buildTestLayout(test);
+    for (const item of updateFormulas) { updateStep("셀 수식 갱신", item.sheet + "!" + item.address, item.formula); workbook.getWorksheet(item.sheet).getRange(item.address).setFormula(item.formula); }
+    test.getRange("K6").setNumberFormat("0.0%"); status.getRange("I5").setNumberFormat("0.0%");
+    updateStep("갱신 수식 계산"); app.calculate(ExcelScript.CalculationType.full);
+    for (const address of ["A3:H12", "K2:L18", "A20:L20", "N20:S20", "U20:X20", "AA20:AF20", "AI2:AI10"]) {
+      updateStep("갱신 계산 결과 확인", "긴조분계산!" + address);
+      const texts = calc.getRange(address).getTexts();
+      for (let rr=0;rr<texts.length;rr++) for (let cc=0;cc<texts[rr].length;cc++) if (["#REF!","#VALUE!","#NAME?","#SPILL!","#CALC!","#NUM!","#DIV/0!","#N/A"].indexOf(texts[rr][cc]) >= 0) {
+        const failed=calc.getRange(address).getCell(rr,cc); updateStep("갱신 계산 결과 확인",failed.getAddress(),failed.getFormula()); throw new Error("갱신 계산 결과 " + texts[rr][cc]);
+      }
+    }
+    marker.setFormula('="20261116.6"');
+  } catch (error) {
+    printUpdateError(error); const failures: string[] = [];
+    for (const item of oldNames) { try { const found=workbook.getNamedItem(item.name); if(item.formula) { if(found)found.setFormula(item.formula);else workbook.addNamedItem(item.name,item.formula); } else if(found)found.delete(); } catch (restoreError) { failures.push(item.name+": "+describeUpdateError(restoreError)); } }
+    for (const entry of saved) {
+      try {
+        const used=entry.original.getName()==="상태출력"?entry.original.getRange("T3:Y43"):entry.original.getUsedRange();
+        if(used){used.unmerge();used.clear(ExcelScript.ClearApplyTo.contents);used.clearAllConditionalFormats();}
+        for(const address of entry.addresses)copySavedBlock(entry.original,entry.backup,address);
+      } catch (restoreError) { failures.push(entry.original.getName()+": "+describeUpdateError(restoreError)); }
+    }
+    try { marker.setFormula(oldMarker); } catch (restoreError) { failures.push(describeUpdateError(restoreError)); }
+    if(failures.length===0) for(const entry of saved){try{entry.backup.delete();}catch(restoreError){failures.push(describeUpdateError(restoreError));}}
+    for(const message of failures)console.log("[복원 확인 필요] "+message);
+    throw new Error((failures.length?"갱신 실패. 일부 복원 확인이 필요해 임시 백업을 보존했습니다. ":"갱신 실패로 이전 설치와 기존 입력을 복원했습니다. ")+describeUpdateError(error));
+  } finally { try { app.setCalculationMode(oldMode); } catch (modeError) { console.log("[계산 모드 확인 필요] "+describeUpdateError(modeError)); } }
+  for(const entry of saved){try{entry.backup.delete();}catch(cleanError){console.log("[임시 백업 정리 확인] "+entry.backup.getName()+": "+describeUpdateError(cleanError));}}
+  test.activate(); console.log("20261116.6 갱신 완료. 기존 입력을 보존했습니다. D3와 현재·다음시간의 기준표를 통일하고, D3·테스트 현재 투입률 아래에 필요한 확보/제외분을 표시합니다.");
+}
+function buildTestLayout(sheet: ExcelScript.Worksheet) {
+  const all = sheet.getRange("A1:N65");
+  all.getFormat().getFont().setName("맑은 고딕"); all.getFormat().getFont().setSize(11);
+  all.getFormat().getFill().setColor("#F4F7FB"); all.getFormat().getFont().setColor("#203248");
+  all.getFormat().setRowHeight(24); all.getFormat().setColumnWidth(76);
+  all.getFormat().setVerticalAlignment(ExcelScript.VerticalAlignment.center);
+  all.getFormat().setWrapText(true);
+  panel(sheet,"A1:N2","긴조 투입률 테스트","#16324F","#FFFFFF",20);
+  panel(sheet,"A3:N3","1명 = 60분 · OT 포함 다음시간 예상 · 제외 입력은 상태출력 T34:Y38 (10명)","#E5EDF5","#40566E",11);
+  for (const spec of [["A5:D5","다음 시간대"],["F5:I5","미달·과투입까지 남은 분"],["K5:N5","현재 실제 투입률"]]) panel(sheet,spec[0],spec[1],"#DCE7F2","#16324F",11);
+  for (const address of ["A6:D7","F6:I7","K6:N7"]) panel(sheet,address,"","#FFFFFF","#145DA0",23);
+  for (const address of ["A8:D9","F8:I9","K8:N9"]) panel(sheet,address,"","#FFFFFF","#40566E",11);
+  panel(sheet,"A11:N12","다음 예상은 시프트·OT의 해당 시간 근무분에서 교육·예정이탈·등록 제외를 반영합니다. 식사·휴식의 실제 시각과 미래 출근 여부는 예측하지 않습니다. 04시 다음 구간은 새 운영일 근무표 확인이 필요합니다.","#FFF3D8","#74551B",11);
+  panel(sheet,"A14:F14","투입률 차이 · 분 단위 계산","#16324F","#FFFFFF",12);
+  panel(sheet,"H14:N14","상태와 점검 요약","#16324F","#FFFFFF",12);
+  const left = ["목표 인원 × 60분","기존 로그인 인원 × 60분","로그인 중 등록 제외분 (빼기)","등록 제외중 회의 복원분 (더하기)","최종 인정 근무분","목표 대비 초과(+) / 부족(-)"];
+  const right = ["현재 회의 상태","로그인 중 교육 제외","지각 확인필요 인원","회의 이중차감 방지 인원","정상 제외 입력 건수","근무표·원문 점검 건수"];
+  for (let index=0;index<6;index++) { const row=index+15;
+    panel(sheet,"A"+row+":D"+row,left[index],"#FFFFFF","#40566E",11); panel(sheet,"E"+row+":F"+row,"","#FFFFFF","#16324F",12);
+    panel(sheet,"H"+row+":M"+row,right[index],"#FFFFFF","#40566E",11); sheet.getRange("N"+row).getFormat().getFill().setColor("#FFFFFF");
+  }
+  panel(sheet,"A22:N23","","#E3F0EC","#195C4A",12);
+  panel(sheet,"A25:N25","근무표·원문 불일치 / 제외 입력 점검","#16324F","#FFFFFF",12);
+  panel(sheet,"A26:N26","","#E5EDF5","#40566E",11);
+  for (const spec of [["A27:C27","구분"],["D27:F27","사번"],["G27:I27","이름"],["J27:N27","확인 내용"]]) panel(sheet,spec[0],spec[1],"#DCE7F2","#16324F",11);
+  for (let row=28;row<=43;row++) for (const cols of [["A","C"],["D","F"],["G","I"],["J","N"]]) panel(sheet,cols[0]+row+":"+cols[1]+row,"",row%2===0?"#FFFFFF":"#EAF0F6","#203248",11);
+  sheet.getRange("A28:N43").getFormat().setRowHeight(30);
+  panel(sheet,"A45:N46","등록한 제외시간만 해당 시간대의 인정분을 고정합니다. 그 제외시간 안의 회의 상태는 재차감하지 않습니다. 원문 누락·오프라인·교육·반차휴무는 자동으로 인정하지 않습니다. 오른쪽 상태 건수는 원인 확인용이며 서로 더하는 항목이 아닙니다.","#FFF3D8","#74551B",11);
+  panel(sheet,"A47:N47","이번 시간 F5·G5 차이 · 우선 확인 후보","#16324F","#FFFFFF",12);
+  panel(sheet,"A48:N49","","#E5EDF5","#40566E",11);
+  for(const spec of [["A50:B50","순서"],["C50:E50","이름"],["F50:G50","현재 상태"],["H50:I50","차이(명)"],["J50:N50","확인 이유"]])panel(sheet,spec[0],spec[1],"#DCE7F2","#16324F",11);
+  for(let row=51;row<=60;row++)for(const cols of [["A","B"],["C","E"],["F","G"],["H","I"],["J","N"]])panel(sheet,cols[0]+row+":"+cols[1]+row,"",row%2?"#FFFFFF":"#EAF0F6","#203248",11);
+  sheet.getRange("A51:N60").getFormat().setRowHeight(32);
+  panel(sheet,"A62:N63","근무표의 정규근무 대상과 현재 로그인 여부를 비교해 차이 방향이 맞는 사람을 표시합니다. OT가 이미 데일리에 포함됐거나 수기 예외가 있으면 후보가 실제 원인과 다를 수 있습니다.","#FFF3D8","#74551B",11);
+  panel(sheet,"A64:F64","지각 확인필요 전체 명단","#16324F","#FFFFFF",12);
+  panel(sheet,"H64:M64","퇴근·휴무 전체 명단","#16324F","#FFFFFF",12);
+  const headers = [["사번","이름","시프트","상태값","OT여부","출근상태"]];
+  sheet.getRange("A65:F65").setValues(headers); sheet.getRange("H65:M65").setValues(headers);
+  sheet.getRange("A66:M2065").getFormat().setRowHeight(23);
+  sheet.getFreezePanes().freezeRows(3);
+  sheet.setShowGridlines(false);
+}
+function panel(sheet: ExcelScript.Worksheet,address: string,text: string,fill: string,color: string,size: number) {
+  updateStep("테스트 화면 구획 구성", "테스트!" + address);
+  const range = sheet.getRange(address); range.merge();
+  if (text) range.getCell(0,0).setValue(text);
+  const format = range.getFormat(); format.getFill().setColor(fill); format.getFont().setColor(color); format.getFont().setSize(size);
+  format.setWrapText(true); format.setVerticalAlignment(ExcelScript.VerticalAlignment.center);
+}

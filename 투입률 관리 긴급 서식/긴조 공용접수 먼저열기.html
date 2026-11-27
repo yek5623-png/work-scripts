@@ -1,0 +1,341 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>긴조 공용 접수 설치 안내</title><style>
+body{font-family:"Malgun Gothic",Arial,sans-serif;margin:0;background:#f3f6f5;color:#20312c;font-size:16px;line-height:1.75}main{max-width:860px;margin:auto;background:white;padding:30px 34px 80px}h1{font-size:28px;line-height:1.45}h2{font-size:23px;margin:44px 0 18px;border-top:2px solid #d6e4df;padding-top:22px}h3{font-size:19px;margin-top:30px}a{color:#096247}p{margin:12px 0}strong{color:#153c2e}.step{display:flex;gap:10px}.step>b{flex-shrink:0;min-width:22px}.table{overflow:auto;margin:20px 0}table{width:100%;border-collapse:collapse}td{border:1px solid #c8d7d0;padding:10px 14px;vertical-align:top}tr:first-child{background:#edf4f0;font-weight:700}code{background:#edf3f0;padding:2px 5px;font-size:0.95em;word-break:break-word}blockquote{border-left:4px solid #619e83;margin:8px 0;padding:8px 16px;background:#eff7f2}details{border:1px solid #c8d7d0;border-radius:8px;margin:16px 0;padding:15px}summary{cursor:pointer;font-weight:700}textarea{display:block;width:100%;height:280px;box-sizing:border-box;margin-top:16px;font:13px/1.5 Consolas,monospace;white-space:pre;resize:vertical}button{padding:10px 14px;background:#145f44;color:white;border:0;border-radius:5px;cursor:pointer;font-size:15px}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #d69b25;outline-offset:3px}#codes{background:#f7faf8;border:1px solid #d6e4df;padding:18px}nav{display:flex;gap:16px;flex-wrap:wrap} @media(max-width:600px){main{padding:20px 18px 60px}h1{font-size:24px}td{padding:8px}}@media print{body{background:white}main{max-width:none;padding:0}#codes,nav{display:none}h2,h3{break-after:avoid}tr,.step{break-inside:avoid}}
+</style><main><nav><a href="#guide">설정 순서</a><a href="#codes">복사할 코드 2개</a><button onclick="window.print()">인쇄 / PDF 저장</button></nav><div id="guide"><h1>긴조 공용 접수 — 처음 한 번 설정하기</h1><p>팀장님들은 추가 기능을 설치하지 않습니다. 회사의 접수 목록을 열고 <strong>새 항목 → 원문 붙여넣기 → 저장</strong>만 합니다. 이후 클라우드가 긴조 엑셀에 기록합니다. 설정한 사람의 PC와 엑셀이 꺼져 있어도 클라우드 흐름은 실행됩니다.</p><p><strong>시험판입니다. 코드 모의검사는 통과했지만 실제 회사 계정에서의 실행은 아직 확인하지 못했습니다. 현재 잘되는 파일을 복사해서 시험하세요.</strong></p><p class="bullet">• D5는 <strong>목록에서 저장한 시각</strong>입니다. 처리 완료 시각이나 붙여넣기 직전 시각이 아닙니다.</p><p class="bullet">• AA는 저장한 시각의 구간에 누적합니다. 같은 시간대에는 마지막 접수 결과를 남깁니다. 28~29 다음은 오전 5시 첫 접수에서 05~06으로 시작합니다.</p><p class="bullet">• 엑셀 반영은 클라우드 처리 후에 이루어집니다. 바로 끝난다는 보장은 없습니다. 원문은 접수 목록에 먼저 남습니다.</p><p class="bullet">• 원본 데일리의 수정 내용은 <strong>다음 접수 때</strong> 직접 읽어 반영합니다.</p><p class="bullet">• 현행 긴조와 같은 9구간, 직원표 6~140행을 가져옵니다. 직원표가 140행을 넘는 서식은 범위 조정이 먼저 필요합니다.</p><p class="bullet">• 원문은 Excel 한 칸 제한 때문에 <strong>32,767자 이하</strong>여야 합니다.</p><p>먼저 아래 순서대로 1~6번을 진행합니다. 코드 안의 글자는 수정하지 않아도 됩니다.</p><h2>1. 시험용 엑셀을 한 개 만들기</h2><p class="step"><b>1.</b><span>지금 잘되는 <strong>긴조 엑셀</strong>을 Excel 웹에서 엽니다.</span></p><p class="step"><b>2.</b><span>왼쪽 위 <strong>파일 → 다른 이름으로 저장 → 복사본 저장</strong>을 누릅니다. 메뉴 이름이 다르면 파일 이름 옆 메뉴에서 <strong>복사본 만들기/복사본 저장</strong>을 찾습니다.</span></p><p class="step"><b>3.</b><span>이름을 <strong>긴조_클라우드시험.xlsx</strong>로 정합니다. 회사 OneDrive 또는 팀 SharePoint에 저장합니다. PC에만 내려받은 파일은 사용할 수 없습니다.</span></p><p class="step"><b>4.</b><span><strong>새로 만든 복사본</strong>을 엽니다. 위쪽 파일 이름이 <code>긴조_클라우드시험</code>인지 확인합니다.</span></p><p class="step"><b>5.</b><span>이 복사본에서 <strong>긴조 자동 기록</strong> 추가 기능을 열고 <strong>끄기</strong>를 누릅니다.</span></p><p>원래 쓰던 파일은 계속 사용하셔도 됩니다. 시험 파일에서는 기존 새로고침 버튼을 누르거나 A1을 직접 수정하지 않습니다. 두 자동화가 동시에 쓰는 것을 막기 위한 순서입니다.</p><h2>2. 원문을 받을 접수 목록 만들기</h2><p class="step"><b>1.</b><span><a href="https://www.microsoft365.com/" target="_blank" rel="noreferrer">Microsoft 365</a>에 <strong>회사 계정</strong>으로 로그인합니다.</span></p><p class="step"><b>2.</b><span>왼쪽 위 점 아홉 개 <strong>앱 시작 관리자 → 모든 앱 → Lists(목록)</strong>를 누릅니다. 안 보이면 앱 검색에서 <code>Lists</code>를 검색합니다.</span></p><p class="step"><b>3.</b><span><strong>새 목록 → 빈 목록</strong>을 누릅니다.</span></p><p class="step"><b>4.</b><span>이름에 <strong>긴조 원문 접수</strong>를 씁니다.</span></p><p class="step"><b>5.</b><span>저장 위치에는 <strong>현재 데일리 원본을 보관하는 팀 SharePoint 사이트</strong>를 고릅니다. <code>내 목록</code> 대신 팀 사이트에 만들면 다음 단계에서 찾기 쉽습니다.</span></p><p class="step"><b>6.</b><span><strong>만들기</strong>를 누릅니다.</span></p><p class="step"><b>7.</b><span>목록의 오른쪽 <strong>열 추가 → 여러 줄 텍스트</strong>를 누릅니다. 이름은 <strong>원문</strong>, 필수 입력은 <strong>예</strong>로 정합니다. 텍스트 종류는 <strong>일반 텍스트</strong>를 사용합니다. <code>기존 텍스트에 변경 내용 추가</code>는 <strong>아니요</strong>입니다.</span></p><p class="step"><b>8.</b><span>다시 <strong>열 추가 → 여러 줄 텍스트</strong>를 눌러 <strong>처리결과</strong> 열을 만듭니다. 필수 입력은 <strong>아니요</strong>로 둡니다.</span></p><p class="step"><b>9.</b><span>맨 처음부터 있던 <strong>제목</strong> 열의 메뉴를 열어 <strong>열 설정 → 편집</strong>으로 들어갑니다. 기본값에 <strong>긴조 접수</strong>를 넣고 저장합니다. 기본값 설정이 안 보이면 접수할 때 제목에 <code>긴조 접수</code>를 입력해도 됩니다.</span></p><p>목록 주소를 메모장에 복사해 둡니다. 팀장들이 나중에 사용할 주소입니다. 아직 시험 접수는 하지 마세요.</p><h2>3. 스크립트 두 개 저장하기</h2><p>스크립트는 <strong>한 번만 저장</strong>합니다. 매번 실행 버튼을 누르지 않습니다.</p><p class="step"><b>1.</b><span><code>긴조_클라우드시험.xlsx</code>로 돌아옵니다.</span></p><p class="step"><b>2.</b><span>위쪽 <strong>자동화 → 새 스크립트 → 코드 편집기</strong>를 누릅니다.</span></p><p class="step"><b>3.</b><span>코드 칸 안을 한 번 클릭한 뒤 <strong>Ctrl+A</strong>로 기본 코드를 모두 선택합니다.</span></p><p class="step"><b>4.</b><span><strong>긴조 공용접수 1 원본읽기</strong> 파일의 내용을 전부 복사해 붙여넣습니다. 파일 이름이나 이 설명은 붙이지 말고 코드 내용만 넣습니다.</span></p><p class="step"><b>5.</b><span>편집기 위쪽 스크립트 이름도 <strong>긴조 공용접수 1 원본읽기</strong>로 바꿉니다. 저장 표시가 끝날 때까지 기다립니다.</span></p><p class="step"><b>6.</b><span>다시 <strong>새 스크립트</strong>를 만들어 <strong>긴조 공용접수 2 자동기록</strong> 파일의 내용을 전부 붙입니다. 이름도 <strong>긴조 공용접수 2 자동기록</strong>으로 저장합니다.</span></p><p><strong>지금은 실행을 누르지 마세요.</strong> 다음 단계의 Power Automate가 접수 자료를 넣고 실행합니다. 스크립트가 두 개 보이면 이 단계는 끝입니다.</p><h2>4. 접수하면 작동하는 흐름 만들기</h2><p><a href="https://make.powerautomate.com/" target="_blank" rel="noreferrer">Power Automate</a>를 <strong>같은 회사 계정</strong>으로 엽니다. 화면 위쪽 환경은 회사에서 기본으로 쓰는 환경을 사용합니다.</p><h3>4-1. 시작 조건 고르기</h3><p class="step"><b>1.</b><span>왼쪽 <strong>만들기 → 자동화된 클라우드 흐름</strong>을 누릅니다.</span></p><p class="step"><b>2.</b><span>이름에 <strong>긴조 접수 자동 기록</strong>을 씁니다.</span></p><p class="step"><b>3.</b><span>시작 조건 검색 칸에 <strong>SharePoint</strong>를 검색합니다.</span></p><p class="step"><b>4.</b><span><strong>항목이 만들어질 때/항목이 만들어진 경우(When an item is created)</strong>를 고릅니다. <code>수정될 때</code>가 들어간 항목은 고르지 않습니다.</span></p><p class="step"><b>5.</b><span><strong>만들기</strong>를 누릅니다. 로그인 요청이 나오면 회사 계정으로 연결합니다.</span></p><p class="step"><b>6.</b><span>첫 번째 상자의 <strong>사이트 주소</strong>는 2번에서 목록을 만든 팀 사이트, <strong>목록 이름</strong>은 <strong>긴조 원문 접수</strong>로 고릅니다.</span></p><p class="step"><b>7.</b><span>첫 번째 상자의 <strong>설정</strong> 탭을 엽니다. 예전 화면은 상자 오른쪽 <strong>… → 설정</strong>입니다.</span></p><p class="step"><b>8.</b><span><strong>동시성 제어</strong>를 <strong>켬</strong>으로 바꾸고 <strong>병렬 처리 수준/동시 실행 수</strong>를 <strong>1</strong>로 정합니다. 한 접수씩 처리하게 하는 설정입니다.</span></p><h3>4-2. 원본 데일리를 읽는 상자 추가하기</h3><p class="step"><b>1.</b><span>첫 번째 상자 아래 <strong>+ → 작업 추가</strong>를 누릅니다.</span></p><p class="step"><b>2.</b><span><strong>Excel Online (Business)</strong>를 검색하고 <strong>스크립트 실행(Run script)</strong>을 고릅니다.</span></p><p class="step"><b>3.</b><span>상자 메뉴 <strong>… → 이름 바꾸기</strong>로 이름을 <strong>원본읽기</strong>로 정합니다. 새 화면에서는 상자 제목을 눌러 바꿀 수 있습니다.</span></p><p class="step"><b>4.</b><span>아래 표대로 고릅니다. <strong>파일 칸은 폴더 아이콘으로 실제 파일을 선택</strong>하세요. 공유 링크를 붙이지 않습니다.</span></p><div class="table"><table><tr><td>화면의 칸</td><td>고를 내용</td></tr><tr><td>위치</td><td>원본 데일리가 저장된 팀 SharePoint 사이트</td></tr><tr><td>문서 라이브러리</td><td>원본 데일리가 들어 있는 문서함. 보통 <code>문서/Documents</code></td></tr><tr><td>파일</td><td>이번 달 <strong>원본</strong> <code>긴급조치 DailySheet.(26.11)(NEW).xlsx</code></td></tr><tr><td>스크립트</td><td><strong>긴조 공용접수 1 원본읽기</strong></td></tr><tr><td>접수시각</td><td>첫 번째 SharePoint 상자의 <strong>만든 날짜/Created</strong></td></tr><tr><td>원본연월</td><td>키보드로 <strong>2026-11</strong> 입력</td></tr></table></div><p><code>만든 날짜</code>는 직접 날짜를 쓰는 칸이 아닙니다. <strong>접수시각 칸 클릭 → 동적 콘텐츠(번개 모양) → SharePoint 항목 중 만든 날짜/Created 선택</strong>입니다. 현재 시각이나 수정한 날짜는 고르지 않습니다.</p><p>스크립트 이름 아래에 추가 칸이 안 보이면 <strong>고급 매개 변수/모두 표시</strong>를 펼칩니다. 그래도 없으면 스크립트 저장을 확인한 뒤 이 상자를 삭제하고 다시 추가합니다.</p><h3>4-3. 시험용 긴조 엑셀에 기록하는 상자 추가하기</h3><p class="step"><b>1.</b><span><strong>원본읽기</strong> 아래 <strong>+ → 작업 추가</strong>를 누릅니다.</span></p><p class="step"><b>2.</b><span>다시 <strong>Excel Online (Business) → 스크립트 실행</strong>을 추가합니다.</span></p><p class="step"><b>3.</b><span>상자 이름을 <strong>자동기록</strong>으로 바꿉니다.</span></p><p class="step"><b>4.</b><span>아래 표대로 고릅니다.</span></p><div class="table"><table><tr><td>화면의 칸</td><td>고를 내용</td></tr><tr><td>위치</td><td>시험용 파일을 저장한 회사 OneDrive 또는 팀 SharePoint 사이트</td></tr><tr><td>문서 라이브러리</td><td>시험용 파일이 들어 있는 문서함</td></tr><tr><td>파일</td><td><strong>긴조_클라우드시험.xlsx</strong></td></tr><tr><td>스크립트</td><td><strong>긴조 공용접수 2 자동기록</strong></td></tr><tr><td>원문</td><td>첫 번째 SharePoint 상자의 <strong>원문</strong></td></tr><tr><td>접수시각</td><td>첫 번째 SharePoint 상자의 <strong>만든 날짜/Created</strong></td></tr><tr><td>접수번호</td><td>첫 번째 SharePoint 상자의 <strong>ID</strong></td></tr><tr><td>데일리자료</td><td>바로 앞 <strong>원본읽기</strong> 상자의 <strong>결과/result</strong></td></tr></table></div><p>원문·접수시각·접수번호·데일리자료도 모두 <strong>동적 콘텐츠에서 선택</strong>합니다. <code>ID</code>라는 글자나 <code>결과</code>라는 글자를 키보드로 입력하지 않습니다. <code>데일리자료</code>에는 <strong>본문/Body 전체</strong>가 아닌 <strong>결과/result</strong> 하나를 넣습니다.</p><p>두 스크립트의 <strong>접수시각</strong>에는 똑같은 SharePoint <strong>만든 날짜</strong>가 들어가야 합니다.</p><h3>4-4. 접수 목록에 처리결과 표시하기</h3><p class="step"><b>1.</b><span><strong>자동기록</strong> 아래 <strong>+ → 작업 추가</strong>를 누릅니다.</span></p><p class="step"><b>2.</b><span><strong>SharePoint → 항목 업데이트(Update item)</strong>를 고릅니다.</span></p><p class="step"><b>3.</b><span>사이트 주소와 목록 이름을 첫 번째 상자와 같게 고릅니다.</span></p><p class="step"><b>4.</b><span><strong>ID</strong>에는 첫 번째 SharePoint 상자의 <strong>ID</strong>를 고릅니다.</span></p><p class="step"><b>5.</b><span><strong>제목</strong>에는 첫 번째 SharePoint 상자의 <strong>제목/Title</strong>을 고릅니다.</span></p><p class="step"><b>6.</b><span><strong>원문</strong> 칸이 보이면 첫 번째 SharePoint 상자의 <strong>원문</strong>을 고릅니다. 기존 원문을 유지하기 위한 연결입니다.</span></p><p class="step"><b>7.</b><span><strong>처리결과</strong>에는 바로 앞 <strong>자동기록</strong> 상자의 <strong>결과/result</strong>를 고릅니다.</span></p><p class="step"><b>8.</b><span>오른쪽 위 <strong>저장</strong>을 누릅니다. 오류가 나오지 않는지 확인합니다.</span></p><p>최종 상자는 위에서 아래로 <strong>항목이 만들어질 때 → 원본읽기 → 자동기록 → 항목 업데이트</strong> 네 개입니다.</p><h2>5. 시험 접수 한 건 보내기</h2><p class="step"><b>1.</b><span>접수 목록 <strong>긴조 원문 접수</strong>를 엽니다.</span></p><p class="step"><b>2.</b><span><strong>새 항목/새 항목 추가</strong>를 누릅니다.</span></p><p class="step"><b>3.</b><span>제목은 <code>긴조 접수</code>로 둡니다. <strong>원문</strong> 칸에 평소 A1에 넣던 원문을 붙입니다. <strong>처리결과</strong>는 비워 둡니다.</span></p><p class="step"><b>4.</b><span><strong>저장</strong>을 누릅니다. 이 시각이 D5에 기록됩니다.</span></p><p class="step"><b>5.</b><span>Power Automate에서 왼쪽 <strong>내 흐름 → 긴조 접수 자동 기록 → 실행 기록</strong>을 엽니다. 방금 실행이 <strong>성공</strong>인지 확인합니다. 아직 실행 중이면 완료를 기다립니다.</span></p><p class="step"><b>6.</b><span><code>긴조_클라우드시험.xlsx</code>를 열어 <strong>상태출력 A1에 원문, D5에 저장 시각, AA에 해당 구간</strong>이 생겼는지 확인합니다.</span></p><p class="step"><b>7.</b><span>접수 목록을 새로고침해 <strong>처리결과</strong>에 <code>완료</code>가 포함되어 있는지 봅니다. <code>건너뜀</code>은 같은 접수를 이미 처리했거나 더 최신 접수가 있다는 뜻입니다.</span></p><p class="step"><b>8.</b><span>한 번 더 새 항목으로 접수합니다. 같은 시간대는 같은 AA 줄이 바뀌고 이전 시간대 줄은 남아야 합니다.</span></p><p class="step"><b>9.</b><span>엑셀을 닫고 다시 목록에서 새 접수를 해봅니다. 실행 기록이 성공하는지 확인합니다.</span></p><p>처리결과는 접수 내역 안내입니다. 팀에 공유하는 결과는 평소처럼 엑셀 AA열에서 봅니다. 실행이 실패하면 원문은 목록에 남습니다. 실패를 정상 결과로 표시하지 않습니다.</p><h2>6. 다른 팀장들에게 사용하게 하기</h2><p>시험 성공을 확인한 뒤 진행합니다.</p><p class="step"><b>1.</b><span>접수 목록 오른쪽 위 <strong>공유</strong>를 누르고 팀장 이름을 넣습니다. 권한은 <strong>항목 편집 가능/편집 가능</strong>을 고릅니다. <code>보기 가능</code>만 주면 새 접수를 못 합니다. 회사 정책에 따라 링크만으로 권한이 생기지 않을 수 있습니다.</span></p><p class="step"><b>2.</b><span>결과를 보는 <code>긴조_클라우드시험.xlsx</code>에도 팀장들에게 보기 권한을 줍니다. 명단·예외를 직접 수정할 담당자만 편집 권한을 유지합니다.</span></p><p class="step"><b>3.</b><span>목록 주소와 엑셀 주소를 함께 알려줍니다. XML이나 스크립트를 보내지 않습니다.</span></p><p>팀장들에게는 아래 네 줄만 알려주면 됩니다.</p><blockquote>원문 접수 목록을 열어 주세요.</blockquote><blockquote>‘새 항목’을 눌러 원문을 붙이고 ‘저장’하세요.</blockquote><blockquote>접수 건을 수정하지 말고, 다시 입력할 때도 ‘새 항목’을 만드세요.</blockquote><blockquote>결과는 긴조 엑셀에서 보세요. A1에 직접 붙이지 않아도 됩니다.</blockquote><p>처음 다른 팀장 한 명이 접수할 때는 본인 PC를 꺼둔 상태로 결과까지 확인하세요. 이 확인이 끝나면 시험 파일을 실제 운영 파일로 사용할 수 있습니다. 기존 파일의 자동 기록은 기존 파일에서만 계속 작동하므로, 어느 파일을 운영할지 팀에 명확히 알려 주세요.</p><h2>다음 달에 할 일 — 한 상자만 수정</h2><p>Power Automate에서 <strong>긴조 접수 자동 기록 → 편집 → 원본읽기</strong>를 엽니다.</p><div class="table"><table><tr><td>바꿀 칸</td><td>12월 예시</td></tr><tr><td>파일</td><td><code>긴급조치 DailySheet.(26.12)(NEW).xlsx</code> 선택</td></tr><tr><td>원본연월</td><td><code>2026-12</code> 입력</td></tr></table></div><p>저장합니다. 다른 상자와 스크립트는 그대로 둡니다. <strong>운영일은 오전 5시에 바뀝니다.</strong> 12월 1일 00~04시는 아직 11월 30일 자료를 사용하므로, 12월 연결 변경은 <strong>12월 1일 오전 5시 이후 첫 접수 전</strong>에 합니다. 1월은 <code>2027-01</code>처럼 연도도 바꿉니다.</p><h2>막힐 때 확인할 것</h2><div class="table"><table><tr><td>보이는 현상</td><td>할 일</td></tr><tr><td>Lists 또는 Power Automate를 사용할 수 없음</td><td>회사에서 사용을 허용하는지 담당자에게 확인합니다. 별도 유료 결제를 먼저 하지 마세요.</td></tr><tr><td>원본 파일이 선택 목록에 안 보임</td><td>폴더 아이콘으로 찾아봅니다. 같은 계정에 그 파일을 읽을 권한이 있어야 합니다.</td></tr><tr><td>스크립트 실행에 매개 변수 칸이 없음</td><td>스크립트 저장을 확인하고 해당 ‘스크립트 실행’ 상자를 다시 추가합니다.</td></tr><tr><td>추가 기능을 먼저 끄라는 오류</td><td>시험 파일에서 긴조 자동 기록 패널을 열어 ‘끄기’를 누릅니다.</td></tr><tr><td>원본 월/날짜 탭 오류</td><td>원본읽기의 파일과 원본연월을 확인합니다. 탭 예시는 <code>긴급 11(14)</code>입니다.</td></tr><tr><td>흐름은 실행됐지만 실패</td><td>실행 기록에서 빨간 상자를 눌러 오류를 확인합니다. 수정 후 실패한 실행의 <strong>다시 제출/Resubmit</strong>을 사용하면 같은 접수시각으로 재시도합니다. 원문을 다른 시각에 새로 접수하는 것과 다릅니다.</td></tr><tr><td>목록의 접수 건을 수정했는데 재실행 안 됨</td><td>새 접수만 실행하도록 만들었습니다. 같은 원문을 다시 접수하려면 ‘새 항목’을 만듭니다.</td></tr><tr><td>엑셀에 반영되기 전</td><td>실행 기록이 완료됐는지 확인합니다. 목록의 저장과 엑셀 반영 사이에는 지연이 있을 수 있습니다.</td></tr></table></div><p>흐름은 설정한 회사 계정의 연결로 실행됩니다. 그 계정의 파일 권한이 없어지거나 연결 재로그인이 필요해지면 소유자가 연결을 복구해야 합니다. 원문은 회사 SharePoint와 회사 엑셀 안에서 처리하며, 기존 공개 코드 사이트로 보내지 않습니다.</p><p>동시에 같은 엑셀을 직접 편집하면 커넥터와 충돌할 수 있으므로, 접수는 목록으로 모으고 근무 예외 등 수기 수정은 처리가 끝난 때 합니다. 출근 원본을 읽는 스크립트에는 쓰기 명령이 없습니다. 시험 파일의 데일리 지정 구간은 값으로 바뀌며, 수식설정 B2는 마지막 접수시각으로 고정됩니다. 기존 외부 링크 새로고침 버튼을 시험 파일에 섞어 사용하지 않습니다.</p><p>공식 근거: <a href="https://support.microsoft.com/en-us/sharepoint/lists/create-a-list-from-the-lists-app" target="_blank" rel="noreferrer">Lists 만들기</a>, <a href="https://learn.microsoft.com/en-us/connectors/sharepoint/" target="_blank" rel="noreferrer">SharePoint 시작 조건</a>, <a href="https://learn.microsoft.com/en-us/office/dev/scripts/develop/power-automate-parameters-returns" target="_blank" rel="noreferrer">스크립트 매개 변수와 결과</a>, <a href="https://learn.microsoft.com/en-us/office/dev/scripts/testing/power-automate-troubleshooting" target="_blank" rel="noreferrer">클라우드 실행과 외부 링크 제한</a>, <a href="https://learn.microsoft.com/en-us/connectors/excelonlinebusiness/" target="_blank" rel="noreferrer">Excel 커넥터 동시 편집 제한</a>.</p></div><section id="codes"><h2>복사할 코드 2개</h2><p>3번 ‘스크립트 두 개 저장하기’에서 사용합니다. 이 안내 파일에는 원문을 외부로 보내는 통신 코드가 없습니다.</p><details><summary>긴조 공용접수 1 원본읽기 — 클릭하면 코드가 나옵니다</summary><p>아래 버튼으로 복사한 뒤 Excel 새 스크립트의 기본 코드를 전부 지우고 붙여넣으세요.</p><button type="button" onclick="copyCode(0)">이 코드 전체 복사</button><span id="copied0" role="status"></span><textarea id="code0" spellcheck="false" readonly>// 긴조 공용 접수 1단계. 원본 데일리 파일에서 읽기만 합니다.
+// Power Automate의 '스크립트 실행'에 연결합니다. Excel에서 직접 실행할 필요는 없습니다.
+function main(workbook: ExcelScript.Workbook, 접수시각: string, 원본연월: string): string {
+  const at = clock(접수시각);
+  if (!/^\d{4}-\d{2}$/.test(원본연월) || 원본연월 !== at.month) throw new Error(&quot;원본 데일리 파일의 월을 바꿔 주세요. 필요한 월: &quot; + at.month + &quot;. 첫 번째 스크립트 실행의 파일 선택과 원본연월을 함께 바꾸세요.&quot;);
+  const source = workbook.getWorksheet(at.tab);
+  if (!source) throw new Error(&quot;원본에 '&quot; + at.tab + &quot;' 탭이 없습니다. 긴급 뒤에 공백 하나, 월은 두 자리입니다.&quot;);
+  const blocks: Block[] = [];
+  for (const address of ADDRESSES) {
+    const range = source.getRange(address);
+    if (range.getValueTypes().some(row =&gt; row.some(t =&gt; t === ExcelScript.RangeValueType.error))) throw new Error(&quot;원본 데일리 &quot; + address + &quot;에 계산 오류가 있습니다. 결과를 기록하지 않았습니다.&quot;);
+    blocks.push({ address, values: range.getValues() });
+  }
+  const ids = blocks[1].values.some(row =&gt; String(row[1]).trim() !== &quot;&quot;);
+  const people = blocks[2].values.some(row =&gt; String(row[0]).trim() !== &quot;&quot;);
+  if (!ids || !people) throw new Error(&quot;원본 데일리의 사번(C열) 또는 이름(E열)이 비어 있습니다. 파일 선택을 확인하세요.&quot;);
+  const packet: Packet = { version: 1, submittedMs: at.ms, date: at.date, month: at.month, tab: at.tab, blocks };
+  return JSON.stringify(packet);
+}
+
+type Cell = string | number | boolean;
+interface Clock { ms: number; serial: number; daySerial: number; date: string; month: string; tab: string; hour: number; }
+interface Block { address: string; values: Cell[][]; }
+interface Packet { version: number; submittedMs: number; date: string; month: string; tab: string; blocks: Block[]; }
+const ADDRESSES = [&quot;J4:J5&quot;, &quot;B6:C140&quot;, &quot;E6:G140&quot;, &quot;I6:J140&quot;, &quot;L6:M140&quot;, &quot;R6:R140&quot;, &quot;AY6:AY29&quot;, &quot;BC6:BC29&quot;, &quot;BP6:CD29&quot;];
+function clock(value: string): Clock {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) throw new Error(&quot;접수시각에는 목록의 '만든 날짜(Created)'를 넣으세요. 현재 시각을 넣지 마세요.&quot;);
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) throw new Error(&quot;접수시각을 읽을 수 없습니다.&quot;);
+  const serial = ms / 86400000 + 25569 + 9 / 24;
+  if (serial &lt; 45000 || serial &gt; 100000) throw new Error(&quot;접수시각이 지원 범위를 벗어났습니다.&quot;);
+  const daySerial = Math.floor(serial - 5 / 24 + 1e-10);
+  const date = new Date(Date.UTC(1899, 11, 30) + daySerial * 86400000);
+  const year = date.getUTCFullYear(), month = String(date.getUTCMonth() + 1).padStart(2, &quot;0&quot;);
+  const hour24 = new Date(ms + 9 * 3600000).getUTCHours();
+  return { ms, serial, daySerial, date: date.toISOString().slice(0, 10), month: String(year) + &quot;-&quot; + month, tab: &quot;긴급 &quot; + month + &quot;(&quot; + date.getUTCDate() + &quot;)&quot;, hour: hour24 &lt; 5 ? hour24 + 24 : hour24 };
+}
+function dimensions(address: string): { rows: number; cols: number } {
+  const match = address.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (!match) throw new Error(&quot;지원하지 않는 범위입니다.&quot;);
+  const col = (s: string): number =&gt; s.split(&quot;&quot;).reduce((sum, c) =&gt; sum * 26 + c.charCodeAt(0) - 64, 0);
+  return { rows: Number(match[4]) - Number(match[2]) + 1, cols: col(match[3]) - col(match[1]) + 1 };
+}
+</textarea></details><details><summary>긴조 공용접수 2 자동기록 — 클릭하면 코드가 나옵니다</summary><p>아래 버튼으로 복사한 뒤 Excel 새 스크립트의 기본 코드를 전부 지우고 붙여넣으세요.</p><button type="button" onclick="copyCode(1)">이 코드 전체 복사</button><span id="copied1" role="status"></span><textarea id="code1" spellcheck="false" readonly>// 긴조 공용 접수 2단계. 시험용으로 복사한 '긴조_클라우드시험.xlsx'에 연결하세요.
+// 원문은 SharePoint 목록, 접수시각은 목록의 Created, 접수번호는 목록의 ID입니다.
+// 이 파일의 데일리 지정 9구간은 제출할 때마다 원본 값으로 교체됩니다.
+interface SavedRange { sheet: string; address: string; values: Cell[][]; formulas: string[][]; }
+interface Order { date: string; ms: number; id: number; }
+function main(workbook: ExcelScript.Workbook, 원문: string, 접수시각: string, 접수번호: number, 데일리자료: string): string {
+  const at = clock(접수시각);
+  if (typeof 원문 !== &quot;string&quot; || !원문.trim()) throw new Error(&quot;원문을 입력해 주세요.&quot;);
+  if (원문.length &gt; 32767) throw new Error(&quot;원문이 Excel 한 칸의 최대 길이인 32,767자를 넘었습니다. 기록하지 않았습니다.&quot;);
+  if (!Number.isSafeInteger(접수번호) || 접수번호 &lt; 1) throw new Error(&quot;접수번호에는 목록의 ID를 넣으세요.&quot;);
+  const incoming: Order = { date: at.date, ms: at.ms, id: 접수번호 };
+  const packet = validatePacket(데일리자료, at);
+  const status = workbook.getWorksheet(&quot;상태출력&quot;), settings = workbook.getWorksheet(&quot;수식설정&quot;), daily = workbook.getWorksheet(&quot;데일리&quot;), link = workbook.getWorksheet(&quot;데일리연결&quot;);
+  if (!status || !settings || !daily || !link) throw new Error(&quot;기존 긴조 수식 파일의 복사본을 선택하세요. 상태출력·수식설정·데일리·데일리연결 탭이 필요합니다.&quot;);
+  if (!String(link.getRange(&quot;B9&quot;).getValue()).startsWith(&quot;긴급 &quot;) || !String(link.getRange(&quot;B21&quot;).getValue()).includes(&quot;긴급조치 DailySheet.&quot;)) throw new Error(&quot;긴조 전용입니다. 인앱·귀책에는 적용하지 않습니다.&quot;);
+  if (getName(workbook, &quot;긴조_자동기록&quot;).toUpperCase().replace(/\(\)/g, &quot;&quot;) === &quot;=TRUE&quot;) throw new Error(&quot;시험 파일의 추가 기능 패널에서 '끄기'를 먼저 누르세요. 클라우드와 추가 기능을 동시에 켜지 않습니다.&quot;);
+  if (getName(workbook, &quot;AA누적_설치버전&quot;) !== '=\&quot;20261114.1\&quot;') throw new Error(&quot;AA 시간대 누적을 복구한 최신 긴조 파일을 복사해 주세요. 정상 작동 중인 긴조 파일에서 '복사본 저장'을 하세요.&quot;);
+  if (!status.getRange(&quot;AA34&quot;).getFormula().startsWith(&quot;=&quot;)) throw new Error(&quot;AA34의 데일리 결점 수식이 없습니다. 정상 작동 중인 긴조 파일을 복사해 주세요.&quot;);
+  const day = textName(getName(workbook, &quot;AA누적_운영일&quot;));
+  if (day &amp;&amp; !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error(&quot;AA 운영일 저장값이 손상되었습니다. 기존 기록을 유지합니다.&quot;);
+  const latest = orderName(workbook, &quot;긴조_클라우드최신접수&quot;);
+  const slotName = &quot;긴조_클라우드구간_&quot; + String(at.hour).padStart(2, &quot;0&quot;);
+  const slot = orderName(workbook, slotName);
+  if ((day &amp;&amp; at.date &lt; day) || (latest &amp;&amp; at.date &lt; latest.date)) return result(&quot;건너뜀&quot;, 접수번호, &quot;이전 운영일 접수입니다. 현재 화면은 유지하며 원문은 접수 목록에 남습니다.&quot;);
+  if (slot &amp;&amp; slot.date === at.date &amp;&amp; compareOrder(incoming, slot) &lt;= 0) return result(&quot;건너뜀&quot;, 접수번호, &quot;이미 처리했거나 같은 시간대의 더 최신 접수가 있습니다.&quot;);
+  for (const spec of [[&quot;수식원문&quot;, &quot;D2&quot;], [&quot;수식근무&quot;, &quot;A2&quot;], [&quot;수식근무&quot;, &quot;P2&quot;], [&quot;수식OT&quot;, &quot;G2&quot;], [&quot;수식판정&quot;, &quot;P2&quot;], [&quot;수식명단&quot;, &quot;AB2&quot;]]) {
+    const sheet = workbook.getWorksheet(spec[0]);
+    if (!sheet || !sheet.getRange(spec[1]).getFormula().startsWith(&quot;=&quot;)) throw new Error(spec[0] + &quot;!&quot; + spec[1] + &quot; 계산 수식이 없습니다. 원본 파일은 변경하지 않습니다.&quot;);
+  }
+  const previousInput = capture(workbook, [[&quot;상태출력&quot;, &quot;A1&quot;], [&quot;상태출력&quot;, &quot;D5&quot;], [&quot;수식설정&quot;, &quot;B2&quot;], [&quot;데일리&quot;, &quot;A1&quot;], ...ADDRESSES.map(address =&gt; [&quot;데일리&quot;, address])]);
+  const previousAa = capture(workbook, [[&quot;상태출력&quot;, &quot;AA3:AA33&quot;]]);
+  const namesToRestore = [&quot;AA누적_운영일&quot;, &quot;긴조_클라우드최신접수&quot;, slotName, &quot;긴조_마지막입력&quot;];
+  const priorNames = namesToRestore.map(name =&gt; ({ name, formula: getName(workbook, name) }));
+  const showAsLatest = !latest || compareOrder(incoming, latest) &gt; 0;
+  let summary = &quot;&quot;;
+  try {
+    for (const block of packet.blocks) writeValues(daily, block.address, block.values);
+    daily.getRange(&quot;A1&quot;).setValue(at.daySerial);
+    settings.getRange(&quot;B2&quot;).setValue(at.serial);
+    // B2 freezes the business formulas at submission time, even if the cloud run is delayed.
+    status.getRange(&quot;A1&quot;).setValue(literal(원문));
+    status.getRange(&quot;D5&quot;).setValue(at.serial);
+    workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+    const clockValue = settings.getRange(&quot;B3&quot;).getValue();
+    if (typeof clockValue !== &quot;number&quot; || Math.abs(clockValue - at.serial) &gt; 1e-7) throw new Error(&quot;수식설정 B3이 접수시각을 따르지 않습니다. 기존 기록을 복원합니다.&quot;);
+    summary = recordAaReport(workbook);
+    if (!summary.startsWith(&quot;(&quot;)) throw new Error(&quot;AA 기록을 완료하지 못했습니다.&quot;);
+    if (!showAsLatest) {
+      // A late older hour may fill its own AA slot, but cannot rewind the current A1/D5/daily view.
+      restore(workbook, previousInput);
+      workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+      status.getRange(&quot;AA3&quot;).setValue(literal(previousAa[0].values[0][0]));
+    } else {
+      aaPutName(workbook, &quot;긴조_클라우드최신접수&quot;, nameOrder(incoming));
+      aaPutName(workbook, &quot;긴조_마지막입력&quot;, '=\&quot;' + new Date(at.ms).toISOString() + '\&quot;');
+    }
+    aaPutName(workbook, slotName, nameOrder(incoming));
+  } catch (error) {
+    restore(workbook, previousInput);
+    restore(workbook, previousAa);
+    for (const item of priorNames) {
+      const existing = workbook.getNamedItem(item.name);
+      if (item.formula) aaPutName(workbook, item.name, item.formula);
+      else if (existing) existing.delete();
+    }
+    workbook.getApplication().calculate(ExcelScript.CalculationType.full);
+    throw error;
+  }
+  if (showAsLatest) {
+    status.getRange(&quot;D5&quot;).setNumberFormat(&quot;hh:mm&quot;);
+    daily.getRange(&quot;A1&quot;).setNumberFormat(&quot;m.d&quot;);
+  }
+  return result(&quot;완료&quot;, 접수번호, summary + (showAsLatest ? &quot; · 접수시각 기준으로 기록했습니다.&quot; : &quot; · 지연 접수의 해당 구간만 반영했습니다. 최신 A1·D5는 유지했습니다.&quot;));
+}
+// Keep raw text as text. Never execute an incoming value as an Excel formula.
+function literal(value: Cell): Cell { return typeof value === &quot;string&quot; &amp;&amp; /^[=+\-@']/.test(value) ? &quot;'&quot; + value : value; }
+function validatePacket(json: string, at: Clock): Packet {
+  if (typeof json !== &quot;string&quot; || json.length &gt; 4000000) throw new Error(&quot;데일리자료에는 첫 번째 스크립트 실행의 '결과(result)'를 넣으세요.&quot;);
+  const packet = JSON.parse(json) as Packet;
+  if (!packet || packet.version !== 1 || packet.submittedMs !== at.ms || packet.date !== at.date || packet.month !== at.month || packet.tab !== at.tab || !Array.isArray(packet.blocks) || packet.blocks.length !== ADDRESSES.length) throw new Error(&quot;데일리자료와 접수시각이 다릅니다. 두 스크립트의 접수시각에 같은 '만든 날짜'를 연결하세요.&quot;);
+  for (let i = 0; i &lt; ADDRESSES.length; i++) {
+    const block = packet.blocks[i], shape = dimensions(ADDRESSES[i]);
+    if (!block || block.address !== ADDRESSES[i] || !Array.isArray(block.values) || block.values.length !== shape.rows) throw new Error(&quot;데일리자료 범위가 잘못되었습니다.&quot;);
+    for (const row of block.values) {
+      if (!Array.isArray(row) || row.length !== shape.cols || row.some(value =&gt; !(typeof value === &quot;string&quot; || typeof value === &quot;boolean&quot; || (typeof value === &quot;number&quot; &amp;&amp; Number.isFinite(value))))) throw new Error(&quot;데일리자료 안에 잘못된 값이 있습니다.&quot;);
+    }
+  }
+  if (!packet.blocks[1].values.some(row =&gt; String(row[1]).trim()) || !packet.blocks[2].values.some(row =&gt; String(row[0]).trim())) throw new Error(&quot;데일리자료에 사번 또는 이름이 없습니다.&quot;);
+  return packet;
+}
+function capture(workbook: ExcelScript.Workbook, specs: string[][]): SavedRange[] {
+  return specs.map(spec =&gt; {
+    const sheet = workbook.getWorksheet(spec[0]);
+    if (!sheet) throw new Error(spec[0] + &quot; 탭이 없습니다.&quot;);
+    const range = sheet.getRange(spec[1]);
+    return { sheet: spec[0], address: spec[1], values: range.getValues(), formulas: range.getFormulas() };
+  });
+}
+function restore(workbook: ExcelScript.Workbook, saved: SavedRange[]) {
+  for (const item of saved) {
+    const sheet = workbook.getWorksheet(item.sheet);
+    if (!sheet) throw new Error(item.sheet + &quot; 탭이 없습니다. 복원을 확인해 주세요.&quot;);
+    const range = sheet.getRange(item.address);
+    writeValues(sheet, item.address, item.values);
+    for (let r = 0; r &lt; item.formulas.length; r++) for (let c = 0; c &lt; item.formulas[r].length; c++) {
+      const formula = item.formulas[r][c];
+      if (typeof formula === &quot;string&quot; &amp;&amp; formula.startsWith(&quot;=&quot;) &amp;&amp; formula !== item.values[r][c]) range.getCell(r, c).setFormula(formula);
+    }
+  }
+}
+function writeValues(sheet: ExcelScript.Worksheet, address: string, values: Cell[][]) {
+  const range = sheet.getRange(address), merged = range.getMergedAreas();
+  const safe = values.map(row =&gt; row.map(value =&gt; literal(value)));
+  if (!merged) { range.setValues(safe); return; }
+  const skip = new Set&lt;string&gt;();
+  const baseR = range.getRowIndex(), baseC = range.getColumnIndex();
+  for (const area of merged.getAreas()) {
+    const r0 = area.getRowIndex(), c0 = area.getColumnIndex();
+    for (let r = 0; r &lt; area.getRowCount(); r++) for (let c = 0; c &lt; area.getColumnCount(); c++) if (r || c) skip.add((r0 + r - baseR) + &quot;,&quot; + (c0 + c - baseC));
+  }
+  // Vertical runs keep unmerged employee columns in one operation, even beside merged groups.
+  for (let c = 0; c &lt; safe[0].length; c++) {
+    let r = 0;
+    while (r &lt; safe.length) {
+      if (skip.has(r + &quot;,&quot; + c)) { r++; continue; }
+      const begin = r;
+      while (r &lt; safe.length &amp;&amp; !skip.has(r + &quot;,&quot; + c)) r++;
+      sheet.getRangeByIndexes(baseR + begin, baseC + c, r - begin, 1).setValues(safe.slice(begin, r).map(row =&gt; [row[c]]));
+    }
+  }
+}
+function getName(workbook: ExcelScript.Workbook, name: string): string { const item = workbook.getNamedItem(name); return item ? item.getFormula() : &quot;&quot;; }
+function textName(formula: string): string { return formula.replace(/^=\&quot;|\&quot;$/g, &quot;&quot;).replace(/\&quot;\&quot;/g, '\&quot;'); }
+function orderName(workbook: ExcelScript.Workbook, name: string): Order | undefined {
+  const formula = getName(workbook, name);
+  if (!formula) return undefined;
+  const match = textName(formula).match(/^(\d{4}-\d{2}-\d{2})\|(\d+)\|([1-9]\d*)$/);
+  if (!match) throw new Error(&quot;자동 접수 기록값이 손상되었습니다. 현재 기록을 유지합니다.&quot;);
+  return { date: match[1], ms: Number(match[2]), id: Number(match[3]) };
+}
+function nameOrder(value: Order): string { return '=\&quot;' + value.date + &quot;|&quot; + value.ms + &quot;|&quot; + value.id + '\&quot;'; }
+function compareOrder(a: Order, b: Order): number { return a.ms === b.ms ? a.id - b.id : a.ms - b.ms; }
+function result(state: string, id: number, message: string): string { return JSON.stringify({ 처리: state, 접수번호: id, 안내: message }); }
+
+type Cell = string | number | boolean;
+interface Clock { ms: number; serial: number; daySerial: number; date: string; month: string; tab: string; hour: number; }
+interface Block { address: string; values: Cell[][]; }
+interface Packet { version: number; submittedMs: number; date: string; month: string; tab: string; blocks: Block[]; }
+const ADDRESSES = [&quot;J4:J5&quot;, &quot;B6:C140&quot;, &quot;E6:G140&quot;, &quot;I6:J140&quot;, &quot;L6:M140&quot;, &quot;R6:R140&quot;, &quot;AY6:AY29&quot;, &quot;BC6:BC29&quot;, &quot;BP6:CD29&quot;];
+function clock(value: string): Clock {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) throw new Error(&quot;접수시각에는 목록의 '만든 날짜(Created)'를 넣으세요. 현재 시각을 넣지 마세요.&quot;);
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) throw new Error(&quot;접수시각을 읽을 수 없습니다.&quot;);
+  const serial = ms / 86400000 + 25569 + 9 / 24;
+  if (serial &lt; 45000 || serial &gt; 100000) throw new Error(&quot;접수시각이 지원 범위를 벗어났습니다.&quot;);
+  const daySerial = Math.floor(serial - 5 / 24 + 1e-10);
+  const date = new Date(Date.UTC(1899, 11, 30) + daySerial * 86400000);
+  const year = date.getUTCFullYear(), month = String(date.getUTCMonth() + 1).padStart(2, &quot;0&quot;);
+  const hour24 = new Date(ms + 9 * 3600000).getUTCHours();
+  return { ms, serial, daySerial, date: date.toISOString().slice(0, 10), month: String(year) + &quot;-&quot; + month, tab: &quot;긴급 &quot; + month + &quot;(&quot; + date.getUTCDate() + &quot;)&quot;, hour: hour24 &lt; 5 ? hour24 + 24 : hour24 };
+}
+function dimensions(address: string): { rows: number; cols: number } {
+  const match = address.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+  if (!match) throw new Error(&quot;지원하지 않는 범위입니다.&quot;);
+  const col = (s: string): number =&gt; s.split(&quot;&quot;).reduce((sum, c) =&gt; sum * 26 + c.charCodeAt(0) - 64, 0);
+  return { rows: Number(match[4]) - Number(match[2]) + 1, cols: col(match[3]) - col(match[1]) + 1 };
+}
+function recordAaReport(workbook: ExcelScript.Workbook): string {
+  const auto = workbook.getNamedItem(&quot;긴조_자동기록&quot;);
+  if (auto &amp;&amp; /^=TRUE(?:\(\))?$/i.test(auto.getFormula().trim())) return &quot;추가 기능이 자동 기록 중이므로 수동 AA 기록은 생략했습니다.&quot;;
+  const sheet = workbook.getWorksheet(&quot;상태출력&quot;);
+  const settings = workbook.getWorksheet(&quot;수식설정&quot;);
+  if (!sheet || !settings) throw new Error(&quot;상태출력과 수식설정 탭이 필요합니다.&quot;);
+  const raw = sheet.getRange(&quot;A1&quot;).getValue();
+  if (typeof raw !== &quot;string&quot; || !raw.trim()) throw new Error(&quot;A1 상태 원문이 비어 있어 AA 기록을 건너뜁니다.&quot;);
+  const clock = settings.getRange(&quot;B3&quot;).getValue();
+  if (typeof clock !== &quot;number&quot; || !Number.isFinite(clock) || clock &lt; 60 || clock &gt; 100000) {
+    throw new Error(&quot;수식설정 B3의 기준 시각을 확인하세요. 기존 AA 기록은 유지합니다.&quot;);
+  }
+  const parts = aaBusinessTime(clock);
+  const parsed = aaReadSpill(workbook, &quot;수식원문&quot;, &quot;D2&quot;);
+  if (!parsed.some(row =&gt; aaKey(row[1]) !== &quot;&quot;)) throw new Error(&quot;A1에서 유효한 상담사 상태를 읽지 못했습니다. 기존 AA 기록은 유지합니다.&quot;);
+  const source = aaReadSpill(workbook, &quot;수식근무&quot;, &quot;A2&quot;);
+  const scheduledMask = aaReadSpill(workbook, &quot;수식근무&quot;, &quot;P2&quot;);
+  const activeOt = aaReadSpill(workbook, &quot;수식OT&quot;, &quot;G2&quot;);
+  const present = aaReadSpill(workbook, &quot;수식판정&quot;, &quot;P2&quot;);
+  const missing = aaReadSpill(workbook, &quot;수식명단&quot;, &quot;AB2&quot;);
+  if (source.length !== scheduledMask.length) throw new Error(&quot;근무표와 판정 행 수가 맞지 않습니다. 기존 AA 기록은 유지합니다.&quot;);
+  const scheduled = new Set&lt;string&gt;();
+  for (let index = 0; index &lt; source.length; index++) {
+    if (scheduledMask[index][0] === true || scheduledMask[index][0] === 1) {
+      const key = aaKey(source[index][1]);
+      if (key) scheduled.add(key);
+    }
+  }
+  const ot = new Set&lt;string&gt;();
+  for (const row of activeOt) { const key = aaKey(row[0]); if (key &amp;&amp; !scheduled.has(key)) ot.add(key); }
+  const presentKeys = new Set&lt;string&gt;();
+  for (const row of present) { const key = aaKey(row[1]); if (key) presentKeys.add(key); }
+  const missingKeys = new Set&lt;string&gt;();
+  for (const row of missing) { const key = aaKey(row[0]); if (key) missingKeys.add(key); }
+  const summary = aaSummary(parts.hour, scheduled, ot, presentKeys, missingKeys);
+  const dayName = &quot;AA누적_운영일&quot;;
+  const installName = &quot;AA누적_설치버전&quot;;
+  const savedDay = workbook.getNamedItem(dayName);
+  const storedDay = savedDay ? savedDay.getFormula().replace(/^=&quot;|&quot;$/g, &quot;&quot;) : &quot;&quot;;
+  if (savedDay &amp;&amp; !/^\d{4}-\d{2}-\d{2}$/.test(storedDay)) throw new Error(&quot;AA 운영일 저장값을 확인하세요. 기존 기록은 유지합니다.&quot;);
+  const installed = workbook.getNamedItem(installName);
+  const version = '=&quot;20261114.1&quot;';
+  const needsInstall = !installed || installed.getFormula() !== version;
+  const oldHeader = sheet.getRange(&quot;AA3&quot;).getText().trim();
+  const sameDay = storedDay ? storedDay === parts.dateKey : oldHeader.startsWith(parts.dateText + &quot; SM &quot;);
+  // 24개 구간만 AA6:AA29에 두어 AA33 아래 데일리 결점과 겹치지 않습니다.
+  let rows: string[][];
+  if (!sameDay) rows = Array.from({ length: 24 }, () =&gt; [&quot;&quot;]);
+  else if (needsInstall) rows = aaMigrateRows(sheet.getRange(&quot;AA6:AA32&quot;).getTexts());
+  else rows = sheet.getRange(&quot;AA6:AA29&quot;).getTexts();
+  rows[parts.hour - 5] = [summary];
+  // 모든 원본/판정 확인이 끝난 다음에만 AA 출력에 씁니다.
+  if (needsInstall) {
+    sheet.getRange(&quot;AA6:AA32&quot;).clear(ExcelScript.ClearApplyTo.contents);
+    sheet.getRange(&quot;AA34:AA2003&quot;).clear(ExcelScript.ClearApplyTo.contents);
+    sheet.getRange(&quot;AA34&quot;).setFormula('=LET(source,수식근무!A2#,names,CHOOSECOLS(source,3),starts,CHOOSECOLS(source,10),ends,CHOOSECOLS(source,11),reason,CHOOSECOLS(source,12),rows,HSTACK(names,starts,ends,reason),valid,(names&lt;&gt;&quot;&quot;)*(starts&gt;=0)*(ends&gt;=0)*(starts&lt;&gt;ends),picked,UNIQUE(FILTER(rows,valid,HSTACK(&quot;&quot;,-1,-1,&quot;&quot;))),MAP(CHOOSECOLS(picked,1),CHOOSECOLS(picked,2),CHOOSECOLS(picked,3),CHOOSECOLS(picked,4),LAMBDA(person,beginMin,endMin,note,IF(person=&quot;&quot;,&quot;&quot;,person&amp;&quot; &quot;&amp;TEXT(beginMin/1440,&quot;hh:mm&quot;)&amp;&quot;~&quot;&amp;TEXT(endMin/1440,&quot;hh:mm&quot;)&amp;IF(note=&quot;&quot;,&quot;&quot;,&quot;(&quot;&amp;note&amp;&quot;)&quot;)))))');
+  }
+  sheet.getRange(&quot;AA6:AA29&quot;).setValues(rows);
+  sheet.getRange(&quot;AA3:AA5&quot;).setValues([[parts.dateText + &quot; SM &quot; + aaPad(parts.hour) + &quot;시 투입률 공유드립니다.&quot;], [&quot;&quot;], [&quot;[긴급조치]&quot;]]);
+  sheet.getRange(&quot;AA33&quot;).setValue(&quot;[데일리 결점]&quot;);
+  aaPutName(workbook, dayName, '=&quot;' + parts.dateKey + '&quot;');
+  if (needsInstall) aaPutName(workbook, installName, version);
+  return summary;
+}
+
+function aaReadSpill(workbook: ExcelScript.Workbook, sheetName: string, address: string): (string | number | boolean)[][] {
+  const sheet = workbook.getWorksheet(sheetName);
+  if (!sheet) throw new Error(sheetName + &quot; 탭이 없습니다. 기존 AA 기록은 유지합니다.&quot;);
+  const anchor = sheet.getRange(address);
+  if (!anchor.getFormula()) throw new Error(sheetName + &quot;!&quot; + address + &quot;의 계산 수식이 없습니다.&quot;);
+  const range = anchor.getSpillingToRange() || anchor;
+  const types = range.getValueTypes();
+  if (types.some(row =&gt; row.some(type =&gt; type === ExcelScript.RangeValueType.error))) {
+    throw new Error(sheetName + &quot;!&quot; + address + &quot; 계산 오류로 AA 기록을 건너뜁니다. 오류를 결점 없음으로 기록하지 않습니다.&quot;);
+  }
+  return range.getValues();
+}
+
+function aaBusinessTime(serial: number): { dateKey: string; dateText: string; hour: number } {
+  const whole = Math.floor(serial);
+  const hour24 = Math.min(23, Math.floor((serial - whole) * 24 + 0.0000001));
+  const businessDay = whole - (hour24 &lt; 5 ? 1 : 0);
+  const day = new Date(Date.UTC(1899, 11, 30) + businessDay * 86400000);
+  return { dateKey: day.toISOString().slice(0, 10), dateText: (day.getUTCMonth() + 1) + &quot;/&quot; + day.getUTCDate(), hour: hour24 &lt; 5 ? hour24 + 24 : hour24 };
+}
+
+function aaSummary(hour: number, scheduled: Set&lt;string&gt;, ot: Set&lt;string&gt;, present: Set&lt;string&gt;, missing: Set&lt;string&gt;): string {
+  const missingNormal = new Set&lt;string&gt;();
+  missing.forEach(key =&gt; { if (!ot.has(key)) missingNormal.add(key); });
+  let missingOt = 0;
+  let presentOt = 0;
+  ot.forEach(key =&gt; {
+    if (present.has(key)) presentOt++;
+    // 예외/예정 이탈로 미출근 대상에서 제외된 인원은 결점으로 다시 세지 않습니다.
+    else if (missing.has(key)) missingOt++;
+  });
+  // 누락 판정과 로그인 판정이 어긋나도 정상으로 숨기지 않습니다.
+  missing.forEach(key =&gt; { if (ot.has(key) &amp;&amp; present.has(key)) throw new Error(&quot;OT 출근·미출근 판정이 충돌합니다. 기존 AA 기록은 유지합니다.&quot;); });
+  let verdict = &quot;결점 없음&quot;;
+  if (missingNormal.size &gt; 0) verdict = &quot;미출근 &quot; + missingNormal.size + &quot;명&quot;;
+  else if (missingOt &gt; 0) verdict = &quot;OT 미출근 &quot; + missingOt + &quot;명&quot;;
+  let result = &quot;(&quot; + aaPad(hour) + &quot;~&quot; + aaPad(hour + 1) + &quot;) &quot; + verdict;
+  if (ot.size &gt; 0) {
+    result += &quot; / OT &quot; + ot.size + &quot;명&quot;;
+    if (missingOt &gt; 0) result += presentOt &gt; 0 ? &quot; (출근 &quot; + presentOt + &quot;명, 미출근 &quot; + missingOt + &quot;명)&quot; : &quot; (미출근 &quot; + missingOt + &quot;명)&quot;;
+  }
+  return result;
+}
+
+function aaMigrateRows(previous: string[][]): string[][] {
+  const rows = Array.from({ length: 24 }, () =&gt; [&quot;&quot;]);
+  for (const row of previous) {
+    const match = (row[0] || &quot;&quot;).match(/^\(\s*(\d{1,2})\s*[-~～]\s*(\d{1,2})\s*\)/);
+    if (!match) continue;
+    const hour = Number(match[1]);
+    if (hour &gt;= 5 &amp;&amp; hour &lt;= 28 &amp;&amp; Number(match[2]) === hour + 1) {
+      rows[hour - 5] = [&quot;(&quot; + aaPad(hour) + &quot;~&quot; + aaPad(hour + 1) + &quot;)&quot; + row[0].slice(match[0].length)];
+    }
+  }
+  return rows;
+}
+
+function aaPutName(workbook: ExcelScript.Workbook, name: string, formula: string) {
+  const existing = workbook.getNamedItem(name);
+  if (existing) existing.setFormula(formula); else workbook.addNamedItem(name, formula);
+}
+function aaKey(value: string | number | boolean): string { return String(value === undefined ? &quot;&quot; : value).trim().toLowerCase(); }
+function aaPad(value: number): string { return String(value).padStart(2, &quot;0&quot;); }
+</textarea></details></section></main><script>async function copyCode(i){const area=document.getElementById('code'+i),message=document.getElementById('copied'+i);try{await navigator.clipboard.writeText(area.value);message.textContent=' 복사했습니다. Excel에 붙여넣으세요.';}catch(e){area.focus();area.select();message.textContent=' 코드가 선택됐습니다. Ctrl+C를 눌러 복사하세요.';}}</script></html>

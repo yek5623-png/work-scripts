@@ -1,0 +1,17 @@
+{
+  "checks": 170,
+  "scope": "긴조 전용",
+  "eventOnlyA1": true,
+  "d5StaticTimestamp": true,
+  "automaticAaAccumulation": true,
+  "otherCellsIgnored": true,
+  "latestPasteWins": true,
+  "midnightAndFiveAm": true,
+  "errorsPreserveHistory": true,
+  "inappBlocked": true,
+  "failedActivationRollsBack": true,
+  "localEditsOnly": true,
+  "noWorkbookDataSentToOwnServer": true,
+  "manifestValidatedWithMicrosoftTool": true,
+  "nativeExcelTested": false
+}
